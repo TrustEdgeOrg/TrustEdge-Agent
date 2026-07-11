@@ -100,7 +100,8 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch ev.Type {
-	case constants.TypeClientDetails, constants.TypeNetworkSummary, constants.TypeActionSummary:
+	case constants.TypeClientDetails, constants.TypeNetworkSummary, constants.TypeActionSummary,
+		constants.TypeProcessStart, constants.TypeProcessExit:
 	default:
 		http.Error(w, constants.ErrUnknownEventType, http.StatusBadRequest)
 		return

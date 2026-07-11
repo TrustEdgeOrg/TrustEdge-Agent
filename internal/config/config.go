@@ -22,6 +22,7 @@ type AgentConfig struct {
 	NetworkInterval   time.Duration
 	NetworkDebounce   time.Duration
 	ActionInterval    time.Duration
+	ProcessInterval   time.Duration
 }
 
 func (c AgentConfig) Validate() error {
@@ -57,7 +58,23 @@ func (c APIConfig) Validate() error {
 	if strings.TrimSpace(c.EnrollToken) == "" {
 		return errors.New("production requires TRUSTTWIN_ENROLL_TOKEN on the API")
 	}
+	if strings.TrimSpace(c.RedisURL) == "" {
+		return errors.New("production requires REDIS_URL or TRUSTTWIN_REDIS_URL (disk persistence is disabled)")
+	}
 	return nil
+}
+
+func (c APIConfig) PersistFiles() bool {
+	if raw, ok := os.LookupEnv("TRUSTTWIN_PERSIST_FILES"); ok {
+		v := strings.TrimSpace(strings.ToLower(raw))
+		switch v {
+		case "1", "true", "yes", "on":
+			return true
+		case "0", "false", "no", "off":
+			return false
+		}
+	}
+	return !c.Production
 }
 
 func env(key, fallback string) string {
@@ -114,10 +131,11 @@ func LoadAgent() AgentConfig {
 		StatePath:         env("TRUSTTWIN_STATE_PATH", defaultState),
 		PublicIPLookupURL: loadPublicIPLookupURL(),
 		Production:        envBool("TRUSTTWIN_PRODUCTION"),
-		DetailsInterval:   envDuration("TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),
-		NetworkInterval: envDuration("TRUSTTWIN_NETWORK_INTERVAL", 60*time.Second),
-		NetworkDebounce: envDuration("TRUSTTWIN_NETWORK_DEBOUNCE", 2*time.Second),
-		ActionInterval:  envDuration("TRUSTTWIN_ACTION_INTERVAL", 60*time.Second),
+	DetailsInterval:   envDuration("TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),
+		NetworkInterval:   envDuration("TRUSTTWIN_NETWORK_INTERVAL", 60*time.Second),
+		NetworkDebounce:   envDuration("TRUSTTWIN_NETWORK_DEBOUNCE", 2*time.Second),
+		ActionInterval:    envDuration("TRUSTTWIN_ACTION_INTERVAL", 60*time.Second),
+		ProcessInterval:   envDuration("TRUSTTWIN_PROCESS_INTERVAL", 10*time.Second),
 	}
 }
 

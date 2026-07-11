@@ -2,29 +2,25 @@
 
 The **Build and Deploy trusttwin-api** workflow (`.github/workflows/deploy-api.yml`) builds the image, pushes to ECR, and starts the container on EC2 via TrustEdge `docker-compose.yml`.
 
-## GitHub secrets (organization — recommended)
+## GitHub secrets
 
-Workflows reference `${{ secrets.NAME }}`. GitHub resolves **repository secrets first**, then **organization secrets** — no workflow changes needed.
+Workflows use `${{ secrets.NAME }}`. **Repository secrets** always work. **Organization secrets** require a paid GitHub plan for **private** repos — on **GitHub Free**, org secrets are silently empty in private repo workflows.
 
-Create these at **TrustEdgeOrg → Settings → Secrets and variables → Actions → Organization secrets**:
+### TrustTwin (required — repository secrets)
+
+**TrustEdgeOrg/TrustTwin → Settings → Secrets and variables → Actions → Repository secrets** (not Organization secrets):
 
 | Secret | Value |
 |--------|--------|
 | `AWS_ROLE_ARN` | `arn:aws:iam::804012660077:role/GitHubActionsDeployRole` |
-| `EC2_HOST` | `44.218.45.174` (EC2 public IP; not the private `172.31.x.x` address) |
-| `EC2_SSH_KEY` | Full private key (`cat ~/.ssh/id_rsa` on your Mac) |
+| `EC2_HOST` | `44.218.45.174` |
+| `EC2_SSH_KEY` | Full private key (`cat ~/.ssh/id_rsa`) |
 
-**Repository access:** Selected repositories → **TrustEdge** + **TrustTwin**.
+Use the **Secrets** tab, not **Variables**.
 
-### Verify org secret access
+### Organization secrets (optional — paid plan only)
 
-1. Org settings → Organization secrets → open each secret → confirm **TrustTwin** is listed under repository access.
-2. Re-run **Build and Deploy trusttwin-api** on `develop`.
-3. The **Verify deploy secrets** step should print `Deploy secrets present...`. If it fails, the missing names are listed in the log.
-
-### Common error: `missing server host`
-
-`appleboy/ssh-action` reports this when `EC2_HOST` is empty — the org secret is missing, misnamed, or **TrustTwin was not granted access**.
+If your org is on **Team** or higher, you may share secrets across TrustEdge + TrustTwin at org level instead. On **GitHub Free**, org secrets will not work for private repos — use repository secrets per repo.
 
 ## One-time AWS setup
 

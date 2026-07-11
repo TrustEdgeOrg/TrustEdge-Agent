@@ -90,6 +90,15 @@ func (a *Agent) Run(ctx context.Context) error {
 		post(constants.TypeActionSummary, collect.ActionSummaryPayload(tracker.SnapshotAndReset()))
 	})
 
+	if a.cfg.ProcessInterval > 0 {
+		procMon := collect.NewProcessMonitor(a.log)
+		go a.loop(ctx, a.cfg.ProcessInterval, func() {
+			for _, change := range procMon.Poll() {
+		post(change.Type, change.Payload)
+			}
+		})
+	}
+
 	a.log.Printf("reporting to %s", a.cfg.APIURL)
 	<-ctx.Done()
 	a.log.Printf("shutting down")

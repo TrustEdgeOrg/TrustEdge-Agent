@@ -38,22 +38,27 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Verify AWS deploy secret (org or repo)
-        env:
-          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
         run: |
-          if [ -z "$AWS_ROLE_ARN" ]; then
-            echo "::error::Missing AWS_ROLE_ARN secret"
-            echo "Create organization secret AWS_ROLE_ARN at TrustEdgeOrg → Settings → Secrets → Actions"
-            echo "Value: arn:aws:iam::804012660077:role/GitHubActionsDeployRole"
-            echo "Grant repository access to TrustTwin."
+          echo "secrets.AWS_ROLE_ARN set: ${{ secrets.AWS_ROLE_ARN != '' }}"
+          echo "vars.AWS_ROLE_ARN set: ${{ vars.AWS_ROLE_ARN != '' }}"
+          if [ "${{ secrets.AWS_ROLE_ARN == '' && vars.AWS_ROLE_ARN == '' }}" = "true" ]; then
+            echo "::error::Missing AWS_ROLE_ARN"
+            echo ""
+            echo "GitHub Free orgs do NOT inject organization secrets into private repos (value is silently empty)."
+            echo "Fix: TrustTwin → Settings → Secrets and variables → Actions → Repository secrets"
+            echo "  Name:  AWS_ROLE_ARN"
+            echo "  Value: arn:aws:iam::804012660077:role/GitHubActionsDeployRole"
+            echo ""
+            echo "Also add EC2_HOST and EC2_SSH_KEY as repository secrets on TrustTwin."
+            echo "If you used Organization variables instead of Secrets, move them to Actions → Secrets."
             exit 1
           fi
-          echo "AWS_ROLE_ARN is set (org or repository secret)."
+          echo "AWS_ROLE_ARN is set."
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN || vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Ensure ECR repository exists
@@ -92,27 +97,23 @@ jobs:
       # Organization secrets use the same ${{ secrets.NAME }} syntax as repo secrets.
       # TrustEdgeOrg must grant this repo access: EC2_HOST, EC2_SSH_KEY, AWS_ROLE_ARN.
       - name: Verify deploy secrets (org or repo)
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
         run: |
+          echo "secrets.EC2_HOST set: ${{ secrets.EC2_HOST != '' }}"
+          echo "secrets.EC2_SSH_KEY set: ${{ secrets.EC2_SSH_KEY != '' }}"
           missing=()
-          [ -z "$EC2_HOST" ] && missing+=("EC2_HOST")
-          [ -z "$EC2_SSH_KEY" ] && missing+=("EC2_SSH_KEY")
-          [ -z "$AWS_ROLE_ARN" ] && missing+=("AWS_ROLE_ARN")
+          [ "${{ secrets.EC2_HOST == '' && vars.EC2_HOST == '' }}" = "true" ] && missing+=("EC2_HOST")
+          [ "${{ secrets.EC2_SSH_KEY == '' }}" = "true" ] && missing+=("EC2_SSH_KEY")
           if [ "${#missing[@]}" -gt 0 ]; then
             echo "::error::Missing GitHub Actions secrets: ${missing[*]}"
-            echo "Create them as organization secrets at TrustEdgeOrg → Settings → Secrets → Actions,"
-            echo "then grant repository access to TrustTwin (and TrustEdge)."
+            echo "On GitHub Free, use TrustTwin repository secrets (not org secrets) for private repos."
             exit 1
           fi
-          echo "Deploy secrets present (sourced from org or repository secrets)."
+          echo "Deploy secrets present."
 
       - name: Deploy trusttwin-api on EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.EC2_HOST || vars.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |

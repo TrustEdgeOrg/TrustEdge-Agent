@@ -23,6 +23,7 @@ func main() {
 		Clock:        clk,
 		DataDir:      cfg.DataDir,
 		MaxEvents:    cfg.MaxEvents,
+		DisableDiskPersistence: !cfg.PersistFiles(),
 		RedisURL:     cfg.RedisURL,
 		KafkaBrokers: cfg.KafkaBrokers,
 		KafkaTopic:   cfg.KafkaTopic,
@@ -42,7 +43,7 @@ func main() {
 	if st.KafkaEnabled() {
 		kafkaNote = "on"
 	}
-	logger.Printf("listening on %s (data=%s redis=%s kafka=%s)", cfg.Listen, cfg.DataDir, redisNote, kafkaNote)
+	logger.Printf("listening on %s (disk=%t redis=%s kafka=%s)", cfg.Listen, cfg.PersistFiles(), redisNote, kafkaNote)
 	if err := http.ListenAndServe(cfg.Listen, srv.Handler()); err != nil {
 		logger.Fatal(err)
 	}
