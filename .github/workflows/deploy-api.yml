@@ -76,6 +76,26 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      # Organization secrets use the same ${{ secrets.NAME }} syntax as repo secrets.
+      # TrustEdgeOrg must grant this repo access: EC2_HOST, EC2_SSH_KEY, AWS_ROLE_ARN.
+      - name: Verify deploy secrets (org or repo)
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+        run: |
+          missing=()
+          [ -z "$EC2_HOST" ] && missing+=("EC2_HOST")
+          [ -z "$EC2_SSH_KEY" ] && missing+=("EC2_SSH_KEY")
+          [ -z "$AWS_ROLE_ARN" ] && missing+=("AWS_ROLE_ARN")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing GitHub Actions secrets: ${missing[*]}"
+            echo "Create them as organization secrets at TrustEdgeOrg → Settings → Secrets → Actions,"
+            echo "then grant repository access to TrustTwin (and TrustEdge)."
+            exit 1
+          fi
+          echo "Deploy secrets present (sourced from org or repository secrets)."
+
       - name: Deploy trusttwin-api on EC2
         uses: appleboy/ssh-action@v1.0.0
         with:

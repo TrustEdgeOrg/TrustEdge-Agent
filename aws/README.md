@@ -2,39 +2,54 @@
 
 The **Build and Deploy trusttwin-api** workflow (`.github/workflows/deploy-api.yml`) builds the image, pushes to ECR, and starts the container on EC2 via TrustEdge `docker-compose.yml`.
 
-## One-time setup
+## GitHub secrets (organization — recommended)
 
-### 1. IAM OIDC trust (TrustEdge repo)
+Workflows reference `${{ secrets.NAME }}`. GitHub resolves **repository secrets first**, then **organization secrets** — no workflow changes needed.
 
-The GitHub Actions role must trust this repository. From the **TrustEdge** repo (with AWS admin credentials):
+Create these at **TrustEdgeOrg → Settings → Secrets and variables → Actions → Organization secrets**:
+
+| Secret | Value |
+|--------|--------|
+| `AWS_ROLE_ARN` | `arn:aws:iam::804012660077:role/GitHubActionsDeployRole` |
+| `EC2_HOST` | `44.218.45.174` (EC2 public IP; not the private `172.31.x.x` address) |
+| `EC2_SSH_KEY` | Full private key (`cat ~/.ssh/id_rsa` on your Mac) |
+
+**Repository access:** Selected repositories → **TrustEdge** + **TrustTwin**.
+
+### Verify org secret access
+
+1. Org settings → Organization secrets → open each secret → confirm **TrustTwin** is listed under repository access.
+2. Re-run **Build and Deploy trusttwin-api** on `develop`.
+3. The **Verify deploy secrets** step should print `Deploy secrets present...`. If it fails, the missing names are listed in the log.
+
+### Common error: `missing server host`
+
+`appleboy/ssh-action` reports this when `EC2_HOST` is empty — the org secret is missing, misnamed, or **TrustTwin was not granted access**.
+
+## One-time AWS setup
+
+From the **TrustEdge** repo (with AWS admin credentials):
 
 ```bash
 bash aws/update-github-actions-trust-policy.sh
 ```
 
-### 2. GitHub secrets (this repo)
+This allows `TrustEdgeOrg/TrustTwin` to assume `GitHubActionsDeployRole` for ECR push.
 
-In **TrustEdgeOrg/TrustTwin** → Settings → Secrets and variables → Actions:
+## EC2 prerequisites
 
-| Secret | Value |
-|--------|--------|
-| `AWS_ROLE_ARN` | `arn:aws:iam::804012660077:role/GitHubActionsDeployRole` |
-| `EC2_HOST` | EC2 public IP or hostname (same as TrustEdge deploy) |
-| `EC2_SSH_KEY` | Private SSH key for `ubuntu@EC2` (same as TrustEdge deploy) |
-
-### 3. EC2 prerequisites
-
-- TrustEdge is deployed at `~/trustedge` (backend, redis, redpanda running).
+- TrustEdge deployed at `~/trustedge` (backend, redis, redpanda running).
 - EC2 instance role can call `aws ecr get-login-password` and pull from ECR.
+- Security group allows SSH (port 22) from GitHub Actions runners.
 
-### 4. Trigger a deploy
+## Trigger a deploy
 
 Push to `develop` or `main`, or run **Build and Deploy trusttwin-api** manually.
 
 - `develop` → pushes `:develop`, runs container with that tag
 - `main` → pushes `:latest`, runs container with that tag
 
-### 5. Verify on EC2
+## Verify on EC2
 
 ```bash
 aws ecr list-images --repository-name trustedge-trusttwin-api --region us-east-1
@@ -44,11 +59,9 @@ curl -s http://127.0.0.1:8080/healthz
 
 ## Local EC2 deploy script
 
-After a manual `docker push`, you can restart the container without CI:
+After a manual `docker push`:
 
 ```bash
 export TRUSTTWIN_API_IMAGE=804012660077.dkr.ecr.us-east-1.amazonaws.com/trustedge-trusttwin-api:develop
 bash aws/ec2-deploy-api.sh
 ```
-
-(Run from a copy of this repo on EC2, or copy the script to the instance.)
