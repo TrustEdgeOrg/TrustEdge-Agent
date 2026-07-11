@@ -45,6 +45,9 @@ type APIConfig struct {
 	Production  bool
 	// Mirrors device state to TrustEdge when TRUSTTWIN_REDIS_URL or REDIS_URL is set.
 	RedisURL string
+	// Optional Kafka publish after ingest (KAFKA_BROKERS unset = disabled).
+	KafkaBrokers string
+	KafkaTopic   string
 }
 
 func (c APIConfig) Validate() error {
@@ -123,12 +126,15 @@ func LoadAPI() APIConfig {
 	if redisURL == "" {
 		redisURL = env("REDIS_URL", "")
 	}
+	kafkaTopic := env("KAFKA_TOPIC", "trusttwin.events")
 	return APIConfig{
-		Listen:      env("TRUSTTWIN_LISTEN", ":8080"),
-		EnrollToken: env("TRUSTTWIN_ENROLL_TOKEN", ""),
-		DataDir:     env("TRUSTTWIN_DATA_DIR", "data"),
-		MaxEvents:   500,
-		Production:  envBool("TRUSTTWIN_PRODUCTION"),
-		RedisURL:    redisURL,
+		Listen:       env("TRUSTTWIN_LISTEN", ":8080"),
+		EnrollToken:  env("TRUSTTWIN_ENROLL_TOKEN", ""),
+		DataDir:      env("TRUSTTWIN_DATA_DIR", "data"),
+		MaxEvents:    500,
+		Production:   envBool("TRUSTTWIN_PRODUCTION"),
+		RedisURL:     redisURL,
+		KafkaBrokers: env("KAFKA_BROKERS", ""),
+		KafkaTopic:   kafkaTopic,
 	}
 }

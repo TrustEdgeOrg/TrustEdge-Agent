@@ -10,6 +10,7 @@ import (
 
 	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
+	"github.com/TrustEdgeOrg/TrustTwin/internal/kafka"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/state"
 )
@@ -30,14 +31,18 @@ type Store struct {
 	tokens    map[string]string
 	events    map[string][]models.Event
 	live      *redisLive
+	publisher kafka.Publisher
 }
 
 type Options struct {
-	Clock     clock.Clock
-	DataDir   string
-	MaxEvents int
-	RedisURL  string
-	Logger    *log.Logger
+	Clock        clock.Clock
+	DataDir      string
+	MaxEvents    int
+	RedisURL     string
+	KafkaBrokers string
+	KafkaTopic   string
+	Logger       *log.Logger
+	Publisher    kafka.Publisher
 }
 
 func New(dataDir string, maxEvents int) (*Store, error) {
@@ -70,6 +75,15 @@ func NewWithOptions(opts Options) (*Store, error) {
 		}
 		s.live = live
 	}
+	if opts.Publisher != nil {
+		s.publisher = opts.Publisher
+	} else if opts.KafkaBrokers != "" {
+		pub, err := kafka.NewProducer(opts.KafkaBrokers, opts.KafkaTopic, opts.Logger)
+		if err != nil {
+			return nil, err
+		}
+		s.publisher = pub
+	}
 	return s, nil
 }
 
@@ -77,11 +91,21 @@ func (s *Store) RedisEnabled() bool {
 	return s.live != nil
 }
 
+func (s *Store) KafkaEnabled() bool {
+	return s.publisher != nil
+}
+
 func (s *Store) Close() error {
+	var err error
 	if s.live != nil {
-		return s.live.Close()
+		err = s.live.Close()
 	}
-	return nil
+	if s.publisher != nil {
+		if closeErr := s.publisher.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}
+	return err
 }
 
 func (s *Store) load() error {
@@ -254,6 +278,9 @@ func (s *Store) AddEvent(ev models.Event) error {
 	}
 	if s.live != nil {
 		s.live.UpsertEvent(ev)
+	}
+	if s.publisher != nil {
+		s.publisher.PublishEvent(ev)
 	}
 	return nil
 }
