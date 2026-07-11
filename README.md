@@ -114,7 +114,9 @@ With TrustEdge dev stack (`make dev-up` in TrustEdge repo), point the agent at `
 
 ## Deploy trusttwin-api (ECR)
 
-CI (`.github/workflows/deploy-api.yml`) builds and pushes `trustedge-trusttwin-api` to ECR on `main` and `develop`.
+CI (`.github/workflows/deploy-api.yml`) builds, pushes `trustedge-trusttwin-api` to ECR, and starts the container on EC2 (`develop` → `:develop`, `main` → `:latest`).
+
+**One-time setup:** IAM OIDC trust + GitHub secret `AWS_ROLE_ARN` — see [aws/README.md](aws/README.md).
 
 TrustEdge `docker-compose.yml` pulls that image — no TrustTwin source on EC2.
 

@@ -1,4 +1,4 @@
-name: Build and Push trusttwin-api
+name: Build and Deploy trusttwin-api
 
 on:
   push:
@@ -31,6 +31,8 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    outputs:
+      image: ${{ steps.push.outputs.image }}
 
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +51,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076
 
       - name: Build, tag, and push trusttwin-api
+        id: push
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
@@ -63,3 +66,36 @@ jobs:
           fi
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          if [ "${{ github.ref_name }}" == "develop" ]; then
+            echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:develop" >> "$GITHUB_OUTPUT"
+          else
+            echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy trusttwin-api on EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            TRUSTEDGE_DIR="${TRUSTEDGE_DIR:-$HOME/trustedge}"
+            if [ ! -d "$TRUSTEDGE_DIR" ]; then
+              echo "ERROR: $TRUSTEDGE_DIR not found. Deploy TrustEdge backend to EC2 first."
+              exit 1
+            fi
+            cd "$TRUSTEDGE_DIR"
+            export TRUSTTWIN_API_IMAGE="${{ needs.build-and-push.outputs.image }}"
+            aws ecr get-login-password --region us-east-1 | \
+              docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+            docker pull "$TRUSTTWIN_API_IMAGE"
+            chmod +x scripts/ec2-sync-trusttwin.sh
+            bash scripts/ec2-sync-trusttwin.sh
+            export TRUSTTWIN_ENROLL_TOKEN="$(sudo cat /etc/trustedge/trusttwin-enroll.token | tr -d '\r\n')"
+            COMPOSE_PROFILES=trusttwin docker compose -f docker-compose.yml up -d --remove-orphans trusttwin-api
+            COMPOSE_PROFILES=trusttwin docker compose -f docker-compose.yml ps trusttwin-api
