@@ -1,8 +1,8 @@
 #!/bin/bash
-# Ensure trusttwin-api ECR repository exists (idempotent).
+# Ensure trustedge-agent-api ECR repository exists (idempotent).
 set -euo pipefail
 
-ECR_REPOSITORY="${ECR_REPOSITORY:-trustedge-trusttwin-api}"
+ECR_REPOSITORY="${ECR_REPOSITORY:-trustedge-agent-api}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
 if aws ecr describe-repositories \

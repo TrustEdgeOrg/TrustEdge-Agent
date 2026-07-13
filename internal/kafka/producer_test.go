@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewProducerEmptyBrokers(t *testing.T) {
-	p, err := NewProducer("", "trusttwin.events", nil)
+	p, err := NewProducer("", "trustedge.agent.events", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

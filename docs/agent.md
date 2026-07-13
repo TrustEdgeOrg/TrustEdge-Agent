@@ -1,6 +1,6 @@
 # Agent
 
-The `trusttwin` binary runs on each endpoint (laptop, workstation, server) and reports device posture to the ingest API. No VPN is required.
+The `trustedge-agent` binary runs on each endpoint (laptop, workstation, server) and reports device posture to the ingest API. No VPN is required.
 
 ## Supported platforms
 
@@ -29,27 +29,27 @@ When the watcher is unavailable, the agent falls back to poll-only process monit
 
 ```bash
 cd TrustTwin
-make build          # → bin/trusttwin
+make build          # → bin/trustedge-agent
 ```
 
 Cross-platform binaries:
 
 ```bash
-make build-all      # → bin/trusttwin-{darwin,linux,windows}-*
+make build-all      # → bin/trustedge-agent-{darwin,linux,windows}-*
 ```
 
 ### Run
 
 ```bash
-export TRUSTTWIN_API_URL=http://YOUR_API_HOST:8080
-export TRUSTTWIN_ENROLL_TOKEN=<enroll-token>   # required in production
-./bin/trusttwin
+export TRUSTEDGE_AGENT_API_URL=http://YOUR_API_HOST:8080
+export TRUSTEDGE_AGENT_ENROLL_TOKEN=<enroll-token>   # required in production
+./bin/trustedge-agent
 ```
 
 Or during development:
 
 ```bash
-TRUSTTWIN_API_URL=http://127.0.0.1:8080 go run ./cmd/trusttwin
+TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
 ```
 
 ## Credentials and state
@@ -65,13 +65,13 @@ On first run the agent registers with the API and stores credentials locally:
 
 | OS | Path |
 |----|------|
-| macOS | `~/Library/Application Support/TrustTwin/state.json` |
-| Linux | `~/.local/share/TrustTwin/state.json` |
-| Windows | `%APPDATA%\TrustTwin\state.json` |
+| macOS | `~/Library/Application Support/TrustEdge Agent/state.json` |
+| Linux | `~/.local/share/TrustEdge Agent/state.json` |
+| Windows | `%APPDATA%\TrustEdge Agent\state.json` |
 
-Override with `TRUSTTWIN_STATE_PATH`.
+Override with `TRUSTEDGE_AGENT_STATE_PATH`.
 
-In production mode (`TRUSTTWIN_PRODUCTION=1`), tokens are stored in the keyring only — not in `state.json`.
+In production mode (`TRUSTEDGE_AGENT_PRODUCTION=1`), tokens are stored in the keyring only — not in `state.json`.
 
 ## Telemetry types
 
@@ -87,7 +87,7 @@ See [API reference](api.md) for payload field details.
 
 ## Privacy
 
-TrustTwin does **not** collect:
+TrustEdge Agent does **not** collect:
 
 - Window titles or URLs
 - Keystrokes or clipboard
@@ -98,7 +98,7 @@ TrustTwin does **not** collect:
 
 Process monitoring collects **metadata only** (pid, parent pid, user, process name, executable path).
 
-Disable process monitoring with `TRUSTTWIN_PROCESS_INTERVAL=0`.
+Disable process monitoring with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
 
 ## Collectors in detail
 
@@ -108,9 +108,9 @@ Sent immediately on startup, then on a fixed interval. Provides presence heartbe
 
 ### Network summary
 
-`NetworkMonitor` watches OS network state. Emits when interfaces or addresses change (debounced by `TRUSTTWIN_NETWORK_DEBOUNCE`, default 2s) and on a periodic heartbeat (`TRUSTTWIN_NETWORK_INTERVAL`).
+`NetworkMonitor` watches OS network state. Emits when interfaces or addresses change (debounced by `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE`, default 2s) and on a periodic heartbeat (`TRUSTEDGE_AGENT_NETWORK_INTERVAL`).
 
-Public IP is fetched from a configurable URL (default: ipify). Set `TRUSTTWIN_PUBLIC_IP_URL=off` to disable outbound lookup.
+Public IP is fetched from a configurable URL (default: ipify). Set `TRUSTEDGE_AGENT_PUBLIC_IP_URL=off` to disable outbound lookup.
 
 ### Action summary
 
@@ -128,8 +128,8 @@ Hybrid event-driven + poll model:
 
 Events are not sent individually. The `EventBatcher` buffers them and flushes when:
 
-- Buffer reaches `TRUSTTWIN_EVENT_BATCH_SIZE` (default 32), or
-- `TRUSTTWIN_EVENT_BATCH_FLUSH` elapses (default 2s), or
+- Buffer reaches `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` (default 32), or
+- `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` elapses (default 2s), or
 - Agent shuts down
 
 Batches are JSON-marshaled and optionally zstd-compressed before `POST /v1/events`. See [Architecture](architecture.md).
@@ -150,7 +150,7 @@ cd ~/Desktop/TrustEdge && ./scripts/dev-up.sh
 
 # Terminal 2 — agent
 cd ~/Desktop/TrustTwin
-TRUSTTWIN_API_URL=http://127.0.0.1:8080 go run ./cmd/trusttwin
+TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
 ```
 
 TrustEdge `docker-compose.yml` can build the API from `../TrustTwin` for integrated local testing.

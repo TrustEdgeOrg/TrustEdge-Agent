@@ -3,8 +3,9 @@ package credentials
 import "log"
 
 const (
-	keyringService = "TrustTwin"
-	keyringAccount = "device_token"
+	keyringService        = "TrustEdge Agent"
+	keyringServiceLegacy  = "TrustTwin"
+	keyringAccount        = "device_token"
 )
 
 // Store persists device identity and auth credentials on the endpoint.

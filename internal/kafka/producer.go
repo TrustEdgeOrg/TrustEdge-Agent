@@ -12,7 +12,7 @@ import (
 	kafkago "github.com/segmentio/kafka-go"
 )
 
-const defaultTopic = "trusttwin.events"
+const defaultTopic = "trustedge.agent.events"
 
 // Producer publishes TrustTwin events to Kafka. Nil-safe when brokers are unset.
 type Producer struct {

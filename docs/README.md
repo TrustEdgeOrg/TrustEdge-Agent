@@ -1,6 +1,6 @@
-# TrustTwin documentation
+# TrustEdge Agent documentation
 
-TrustTwin is the EDR-lite endpoint agent and ingest API for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) security observability platform.
+TrustEdge Agent is the EDR-lite endpoint agent and ingest API for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) security observability platform.
 
 ## Guides
 
@@ -14,8 +14,8 @@ TrustTwin is the EDR-lite endpoint agent and ingest API for the [TrustEdge](http
 
 ## Quick links
 
-- **Run agent locally:** `TRUSTTWIN_API_URL=http://127.0.0.1:8080 go run ./cmd/trusttwin`
-- **Run API locally:** `go run ./cmd/trusttwin-api`
+- **Run agent locally:** `TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent`
+- **Run API locally:** `go run ./cmd/trustedge-agent-api`
 - **Build all platforms:** `make build-all`
 - **Tests:** `make test`
 

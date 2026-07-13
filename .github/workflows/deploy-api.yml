@@ -1,4 +1,4 @@
-name: Build and Deploy trusttwin-api
+name: Build and Deploy trustedge-agent-api
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: trustedge-trusttwin-api
+  ECR_REPOSITORY: trustedge-agent-api
   ECR_REGISTRY: 804012660077.dkr.ecr.us-east-1.amazonaws.com
 
 jobs:
@@ -68,7 +68,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076
 
-      - name: Build, tag, and push trusttwin-api
+      - name: Build, tag, and push trustedge-agent-api
         id: push
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -94,8 +94,6 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      # Organization secrets use the same ${{ secrets.NAME }} syntax as repo secrets.
-      # TrustEdgeOrg must grant this repo access: EC2_HOST, EC2_SSH_KEY, AWS_ROLE_ARN.
       - name: Verify deploy secrets (org or repo)
         run: |
           echo "secrets.EC2_HOST set: ${{ secrets.EC2_HOST != '' }}"
@@ -110,7 +108,7 @@ jobs:
           fi
           echo "Deploy secrets present."
 
-      - name: Deploy trusttwin-api on EC2
+      - name: Deploy trustedge-agent-api on EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST || vars.EC2_HOST }}
@@ -124,12 +122,12 @@ jobs:
               exit 1
             fi
             cd "$TRUSTEDGE_DIR"
-            export TRUSTTWIN_API_IMAGE="${{ needs.build-and-push.outputs.image }}"
+            export TRUSTEDGE_AGENT_API_IMAGE="${{ needs.build-and-push.outputs.image }}"
             aws ecr get-login-password --region us-east-1 | \
               docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
-            docker pull "$TRUSTTWIN_API_IMAGE"
-            chmod +x scripts/ec2-sync-trusttwin.sh
-            bash scripts/ec2-sync-trusttwin.sh
-            export TRUSTTWIN_ENROLL_TOKEN="$(sudo cat /etc/trustedge/trusttwin-enroll.token | tr -d '\r\n')"
-            COMPOSE_PROFILES=trusttwin docker compose -f docker-compose.yml up -d --remove-orphans trusttwin-api
-            COMPOSE_PROFILES=trusttwin docker compose -f docker-compose.yml ps trusttwin-api
+            docker pull "$TRUSTEDGE_AGENT_API_IMAGE"
+            chmod +x scripts/ec2-sync-agent-api.sh
+            bash scripts/ec2-sync-agent-api.sh
+            export TRUSTEDGE_AGENT_ENROLL_TOKEN="$(sudo cat /etc/trustedge/agent-enroll.token 2>/dev/null || sudo cat /etc/trustedge/trusttwin-enroll.token | tr -d '\r\n')"
+            COMPOSE_PROFILES=agent docker compose -f docker-compose.yml up -d --remove-orphans trustedge-agent-api
+            COMPOSE_PROFILES=agent docker compose -f docker-compose.yml ps trustedge-agent-api

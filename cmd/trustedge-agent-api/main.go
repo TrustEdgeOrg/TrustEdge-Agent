@@ -17,17 +17,17 @@ func main() {
 	if err := cfg.Validate(); err != nil {
 		log.Fatal(err)
 	}
-	logger := log.New(os.Stdout, "trusttwin-api: ", log.LstdFlags|log.Lmsgprefix)
+	logger := log.New(os.Stdout, "trustedge-agent-api: ", log.LstdFlags|log.Lmsgprefix)
 
 	st, err := store.NewWithOptions(store.Options{
-		Clock:        clk,
-		DataDir:      cfg.DataDir,
-		MaxEvents:    cfg.MaxEvents,
+		Clock:                  clk,
+		DataDir:                cfg.DataDir,
+		MaxEvents:              cfg.MaxEvents,
 		DisableDiskPersistence: !cfg.PersistFiles(),
-		RedisURL:     cfg.RedisURL,
-		KafkaBrokers: cfg.KafkaBrokers,
-		KafkaTopic:   cfg.KafkaTopic,
-		Logger:       logger,
+		RedisURL:               cfg.RedisURL,
+		KafkaBrokers:           cfg.KafkaBrokers,
+		KafkaTopic:             cfg.KafkaTopic,
+		Logger:                 logger,
 	})
 	if err != nil {
 		logger.Fatalf("store: %v", err)

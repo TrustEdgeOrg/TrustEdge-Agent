@@ -1,19 +1,19 @@
 # Architecture
 
-TrustTwin has two binaries:
+TrustEdge Agent has two binaries:
 
 | Binary | Role |
 |--------|------|
-| `trusttwin` | Endpoint agent — collects telemetry and POSTs to the API |
-| `trusttwin-api` | Ingest API — authenticates agents, stores events, mirrors to Redis/Kafka |
+| `trustedge-agent` | Endpoint agent — collects telemetry and POSTs to the API |
+| `trustedge-agent-api` | Ingest API — authenticates agents, stores events, mirrors to Redis/Kafka |
 
-Events flow to Redis and Kafka (`trusttwin.events`) for live observability and rules-based detection in TrustEdge.
+Events flow to Redis and Kafka (`trustedge.agent.events`) for live observability and rules-based detection in TrustEdge.
 
 ## End-to-end flow
 
 ```mermaid
 flowchart LR
-    subgraph agent [trusttwin agent]
+    subgraph agent [trustedge-agent agent]
         C[Collectors]
         B[EventBatcher]
         H[HTTP client]
@@ -21,7 +21,7 @@ flowchart LR
         B --> H
     end
 
-    subgraph api [trusttwin-api]
+    subgraph api [trustedge-agent-api]
         I[POST /v1/events]
         D[Decompress zstd]
         S[EventStore]
@@ -40,7 +40,7 @@ flowchart LR
 
 ### Startup
 
-1. `cmd/trusttwin` loads config and builds the collector, API client, and credentials store.
+1. `cmd/trustedge-agent` loads config and builds the collector, API client, and credentials store.
 2. `EnsureRegistered()` loads saved device ID + token from disk/keyring, or calls `POST /v1/register`.
 3. `Agent.Run()` starts collectors and the batch flush loop.
 
@@ -98,7 +98,7 @@ flowchart TD
 - **Poll** reconciles state periodically and catches anything the watcher missed.
 - `Observe()` deduplicates so the same PID transition is not sent twice.
 
-Disable process monitoring entirely with `TRUSTTWIN_PROCESS_INTERVAL=0`.
+Disable process monitoring entirely with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
 
 ## Batching
 
@@ -106,8 +106,8 @@ The `EventBatcher` (`internal/agent/batcher.go`) coalesces events before upload:
 
 | Flush trigger | Default |
 |---------------|---------|
-| Buffer size | 32 events (`TRUSTTWIN_EVENT_BATCH_SIZE`) |
-| Time interval | 2 seconds (`TRUSTTWIN_EVENT_BATCH_FLUSH`) |
+| Buffer size | 32 events (`TRUSTEDGE_AGENT_EVENT_BATCH_SIZE`) |
+| Time interval | 2 seconds (`TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH`) |
 | Shutdown | Final flush on context cancel |
 
 A single-event flush sends a plain `Event` JSON object. Multi-event flushes send `{"events":[...]}`.
@@ -126,7 +126,7 @@ The agent compresses telemetry with **zstd** (`internal/codec`):
 ```mermaid
 sequenceDiagram
     participant A as Agent
-    participant API as trusttwin-api
+    participant API as trustedge-agent-api
 
     A->>API: POST /v1/register (optional enroll bearer)
     API-->>A: device_id + device_token
@@ -144,14 +144,14 @@ sequenceDiagram
 | Mode | Storage |
 |------|---------|
 | Dev (default) | In-memory + optional `data/devices.json` and `data/events.jsonl` |
-| Production (`TRUSTTWIN_PRODUCTION=1`) | Redis required; disk persistence disabled |
-| Kafka (optional) | Publishes to `KAFKA_TOPIC` (default `trusttwin.events`) after ingest |
+| Production (`TRUSTEDGE_AGENT_PRODUCTION=1`) | Redis required; disk persistence disabled |
+| Kafka (optional) | Publishes to `KAFKA_TOPIC` (default `trustedge.agent.events`) after ingest |
 
 ## Project layout
 
 ```text
-cmd/trusttwin/          Agent entrypoint
-cmd/trusttwin-api/      API entrypoint
+cmd/trustedge-agent/          Agent entrypoint
+cmd/trustedge-agent-api/      API entrypoint
 internal/agent/         Agent runtime, batcher, auth
 internal/api/           HTTP client (register, post events)
 internal/codec/         zstd compress/decompress

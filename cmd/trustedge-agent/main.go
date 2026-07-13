@@ -19,7 +19,7 @@ import (
 func main() {
 	clk := clock.Real{}
 	cfg := config.LoadAgent()
-	apiURL := flag.String("api-url", cfg.APIURL, "TrustTwin API base URL")
+	apiURL := flag.String("api-url", cfg.APIURL, "TrustEdge Agent ingest API base URL")
 	flag.Parse()
 	cfg.APIURL = *apiURL
 
@@ -27,7 +27,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	logger := log.New(os.Stdout, "trusttwin: ", log.LstdFlags|log.Lmsgprefix)
+	logger := log.New(os.Stdout, "trustedge-agent: ", log.LstdFlags|log.Lmsgprefix)
 
 	credStore := credentials.New(cfg.StatePath, logger)
 	if _, _, err := credStore.Load(); err != nil {

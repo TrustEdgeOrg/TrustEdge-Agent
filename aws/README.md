@@ -1,12 +1,12 @@
-# TrustTwin AWS CI
+# TrustEdge Agent AWS CI
 
-The **Build and Deploy trusttwin-api** workflow (`.github/workflows/deploy-api.yml`) builds the image, pushes to ECR, and starts the container on EC2 via TrustEdge `docker-compose.yml`.
+The **Build and Deploy trustedge-agent-api** workflow (`.github/workflows/deploy-api.yml`) builds the image, pushes to ECR, and starts the container on EC2 via TrustEdge `docker-compose.yml`.
 
 ## GitHub secrets
 
 Workflows use `${{ secrets.NAME }}`. **Repository secrets** always work. **Organization secrets** require a paid GitHub plan for **private** repos — on **GitHub Free**, org secrets are silently empty in private repo workflows.
 
-### TrustTwin (required — repository secrets)
+### TrustEdge Agent (required — repository secrets)
 
 **TrustEdgeOrg/TrustTwin → Settings → Secrets and variables → Actions → Repository secrets** (not Organization secrets):
 
@@ -20,7 +20,7 @@ Use the **Secrets** tab, not **Variables**.
 
 ### Organization secrets (optional — paid plan only)
 
-If your org is on **Team** or higher, you may share secrets across TrustEdge + TrustTwin at org level instead. On **GitHub Free**, org secrets will not work for private repos — use repository secrets per repo.
+If your org is on **Team** or higher, you may share secrets across TrustEdge + TrustEdge Agent at org level instead. On **GitHub Free**, org secrets will not work for private repos — use repository secrets per repo.
 
 ## One-time AWS setup
 
@@ -40,7 +40,7 @@ This allows `TrustEdgeOrg/TrustTwin` to assume `GitHubActionsDeployRole` for ECR
 
 ## Trigger a deploy
 
-Push to `develop` or `main`, or run **Build and Deploy trusttwin-api** manually.
+Push to `develop` or `main`, or run **Build and Deploy trustedge-agent-api** manually.
 
 - `develop` → pushes `:develop`, runs container with that tag
 - `main` → pushes `:latest`, runs container with that tag
@@ -48,8 +48,8 @@ Push to `develop` or `main`, or run **Build and Deploy trusttwin-api** manually.
 ## Verify on EC2
 
 ```bash
-aws ecr list-images --repository-name trustedge-trusttwin-api --region us-east-1
-cd ~/trustedge && COMPOSE_PROFILES=trusttwin docker compose ps trusttwin-api
+aws ecr list-images --repository-name trustedge-agent-api --region us-east-1
+cd ~/trustedge && COMPOSE_PROFILES=agent docker compose ps trustedge-agent-api
 curl -s http://127.0.0.1:8080/healthz
 ```
 
@@ -58,6 +58,6 @@ curl -s http://127.0.0.1:8080/healthz
 After a manual `docker push`:
 
 ```bash
-export TRUSTTWIN_API_IMAGE=804012660077.dkr.ecr.us-east-1.amazonaws.com/trustedge-trusttwin-api:develop
+export TRUSTEDGE_AGENT_API_IMAGE=804012660077.dkr.ecr.us-east-1.amazonaws.com/trustedge-agent-api:develop
 bash aws/ec2-deploy-api.sh
 ```

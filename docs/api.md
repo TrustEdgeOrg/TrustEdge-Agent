@@ -1,4 +1,4 @@
-# TrustTwin API
+# TrustEdge Agent API
 
 Ingest API for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) security observability platform. Agents POST endpoint telemetry; production mode mirrors to Redis and publishes to Kafka for detection.
 
@@ -32,7 +32,7 @@ Health check.
 
 ### `POST /v1/register`
 
-Register a client (device). When `TRUSTTWIN_ENROLL_TOKEN` is set (required in production), send `Authorization: Bearer <enroll_token>`.
+Register a client (device). When `TRUSTEDGE_AGENT_ENROLL_TOKEN` is set (required in production), send `Authorization: Bearer <enroll_token>`.
 
 **Request:**
 
@@ -191,16 +191,16 @@ EDR-lite process visibility (metadata only).
 
 ## Production
 
-When `TRUSTTWIN_PRODUCTION=1`:
+When `TRUSTEDGE_AGENT_PRODUCTION=1`:
 
-- API refuses to start without `TRUSTTWIN_ENROLL_TOKEN` and `REDIS_URL`.
-- Agents refuse to start without `TRUSTTWIN_ENROLL_TOKEN` and an `https://` API URL.
+- API refuses to start without `TRUSTEDGE_AGENT_ENROLL_TOKEN` and `REDIS_URL`.
+- Agents refuse to start without `TRUSTEDGE_AGENT_ENROLL_TOKEN` and an `https://` API URL.
 - Device tokens are stored in the OS keyring, not `state.json`.
 
 See [Configuration](configuration.md) for all environment variables.
 
 ## Privacy
 
-TrustTwin does **not** collect window titles, URLs, keystrokes, screenshots, raw SSIDs, or full remote IP connection lists.
+TrustEdge Agent does **not** collect window titles, URLs, keystrokes, screenshots, raw SSIDs, or full remote IP connection lists.
 
 Process monitoring collects metadata only — not command lines or file contents.

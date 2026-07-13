@@ -34,10 +34,10 @@ func (c AgentConfig) Validate() error {
 		return nil
 	}
 	if !strings.HasPrefix(c.APIURL, "https://") {
-		return errors.New("production requires TRUSTTWIN_API_URL to use https://")
+		return errors.New("production requires TRUSTEDGE_AGENT_API_URL to use https://")
 	}
 	if strings.TrimSpace(c.EnrollToken) == "" {
-		return errors.New("production requires TRUSTTWIN_ENROLL_TOKEN")
+		return errors.New("production requires TRUSTEDGE_AGENT_ENROLL_TOKEN")
 	}
 	return nil
 }
@@ -48,7 +48,7 @@ type APIConfig struct {
 	DataDir     string
 	MaxEvents   int
 	Production  bool
-	// Mirrors device state to TrustEdge when TRUSTTWIN_REDIS_URL or REDIS_URL is set.
+	// Mirrors device state to TrustEdge when TRUSTEDGE_AGENT_REDIS_URL or REDIS_URL is set.
 	RedisURL string
 	// Optional Kafka publish after ingest (KAFKA_BROKERS unset = disabled).
 	KafkaBrokers string
@@ -60,16 +60,16 @@ func (c APIConfig) Validate() error {
 		return nil
 	}
 	if strings.TrimSpace(c.EnrollToken) == "" {
-		return errors.New("production requires TRUSTTWIN_ENROLL_TOKEN on the API")
+		return errors.New("production requires TRUSTEDGE_AGENT_ENROLL_TOKEN on the API")
 	}
 	if strings.TrimSpace(c.RedisURL) == "" {
-		return errors.New("production requires REDIS_URL or TRUSTTWIN_REDIS_URL (disk persistence is disabled)")
+		return errors.New("production requires REDIS_URL or TRUSTEDGE_AGENT_REDIS_URL (disk persistence is disabled)")
 	}
 	return nil
 }
 
 func (c APIConfig) PersistFiles() bool {
-	if raw, ok := os.LookupEnv("TRUSTTWIN_PERSIST_FILES"); ok {
+	if raw, ok := lookupEnv("TRUSTEDGE_AGENT_PERSIST_FILES", "TRUSTTWIN_PERSIST_FILES"); ok {
 		v := strings.TrimSpace(strings.ToLower(raw))
 		switch v {
 		case "1", "true", "yes", "on":
@@ -81,15 +81,32 @@ func (c APIConfig) PersistFiles() bool {
 	return !c.Production
 }
 
-func env(key, fallback string) string {
-	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+func env(primary, legacy, fallback string) string {
+	if v := strings.TrimSpace(os.Getenv(primary)); v != "" {
 		return v
+	}
+	if legacy != "" {
+		if v := strings.TrimSpace(os.Getenv(legacy)); v != "" {
+			return v
+		}
 	}
 	return fallback
 }
 
-func envDuration(key string, fallback time.Duration) time.Duration {
-	v := strings.TrimSpace(os.Getenv(key))
+func lookupEnv(primary, legacy string) (string, bool) {
+	if v, ok := os.LookupEnv(primary); ok {
+		return v, true
+	}
+	if legacy != "" {
+		if v, ok := os.LookupEnv(legacy); ok {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func envDuration(primary, legacy string, fallback time.Duration) time.Duration {
+	v := env(primary, legacy, "")
 	if v == "" {
 		return fallback
 	}
@@ -102,8 +119,8 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 	return fallback
 }
 
-func envBool(key string) bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
+func envBool(primary, legacy string) bool {
+	v := strings.TrimSpace(strings.ToLower(env(primary, legacy, "")))
 	switch v {
 	case "1", "true", "yes", "on":
 		return true
@@ -112,8 +129,8 @@ func envBool(key string) bool {
 	}
 }
 
-func envInt(key string, fallback int) int {
-	v := strings.TrimSpace(os.Getenv(key))
+func envInt(primary, legacy string, fallback int) int {
+	v := env(primary, legacy, "")
 	if v == "" {
 		return fallback
 	}
@@ -125,7 +142,7 @@ func envInt(key string, fallback int) int {
 }
 
 func loadPublicIPLookupURL() string {
-	raw, ok := os.LookupEnv("TRUSTTWIN_PUBLIC_IP_URL")
+	raw, ok := lookupEnv("TRUSTEDGE_AGENT_PUBLIC_IP_URL", "TRUSTTWIN_PUBLIC_IP_URL")
 	if !ok {
 		return constants.PublicIPLookupURL
 	}
@@ -138,7 +155,7 @@ func loadPublicIPLookupURL() string {
 	}
 }
 
-func defaultStatePath() string {
+func legacyStatePath() string {
 	home, _ := os.UserHomeDir()
 	switch runtime.GOOS {
 	case "darwin":
@@ -155,37 +172,70 @@ func defaultStatePath() string {
 	}
 }
 
+func defaultStatePath() string {
+	home, _ := os.UserHomeDir()
+	switch runtime.GOOS {
+	case "darwin":
+		return filepath.Join(home, "Library", "Application Support", "TrustEdge Agent", "state.json")
+	case "linux":
+		return filepath.Join(home, ".local", "share", "TrustEdge Agent", "state.json")
+	case "windows":
+		if appData := strings.TrimSpace(os.Getenv("APPDATA")); appData != "" {
+			return filepath.Join(appData, "TrustEdge Agent", "state.json")
+		}
+		return filepath.Join(home, "AppData", "Roaming", "TrustEdge Agent", "state.json")
+	default:
+		return filepath.Join(home, ".trustedge-agent", "state.json")
+	}
+}
+
+func resolveStatePath(configured string) string {
+	if configured != "" {
+		return configured
+	}
+	path := defaultStatePath()
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	legacy := legacyStatePath()
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	return path
+}
+
 func LoadAgent() AgentConfig {
+	configuredState := env("TRUSTEDGE_AGENT_STATE_PATH", "TRUSTTWIN_STATE_PATH", "")
 	return AgentConfig{
-		APIURL:            strings.TrimRight(env("TRUSTTWIN_API_URL", "http://127.0.0.1:8080"), "/"),
-		EnrollToken:       env("TRUSTTWIN_ENROLL_TOKEN", ""),
-		StatePath:         env("TRUSTTWIN_STATE_PATH", defaultStatePath()),
+		APIURL:            strings.TrimRight(env("TRUSTEDGE_AGENT_API_URL", "TRUSTTWIN_API_URL", "http://127.0.0.1:8080"), "/"),
+		EnrollToken:       env("TRUSTEDGE_AGENT_ENROLL_TOKEN", "TRUSTTWIN_ENROLL_TOKEN", ""),
+		StatePath:         resolveStatePath(configuredState),
 		PublicIPLookupURL: loadPublicIPLookupURL(),
-		Production:        envBool("TRUSTTWIN_PRODUCTION"),
-		DetailsInterval:   envDuration("TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),
-		NetworkInterval:   envDuration("TRUSTTWIN_NETWORK_INTERVAL", 60*time.Second),
-		NetworkDebounce:   envDuration("TRUSTTWIN_NETWORK_DEBOUNCE", 2*time.Second),
-		ActionInterval:    envDuration("TRUSTTWIN_ACTION_INTERVAL", 60*time.Second),
-		ProcessInterval:   envDuration("TRUSTTWIN_PROCESS_INTERVAL", 10*time.Second),
-		EventBatchSize:    envInt("TRUSTTWIN_EVENT_BATCH_SIZE", 32),
-		EventBatchFlush:   envDuration("TRUSTTWIN_EVENT_BATCH_FLUSH", 2*time.Second),
+		Production:        envBool("TRUSTEDGE_AGENT_PRODUCTION", "TRUSTTWIN_PRODUCTION"),
+		DetailsInterval:   envDuration("TRUSTEDGE_AGENT_DETAILS_INTERVAL", "TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),
+		NetworkInterval:   envDuration("TRUSTEDGE_AGENT_NETWORK_INTERVAL", "TRUSTTWIN_NETWORK_INTERVAL", 60*time.Second),
+		NetworkDebounce:   envDuration("TRUSTEDGE_AGENT_NETWORK_DEBOUNCE", "TRUSTTWIN_NETWORK_DEBOUNCE", 2*time.Second),
+		ActionInterval:    envDuration("TRUSTEDGE_AGENT_ACTION_INTERVAL", "TRUSTTWIN_ACTION_INTERVAL", 60*time.Second),
+		ProcessInterval:   envDuration("TRUSTEDGE_AGENT_PROCESS_INTERVAL", "TRUSTTWIN_PROCESS_INTERVAL", 10*time.Second),
+		EventBatchSize:    envInt("TRUSTEDGE_AGENT_EVENT_BATCH_SIZE", "TRUSTTWIN_EVENT_BATCH_SIZE", 32),
+		EventBatchFlush:   envDuration("TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH", "TRUSTTWIN_EVENT_BATCH_FLUSH", 2*time.Second),
 	}
 }
 
 func LoadAPI() APIConfig {
-	redisURL := env("TRUSTTWIN_REDIS_URL", "")
+	redisURL := env("TRUSTEDGE_AGENT_REDIS_URL", "TRUSTTWIN_REDIS_URL", "")
 	if redisURL == "" {
-		redisURL = env("REDIS_URL", "")
+		redisURL = env("REDIS_URL", "", "")
 	}
-	kafkaTopic := env("KAFKA_TOPIC", "trusttwin.events")
+	kafkaTopic := env("KAFKA_TOPIC", "", "trustedge.agent.events")
 	return APIConfig{
-		Listen:       env("TRUSTTWIN_LISTEN", ":8080"),
-		EnrollToken:  env("TRUSTTWIN_ENROLL_TOKEN", ""),
-		DataDir:      env("TRUSTTWIN_DATA_DIR", "data"),
+		Listen:       env("TRUSTEDGE_AGENT_LISTEN", "TRUSTTWIN_LISTEN", ":8080"),
+		EnrollToken:  env("TRUSTEDGE_AGENT_ENROLL_TOKEN", "TRUSTTWIN_ENROLL_TOKEN", ""),
+		DataDir:      env("TRUSTEDGE_AGENT_DATA_DIR", "TRUSTTWIN_DATA_DIR", "data"),
 		MaxEvents:    500,
-		Production:   envBool("TRUSTTWIN_PRODUCTION"),
+		Production:   envBool("TRUSTEDGE_AGENT_PRODUCTION", "TRUSTTWIN_PRODUCTION"),
 		RedisURL:     redisURL,
-		KafkaBrokers: env("KAFKA_BROKERS", ""),
+		KafkaBrokers: env("KAFKA_BROKERS", "", ""),
 		KafkaTopic:   kafkaTopic,
 	}
 }

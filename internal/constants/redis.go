@@ -1,6 +1,6 @@
 package constants
 
-// Redis keys shared with TrustEdge (see trusttwin_store.py).
+// Redis keys shared with TrustEdge (see trustedge-agent_store.py).
 const (
 	RedisDevicesKey       = "twin:devices"
 	RedisDeviceTokensKey  = "twin:device_tokens"

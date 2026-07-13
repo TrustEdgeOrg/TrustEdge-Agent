@@ -1,6 +1,6 @@
 package constants
 
-// Plain-text HTTP error bodies returned by trusttwin-api.
+// Plain-text HTTP error bodies returned by trustedge-agent-api.
 const (
 	ErrUnauthorized   = "unauthorized"
 	ErrBadRequest     = "bad request"
