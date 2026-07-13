@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/TrustEdgeOrg/TrustTwin/internal/codec"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
 )
 
@@ -90,11 +91,18 @@ func (c *Client) PostEvents(events []models.Event) error {
 }
 
 func (c *Client) postEventsBody(body []byte) error {
-	httpReq, err := http.NewRequest(http.MethodPost, c.BaseURL+"/v1/events", bytes.NewReader(body))
+	payload, compressed, err := codec.MaybeCompress(body)
+	if err != nil {
+		return err
+	}
+	httpReq, err := http.NewRequest(http.MethodPost, c.BaseURL+"/v1/events", bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	if compressed {
+		httpReq.Header.Set("Content-Encoding", codec.ContentEncoding)
+	}
 	if c.DeviceToken != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+c.DeviceToken)
 	}

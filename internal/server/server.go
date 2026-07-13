@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
+	"github.com/TrustEdgeOrg/TrustTwin/internal/codec"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/config"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
@@ -82,7 +83,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, constants.ErrUnauthorized, http.StatusUnauthorized)
 		return
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	body, err := readRequestBody(r)
 	if err != nil {
 		http.Error(w, constants.ErrBadRequest, http.StatusBadRequest)
 		return
@@ -151,6 +152,17 @@ func decodeEvents(body []byte) ([]models.Event, error) {
 		return nil, json.Unmarshal(body, &batch) // surface batch error if any
 	}
 	return []models.Event{single}, nil
+}
+
+func readRequestBody(r *http.Request) ([]byte, error) {
+	raw, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	if !codec.IsZstd(r.Header.Get("Content-Encoding")) {
+		return raw, nil
+	}
+	return codec.Decompress(raw)
 }
 
 func (s *Server) handleGetClient(w http.ResponseWriter, r *http.Request) {
