@@ -1,4 +1,4 @@
-//go:build !darwin
+//go:build !darwin && !linux && !windows
 
 package credentials
 
@@ -26,7 +26,7 @@ func newFileStore(statePath string, logger *log.Logger) Store {
 
 func (s *fileStore) warnInsecure() {
 	s.warnOnce.Do(func() {
-		s.log.Printf("warning: device token stored in plaintext state file; use macOS for Keychain-backed credentials")
+		s.log.Printf("warning: device token stored in plaintext state file; use macOS, Linux, or Windows for credential-store-backed tokens")
 	})
 }
 

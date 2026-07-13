@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -122,13 +124,28 @@ func loadPublicIPLookupURL() string {
 	}
 }
 
-func LoadAgent() AgentConfig {
+func defaultStatePath() string {
 	home, _ := os.UserHomeDir()
-	defaultState := home + "/Library/Application Support/TrustTwin/state.json"
+	switch runtime.GOOS {
+	case "darwin":
+		return filepath.Join(home, "Library", "Application Support", "TrustTwin", "state.json")
+	case "linux":
+		return filepath.Join(home, ".local", "share", "TrustTwin", "state.json")
+	case "windows":
+		if appData := strings.TrimSpace(os.Getenv("APPDATA")); appData != "" {
+			return filepath.Join(appData, "TrustTwin", "state.json")
+		}
+		return filepath.Join(home, "AppData", "Roaming", "TrustTwin", "state.json")
+	default:
+		return filepath.Join(home, ".trusttwin", "state.json")
+	}
+}
+
+func LoadAgent() AgentConfig {
 	return AgentConfig{
 		APIURL:            strings.TrimRight(env("TRUSTTWIN_API_URL", "http://127.0.0.1:8080"), "/"),
 		EnrollToken:       env("TRUSTTWIN_ENROLL_TOKEN", ""),
-		StatePath:         env("TRUSTTWIN_STATE_PATH", defaultState),
+		StatePath:         env("TRUSTTWIN_STATE_PATH", defaultStatePath()),
 		PublicIPLookupURL: loadPublicIPLookupURL(),
 		Production:        envBool("TRUSTTWIN_PRODUCTION"),
 	DetailsInterval:   envDuration("TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),

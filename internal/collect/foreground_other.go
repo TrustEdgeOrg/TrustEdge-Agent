@@ -1,11 +1,6 @@
-//go:build !darwin
+//go:build !darwin && !linux && !windows
 
 package collect
-
-type ForegroundInfo struct {
-	BundleID string
-	Name     string
-}
 
 func foregroundApp() *ForegroundInfo {
 	return nil

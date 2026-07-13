@@ -65,15 +65,18 @@ func networkType() string {
 			}
 			return constants.NetworkTypeEthernet
 		}
-		if strings.HasPrefix(name, "wl") || strings.Contains(name, "wifi") {
+		if strings.HasPrefix(name, "wl") || strings.Contains(name, "wifi") || strings.Contains(name, "wi-fi") {
 			return constants.NetworkTypeWiFi
+		}
+		if runtime.GOOS == "windows" && strings.Contains(name, "ethernet") {
+			return constants.NetworkTypeEthernet
 		}
 	}
 	return constants.NetworkTypeUnknown
 }
 
 func portStats() (listening, established int, top []models.PortCount) {
-	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" && runtime.GOOS != "windows" {
 		return 0, 0, nil
 	}
 	out, err := exec.Command("netstat", "-an").Output()
@@ -93,15 +96,24 @@ func portStats() (listening, established int, top []models.PortCount) {
 			continue
 		}
 		state := ""
+		remoteIdx := -1
 		if len(fields) >= 6 {
 			state = strings.ToUpper(fields[len(fields)-1])
+			remoteIdx = 4
+		} else if len(fields) >= 4 {
+			// Windows netstat: Proto Local Foreign State
+			state = strings.ToUpper(fields[3])
+			remoteIdx = 2
+		}
+		if remoteIdx < 0 {
+			continue
 		}
 		switch state {
 		case "LISTEN", "LISTENING":
 			listening++
 		case "ESTABLISHED":
 			established++
-			if port := remotePort(fields[4]); port > 0 {
+			if port := remotePort(fields[remoteIdx]); port > 0 {
 				counts[port]++
 			}
 		}
