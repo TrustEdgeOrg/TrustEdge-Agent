@@ -50,3 +50,52 @@ func TestProcessMonitorBaselineThenStart(t *testing.T) {
 		t.Fatalf("payload=%v", changes[0].Payload)
 	}
 }
+
+func TestProcessMonitorObserveDedup(t *testing.T) {
+	m := NewProcessMonitor(nil)
+	start := ProcessChange{
+		Type: constants.TypeProcessStart,
+		Payload: map[string]any{
+			"pid":  10,
+			"ppid": 1,
+			"comm": "curl",
+		},
+	}
+	if !m.Observe(start) {
+		t.Fatal("first observe should post")
+	}
+	if m.Observe(start) {
+		t.Fatal("duplicate start should not post")
+	}
+}
+
+func TestProcessMonitorCapDoesNotAbsorb(t *testing.T) {
+	orig := listProcesses
+	defer func() { listProcesses = orig }()
+
+	base := []processRow{{PID: 1, PPID: 0, Comm: "init", Executable: "init"}}
+	var snap []processRow
+	for i := 2; i <= 105; i++ {
+		snap = append(snap, processRow{PID: i, PPID: 1, Comm: "p", Executable: "p"})
+	}
+
+	calls := 0
+	listProcesses = func() ([]processRow, error) {
+		calls++
+		if calls == 1 {
+			return base, nil
+		}
+		return append(append([]processRow{}, base...), snap...), nil
+	}
+
+	m := NewProcessMonitor(nil)
+	_ = m.Poll()
+	first := m.Poll()
+	if len(first) != maxProcessEventsPerPoll {
+		t.Fatalf("first=%d want cap %d", len(first), maxProcessEventsPerPoll)
+	}
+	second := m.Poll()
+	if len(second) == 0 {
+		t.Fatal("expected remaining starts on next poll")
+	}
+}

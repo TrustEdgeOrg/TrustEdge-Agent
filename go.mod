@@ -4,8 +4,10 @@ go 1.22
 
 require (
 	github.com/alicebob/miniredis/v2 v2.33.0
+	github.com/bi-zone/etw v0.0.0-20210519083747-fe9042eb0ea8
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/zalando/go-keyring v0.2.6
+	golang.org/x/sys v0.26.0
 )
 
 require (
@@ -19,5 +21,4 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/segmentio/kafka-go v0.4.47 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
-	golang.org/x/sys v0.26.0 // indirect
 )

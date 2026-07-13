@@ -55,7 +55,14 @@ func (a *Agent) recoverAuth(ctx context.Context) error {
 }
 
 func (a *Agent) postEvent(ev models.Event) error {
-	err := a.client.PostEvent(ev)
+	return a.postEvents([]models.Event{ev})
+}
+
+func (a *Agent) postEvents(events []models.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+	err := a.client.PostEvents(events)
 	if err == nil {
 		return nil
 	}
@@ -65,5 +72,5 @@ func (a *Agent) postEvent(ev models.Event) error {
 	if recErr := a.recoverAuth(context.Background()); recErr != nil {
 		return recErr
 	}
-	return a.client.PostEvent(ev)
+	return a.client.PostEvents(events)
 }

@@ -25,6 +25,8 @@ type AgentConfig struct {
 	NetworkDebounce   time.Duration
 	ActionInterval    time.Duration
 	ProcessInterval   time.Duration
+	EventBatchSize    int
+	EventBatchFlush   time.Duration
 }
 
 func (c AgentConfig) Validate() error {
@@ -110,6 +112,18 @@ func envBool(key string) bool {
 	}
 }
 
+func envInt(key string, fallback int) int {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return fallback
+	}
+	return n
+}
+
 func loadPublicIPLookupURL() string {
 	raw, ok := os.LookupEnv("TRUSTTWIN_PUBLIC_IP_URL")
 	if !ok {
@@ -148,11 +162,13 @@ func LoadAgent() AgentConfig {
 		StatePath:         env("TRUSTTWIN_STATE_PATH", defaultStatePath()),
 		PublicIPLookupURL: loadPublicIPLookupURL(),
 		Production:        envBool("TRUSTTWIN_PRODUCTION"),
-	DetailsInterval:   envDuration("TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),
+		DetailsInterval:   envDuration("TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),
 		NetworkInterval:   envDuration("TRUSTTWIN_NETWORK_INTERVAL", 60*time.Second),
 		NetworkDebounce:   envDuration("TRUSTTWIN_NETWORK_DEBOUNCE", 2*time.Second),
 		ActionInterval:    envDuration("TRUSTTWIN_ACTION_INTERVAL", 60*time.Second),
 		ProcessInterval:   envDuration("TRUSTTWIN_PROCESS_INTERVAL", 10*time.Second),
+		EventBatchSize:    envInt("TRUSTTWIN_EVENT_BATCH_SIZE", 32),
+		EventBatchFlush:   envDuration("TRUSTTWIN_EVENT_BATCH_FLUSH", 2*time.Second),
 	}
 }
 

@@ -48,6 +48,10 @@ func (m *mockClient) Register(req models.RegisterRequest) (*models.RegisterRespo
 }
 
 func (m *mockClient) PostEvent(ev models.Event) error {
+	return m.PostEvents([]models.Event{ev})
+}
+
+func (m *mockClient) PostEvents(events []models.Event) error {
 	m.postCalls++
 	if m.failOnce {
 		m.failOnce = false
@@ -123,5 +127,7 @@ func (failingClient) Register(models.RegisterRequest) (*models.RegisterResponse,
 }
 
 func (failingClient) PostEvent(models.Event) error { return nil }
+
+func (failingClient) PostEvents([]models.Event) error { return nil }
 
 func (failingClient) SetDeviceToken(string) {}

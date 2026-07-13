@@ -68,10 +68,28 @@ func (c *Client) Register(req models.RegisterRequest) (*models.RegisterResponse,
 }
 
 func (c *Client) PostEvent(ev models.Event) error {
-	body, err := json.Marshal(ev)
+	return c.PostEvents([]models.Event{ev})
+}
+
+func (c *Client) PostEvents(events []models.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+	if len(events) == 1 {
+		body, err := json.Marshal(events[0])
+		if err != nil {
+			return err
+		}
+		return c.postEventsBody(body)
+	}
+	body, err := json.Marshal(models.EventBatch{Events: events})
 	if err != nil {
 		return err
 	}
+	return c.postEventsBody(body)
+}
+
+func (c *Client) postEventsBody(body []byte) error {
 	httpReq, err := http.NewRequest(http.MethodPost, c.BaseURL+"/v1/events", bytes.NewReader(body))
 	if err != nil {
 		return err

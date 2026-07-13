@@ -7,10 +7,10 @@ build:
 
 build-all:
 	mkdir -p bin
-	GOOS=darwin GOARCH=arm64 go build -buildvcs=false -o bin/trusttwin-darwin-arm64 ./cmd/trusttwin
-	GOOS=darwin GOARCH=amd64 go build -buildvcs=false -o bin/trusttwin-darwin-amd64 ./cmd/trusttwin
+	CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -buildvcs=false -o bin/trusttwin-darwin-arm64 ./cmd/trusttwin
+	CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -buildvcs=false -o bin/trusttwin-darwin-amd64 ./cmd/trusttwin
 	GOOS=linux GOARCH=amd64 go build -buildvcs=false -o bin/trusttwin-linux-amd64 ./cmd/trusttwin
-	GOOS=windows GOARCH=amd64 go build -buildvcs=false -o bin/trusttwin-windows-amd64.exe ./cmd/trusttwin
+	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -buildvcs=false -o bin/trusttwin-windows-amd64.exe ./cmd/trusttwin
 
 api:
 	go run ./cmd/trusttwin-api

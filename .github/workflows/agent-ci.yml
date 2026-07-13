@@ -20,16 +20,22 @@ jobs:
             goos: linux
             goarch: amd64
             bin: trusttwin
-          - name: windows-amd64
-            os: windows-latest
-            goos: windows
-            goarch: amd64
-            bin: trusttwin.exe
+            cgo: "0"
+            tags: ""
           - name: macos-arm64
             os: macos-latest
             goos: darwin
             goarch: arm64
             bin: trusttwin
+            cgo: "1"
+            tags: ""
+          - name: windows-amd64
+            os: windows-latest
+            goos: windows
+            goarch: amd64
+            bin: trusttwin.exe
+            cgo: "1"
+            tags: ""
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -41,13 +47,16 @@ jobs:
           cache: true
 
       - name: Test
-        run: go test ./...
+        env:
+          CGO_ENABLED: ${{ matrix.cgo }}
+        run: go test -tags "${{ matrix.tags }}" ./...
 
       - name: Build agent
         env:
+          CGO_ENABLED: ${{ matrix.cgo }}
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-        run: go build -buildvcs=false -o ${{ matrix.bin }} ./cmd/trusttwin
+        run: go build -tags "${{ matrix.tags }}" -buildvcs=false -o ${{ matrix.bin }} ./cmd/trusttwin
 
       - name: Upload agent binary
         uses: actions/upload-artifact@v4
