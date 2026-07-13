@@ -8,18 +8,18 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/agent"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/api"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/collect"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/config"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/credentials"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/agent"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/api"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/config"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/credentials"
 )
 
 func main() {
 	clk := clock.Real{}
 	cfg := config.LoadAgent()
-	apiURL := flag.String("api-url", cfg.APIURL, "TrustTwin API base URL")
+	apiURL := flag.String("api-url", cfg.APIURL, "TrustEdge Agent ingest API base URL")
 	flag.Parse()
 	cfg.APIURL = *apiURL
 
@@ -27,7 +27,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	logger := log.New(os.Stdout, "trusttwin: ", log.LstdFlags|log.Lmsgprefix)
+	logger := log.New(os.Stdout, "trustedge-agent: ", log.LstdFlags|log.Lmsgprefix)
 
 	credStore := credentials.New(cfg.StatePath, logger)
 	if _, _, err := credStore.Load(); err != nil {

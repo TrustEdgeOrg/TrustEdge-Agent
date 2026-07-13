@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 )
 
 func TestEventBatcherFlushOnSize(t *testing.T) {

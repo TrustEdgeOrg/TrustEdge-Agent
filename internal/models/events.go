@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
 )
 
 func NewEvent(clk clock.Clock, deviceID, typ string, payload map[string]any) Event {

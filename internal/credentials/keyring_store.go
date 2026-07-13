@@ -21,13 +21,35 @@ func newPlatformStore(statePath string, logger *log.Logger) Store {
 	return &keyringStore{statePath: statePath, log: logger}
 }
 
+func keyringGetToken() (string, error) {
+	token, err := keyring.Get(keyringService, keyringAccount)
+	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
+		return "", err
+	}
+	if token != "" {
+		return token, nil
+	}
+	legacy, legacyErr := keyring.Get(keyringServiceLegacy, keyringAccount)
+	if legacyErr != nil && !errors.Is(legacyErr, keyring.ErrNotFound) {
+		return "", legacyErr
+	}
+	if legacy == "" {
+		return "", nil
+	}
+	if err := keyring.Set(keyringService, keyringAccount, legacy); err != nil {
+		return legacy, nil
+	}
+	_ = keyring.Delete(keyringServiceLegacy, keyringAccount)
+	return legacy, nil
+}
+
 func (s *keyringStore) Load() (string, string, error) {
 	st, err := loadStateFile(s.statePath)
 	if err != nil {
 		return "", "", err
 	}
-	token, err := keyring.Get(keyringService, keyringAccount)
-	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
+	token, err := keyringGetToken()
+	if err != nil {
 		return "", "", err
 	}
 	if token == "" && st.DeviceToken != "" {
@@ -57,5 +79,6 @@ func (s *keyringStore) ClearToken() error {
 	if err := keyring.Delete(keyringService, keyringAccount); err != nil && !errors.Is(err, keyring.ErrNotFound) {
 		return err
 	}
+	_ = keyring.Delete(keyringServiceLegacy, keyringAccount)
 	return nil
 }

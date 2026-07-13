@@ -3,7 +3,7 @@ package collect
 import (
 	"testing"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
 )
 
 func TestParsePSOutput(t *testing.T) {

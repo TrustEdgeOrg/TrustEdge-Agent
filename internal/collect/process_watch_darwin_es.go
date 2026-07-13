@@ -89,7 +89,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
 )
 
 type darwinProcessWatcher struct {

@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/codec"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/codec"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 )
 
 var ErrUnauthorized = errors.New("unauthorized")

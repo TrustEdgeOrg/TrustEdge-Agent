@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/api"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/api"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 )
 
 func (a *Agent) ensureRegistered(ctx context.Context) error {

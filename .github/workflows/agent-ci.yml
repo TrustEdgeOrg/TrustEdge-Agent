@@ -19,21 +19,21 @@ jobs:
             os: ubuntu-latest
             goos: linux
             goarch: amd64
-            bin: trusttwin
+            bin: trustedge-agent
             cgo: "0"
             tags: ""
           - name: macos-arm64
             os: macos-latest
             goos: darwin
             goarch: arm64
-            bin: trusttwin
+            bin: trustedge-agent
             cgo: "1"
             tags: ""
           - name: windows-amd64
             os: windows-latest
             goos: windows
             goarch: amd64
-            bin: trusttwin.exe
+            bin: trustedge-agent.exe
             cgo: "1"
             tags: ""
 
@@ -56,11 +56,11 @@ jobs:
           CGO_ENABLED: ${{ matrix.cgo }}
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-        run: go build -tags "${{ matrix.tags }}" -buildvcs=false -o ${{ matrix.bin }} ./cmd/trusttwin
+        run: go build -tags "${{ matrix.tags }}" -buildvcs=false -o ${{ matrix.bin }} ./cmd/trustedge-agent
 
       - name: Upload agent binary
         uses: actions/upload-artifact@v4
         with:
-          name: trusttwin-${{ matrix.name }}
+          name: trustedge-agent-${{ matrix.name }}
           path: ${{ matrix.bin }}
           if-no-files-found: error
