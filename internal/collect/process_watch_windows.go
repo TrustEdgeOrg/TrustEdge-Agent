@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
 	"github.com/bi-zone/etw"
 	"golang.org/x/sys/windows"
 )

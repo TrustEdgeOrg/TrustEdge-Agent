@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/config"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/server"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/store"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/config"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/server"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/store"
 )
 
 func main() {

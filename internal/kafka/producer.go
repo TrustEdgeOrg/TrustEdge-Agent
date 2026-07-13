@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 	kafkago "github.com/segmentio/kafka-go"
 )
 

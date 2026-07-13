@@ -1,6 +1,6 @@
 package api
 
-import "github.com/TrustEdgeOrg/TrustTwin/internal/models"
+import "github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 
 // EventClient posts registration and telemetry to the TrustTwin API.
 type EventClient interface {

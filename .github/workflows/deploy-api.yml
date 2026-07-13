@@ -45,11 +45,11 @@ jobs:
             echo "::error::Missing AWS_ROLE_ARN"
             echo ""
             echo "GitHub Free orgs do NOT inject organization secrets into private repos (value is silently empty)."
-            echo "Fix: TrustTwin → Settings → Secrets and variables → Actions → Repository secrets"
+            echo "Fix: TrustEdge-Agent → Settings → Secrets and variables → Actions → Repository secrets"
             echo "  Name:  AWS_ROLE_ARN"
             echo "  Value: arn:aws:iam::804012660077:role/GitHubActionsDeployRole"
             echo ""
-            echo "Also add EC2_HOST and EC2_SSH_KEY as repository secrets on TrustTwin."
+            echo "Also add EC2_HOST and EC2_SSH_KEY as repository secrets on TrustEdge-Agent."
             echo "If you used Organization variables instead of Secrets, move them to Actions → Secrets."
             exit 1
           fi
@@ -103,7 +103,7 @@ jobs:
           [ "${{ secrets.EC2_SSH_KEY == '' }}" = "true" ] && missing+=("EC2_SSH_KEY")
           if [ "${#missing[@]}" -gt 0 ]; then
             echo "::error::Missing GitHub Actions secrets: ${missing[*]}"
-            echo "On GitHub Free, use TrustTwin repository secrets (not org secrets) for private repos."
+            echo "On GitHub Free, use TrustEdge-Agent repository secrets (not org secrets) for private repos."
             exit 1
           fi
           echo "Deploy secrets present."

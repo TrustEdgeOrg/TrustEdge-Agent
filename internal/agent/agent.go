@@ -5,12 +5,12 @@ import (
 	"log"
 	"time"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/api"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/collect"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/config"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/credentials"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/api"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/config"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/credentials"
 )
 
 // Dependencies are injected into the agent at composition root.

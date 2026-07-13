@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 )
 
 func NetworkSummary() models.NetworkSummary {

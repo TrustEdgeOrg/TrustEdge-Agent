@@ -46,7 +46,7 @@ Production API uses **Redis + Kafka** only (no `devices.json` / `events.jsonl` o
 Point the agent at your EC2 ingest API:
 
 ```bash
-cd ~/Desktop/TrustTwin
+cd ~/Desktop/TrustEdge-Agent
 export TRUSTEDGE_AGENT_API_URL=http://YOUR_EC2_HOST:8080
 export TRUSTEDGE_AGENT_ENROLL_TOKEN=<from /etc/trustedge/agent-enroll.token on EC2>
 go run ./cmd/trustedge-agent
@@ -108,15 +108,15 @@ One-time setup: [aws/README.md](aws/README.md) (`AWS_ROLE_ARN`, OIDC trust polic
 
 ```text
 ~/Desktop/TrustEdge
-~/Desktop/TrustTwin
+~/Desktop/TrustEdge-Agent
 ```
 
 ```bash
 cd TrustEdge && ./scripts/dev-up.sh
-cd ../TrustTwin && TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
+cd ../TrustEdge-Agent && TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
 ```
 
-Compose builds the API from `../TrustTwin` and uses a Docker volume for API state (not repo `data/`).
+Compose builds the API from `../TrustEdge-Agent` and uses a Docker volume for API state (not repo `data/`).
 
 ## Project layout
 

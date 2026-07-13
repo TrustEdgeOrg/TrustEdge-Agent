@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/codec"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/config"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/store"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/codec"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/config"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/store"
 )
 
 type Server struct {

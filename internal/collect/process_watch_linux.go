@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"log"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
 	"golang.org/x/sys/unix"
 )
 

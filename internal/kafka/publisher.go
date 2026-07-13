@@ -1,6 +1,6 @@
 package kafka
 
-import "github.com/TrustEdgeOrg/TrustTwin/internal/models"
+import "github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 
 // Publisher publishes ingested events to Kafka. Implementations must be nil-safe.
 type Publisher interface {

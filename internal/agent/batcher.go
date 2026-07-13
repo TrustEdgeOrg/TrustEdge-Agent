@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 )
 
 // EventBatcher collects telemetry and flushes batches to the API.

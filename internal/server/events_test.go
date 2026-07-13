@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/codec"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/codec"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 )
 
 func TestDecodeEventsSingle(t *testing.T) {

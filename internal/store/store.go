@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/kafka"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/idgen"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/kafka"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/idgen"
 )
 
 type deviceRecord struct {

@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
 )
 
 func TestProcEventChangeExec(t *testing.T) {

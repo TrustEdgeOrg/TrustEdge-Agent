@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pull trustedge-agent-api from ECR and (re)start it via TrustEdge docker-compose on EC2.
-# Invoked by TrustTwin GitHub Actions after push to ECR.
+# Invoked by TrustEdge-Agent GitHub Actions after push to ECR.
 set -euo pipefail
 
 TRUSTEDGE_DIR="${TRUSTEDGE_DIR:-$HOME/trustedge}"

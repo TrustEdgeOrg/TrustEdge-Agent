@@ -1,6 +1,6 @@
 package store
 
-import "github.com/TrustEdgeOrg/TrustTwin/internal/models"
+import "github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 
 // EventStore persists device registration and telemetry events.
 type EventStore interface {

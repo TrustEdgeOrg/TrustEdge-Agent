@@ -8,7 +8,7 @@ Workflows use `${{ secrets.NAME }}`. **Repository secrets** always work. **Organ
 
 ### TrustEdge Agent (required — repository secrets)
 
-**TrustEdgeOrg/TrustTwin → Settings → Secrets and variables → Actions → Repository secrets** (not Organization secrets):
+**TrustEdgeOrg/TrustEdge-Agent → Settings → Secrets and variables → Actions → Repository secrets** (not Organization secrets):
 
 | Secret | Value |
 |--------|--------|
@@ -30,7 +30,7 @@ From the **TrustEdge** repo (with AWS admin credentials):
 bash aws/update-github-actions-trust-policy.sh
 ```
 
-This allows `TrustEdgeOrg/TrustTwin` to assume `GitHubActionsDeployRole` for ECR push.
+This allows `TrustEdgeOrg/TrustEdge-Agent` to assume `GitHubActionsDeployRole` for ECR push.
 
 ## EC2 prerequisites
 

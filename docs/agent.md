@@ -28,7 +28,7 @@ When the watcher is unavailable, the agent falls back to poll-only process monit
 ### From source
 
 ```bash
-cd TrustTwin
+cd TrustEdge-Agent
 make build          # → bin/trustedge-agent
 ```
 
@@ -149,8 +149,8 @@ If the API returns `401 Unauthorized` on a telemetry upload, the agent:
 cd ~/Desktop/TrustEdge && ./scripts/dev-up.sh
 
 # Terminal 2 — agent
-cd ~/Desktop/TrustTwin
+cd ~/Desktop/TrustEdge-Agent
 TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
 ```
 
-TrustEdge `docker-compose.yml` can build the API from `../TrustTwin` for integrated local testing.
+TrustEdge `docker-compose.yml` can build the API from `../TrustEdge-Agent` for integrated local testing.

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 	"github.com/alicebob/miniredis/v2"
 )
 

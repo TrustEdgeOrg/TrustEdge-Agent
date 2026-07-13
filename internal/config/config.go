@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
 )
 
 const AgentVersion = "0.1.0"
