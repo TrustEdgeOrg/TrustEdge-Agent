@@ -20,7 +20,7 @@ flowchart LR
 
     subgraph AG ["TrustEdge Agent"]
         direction LR
-        COL["Collect"] --> BAT["Batch"] --> SND["Send"]
+        COL["Collect"] --> BAT["Batch"] --> ZIP["Compress"] --> SND["Send"]
     end
 
     subgraph CL ["TrustEdge Cloud"]
@@ -29,15 +29,17 @@ flowchart LR
     end
 
     DEV --> COL
-    SND -->|HTTPS| API
+    SND -->|HTTPS + zstd| API
 
     classDef endpoint fill:#F8FAFC,stroke:#475569,stroke-width:2px,color:#0F172A
     classDef agent fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
     classDef cloud fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
     classDef stream fill:#FEF9C3,stroke:#CA8A04,stroke-width:2px,color:#713F12
+    classDef compress fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
 
     class DEV endpoint
     class COL,BAT,SND agent
+    class ZIP compress
     class API,DET cloud
     class KFK stream
 ```
@@ -46,8 +48,9 @@ flowchart LR
 |-------|-------------|
 | **Collect** | Four collectors gather device, network, user activity, and process telemetry from the OS |
 | **Batch** | Events are held in memory and grouped together (up to 32 events or every 2 seconds) |
+| **Compress** | JSON batches are optionally compressed with zstd when smaller than raw JSON |
 | **Send** | The agent uploads the batch to the ingest API over HTTPS |
-| **Ingest** | The API validates each event and accepts the batch |
+| **Ingest** | The API decompresses if needed, validates each event, and accepts the batch |
 | **Kafka** | Events are published to the event stream |
 | **Detection** | TrustEdge applies rules and raises alerts |
 

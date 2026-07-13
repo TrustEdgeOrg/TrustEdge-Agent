@@ -20,20 +20,24 @@ flowchart TB
     end
 
     BAT["Event Batcher"]
+    ZIP["zstd Compress"]
     API["Ingest API"]
 
     D1 --> BAT
     D2 --> BAT
     D3 --> BAT
     D4 --> BAT
-    BAT -->|Batch upload| API
+    BAT --> ZIP
+    ZIP -->|HTTPS upload| API
 
     classDef source fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
     classDef batch fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef compress fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
     classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
 
     class D1,D2,D3,D4 source
     class BAT batch
+    class ZIP compress
     class API api
 ```
 
