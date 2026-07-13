@@ -28,6 +28,10 @@ type Event struct {
 	Payload  map[string]any `json:"payload"`
 }
 
+type EventBatch struct {
+	Events []Event `json:"events"`
+}
+
 type ClientDetails struct {
 	Hostname     string `json:"hostname"`
 	OS           string `json:"os"`

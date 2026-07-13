@@ -5,6 +5,8 @@ const (
 	TypeClientDetails  = "client_details"
 	TypeNetworkSummary = "network_summary"
 	TypeActionSummary  = "action_summary"
+	TypeProcessStart   = "process_start"
+	TypeProcessExit    = "process_exit"
 )
 
 // action_summary.presence values.

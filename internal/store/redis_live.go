@@ -59,6 +59,61 @@ func (r *redisLive) Close() error {
 
 func latestKey(deviceID string) string { return fmt.Sprintf(constants.RedisLatestKeyFmt, deviceID) }
 func eventsKey(deviceID string) string { return fmt.Sprintf(constants.RedisEventsKeyFmt, deviceID) }
+func deviceAuthKey(deviceID string) string {
+	return fmt.Sprintf("twin:device:%s:auth", deviceID)
+}
+
+func (r *redisLive) SaveDeviceAuth(rec *deviceRecord) error {
+	if r == nil || rec == nil || rec.DeviceID == "" {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	data, err := json.Marshal(rec)
+	if err != nil {
+		return err
+	}
+	pipe := r.client.Pipeline()
+	pipe.Set(ctx, deviceAuthKey(rec.DeviceID), data, 0)
+	if rec.DeviceToken != "" {
+		pipe.HSet(ctx, constants.RedisDeviceTokensKey, rec.DeviceToken, rec.DeviceID)
+	}
+	_, err = pipe.Exec(ctx)
+	return err
+}
+
+func (r *redisLive) LoadDeviceAuth() ([]*deviceRecord, error) {
+	if r == nil {
+		return nil, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	tokenMap, err := r.client.HGetAll(ctx, constants.RedisDeviceTokensKey).Result()
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]struct{}{}
+	var records []*deviceRecord
+	for _, deviceID := range tokenMap {
+		if deviceID == "" {
+			continue
+		}
+		if _, ok := seen[deviceID]; ok {
+			continue
+		}
+		seen[deviceID] = struct{}{}
+		raw, err := r.client.Get(ctx, deviceAuthKey(deviceID)).Bytes()
+		if err != nil || len(raw) == 0 {
+			continue
+		}
+		var rec deviceRecord
+		if err := json.Unmarshal(raw, &rec); err != nil {
+			continue
+		}
+		records = append(records, &rec)
+	}
+	return records, nil
+}
 
 func (r *redisLive) loadLatest(ctx context.Context, deviceID string) DeviceLatest {
 	raw, err := r.client.Get(ctx, latestKey(deviceID)).Bytes()

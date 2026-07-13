@@ -7,11 +7,6 @@ import (
 	"strings"
 )
 
-type ForegroundInfo struct {
-	BundleID string
-	Name     string
-}
-
 func foregroundApp() *ForegroundInfo {
 	if app := fromLSAppInfo(); app != nil {
 		return app

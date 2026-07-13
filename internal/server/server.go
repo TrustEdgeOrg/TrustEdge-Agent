@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
+	"github.com/TrustEdgeOrg/TrustTwin/internal/codec"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/config"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
@@ -82,42 +83,86 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, constants.ErrUnauthorized, http.StatusUnauthorized)
 		return
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	body, err := readRequestBody(r)
 	if err != nil {
 		http.Error(w, constants.ErrBadRequest, http.StatusBadRequest)
 		return
 	}
-	var ev models.Event
-	if err := json.Unmarshal(body, &ev); err != nil {
+	events, err := decodeEvents(body)
+	if err != nil {
 		http.Error(w, constants.ErrInvalidJSON, http.StatusBadRequest)
 		return
 	}
-	if ev.DeviceID == "" {
-		ev.DeviceID = deviceID
-	}
-	if ev.DeviceID != deviceID {
-		http.Error(w, constants.ErrDeviceIDMismatch, http.StatusForbidden)
+	if len(events) == 0 {
+		http.Error(w, constants.ErrBadRequest, http.StatusBadRequest)
 		return
 	}
-	switch ev.Type {
-	case constants.TypeClientDetails, constants.TypeNetworkSummary, constants.TypeActionSummary:
-	default:
-		http.Error(w, constants.ErrUnknownEventType, http.StatusBadRequest)
+	if len(events) > constants.MaxEventsPerBatch {
+		http.Error(w, constants.ErrBatchTooLarge, http.StatusBadRequest)
 		return
 	}
-	if ev.TS.IsZero() {
-		ev.TS = s.clock.Now()
+
+	accepted := 0
+	for i := range events {
+		ev := events[i]
+		if ev.DeviceID == "" {
+			ev.DeviceID = deviceID
+		}
+		if ev.DeviceID != deviceID {
+			http.Error(w, constants.ErrDeviceIDMismatch, http.StatusForbidden)
+			return
+		}
+		switch ev.Type {
+		case constants.TypeClientDetails, constants.TypeNetworkSummary, constants.TypeActionSummary,
+			constants.TypeProcessStart, constants.TypeProcessExit:
+		default:
+			http.Error(w, constants.ErrUnknownEventType, http.StatusBadRequest)
+			return
+		}
+		if ev.TS.IsZero() {
+			ev.TS = s.clock.Now()
+		}
+		if ev.EventID == "" {
+			ev.EventID = s.clock.NewEventID(ev.TS)
+		}
+		if err := s.store.AddEvent(ev); err != nil {
+			s.log.Printf("event: %v", err)
+			http.Error(w, constants.ErrInternal, http.StatusInternalServerError)
+			return
+		}
+		accepted++
+		s.log.Printf("event %s type=%s device=%s", ev.EventID, ev.Type, ev.DeviceID)
 	}
-	if ev.EventID == "" {
-		ev.EventID = s.clock.NewEventID(ev.TS)
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"status":   constants.StatusAccepted,
+		"accepted": accepted,
+	})
+}
+
+func decodeEvents(body []byte) ([]models.Event, error) {
+	var batch models.EventBatch
+	if err := json.Unmarshal(body, &batch); err == nil && len(batch.Events) > 0 {
+		return batch.Events, nil
 	}
-	if err := s.store.AddEvent(ev); err != nil {
-		s.log.Printf("event: %v", err)
-		http.Error(w, constants.ErrInternal, http.StatusInternalServerError)
-		return
+	var single models.Event
+	if err := json.Unmarshal(body, &single); err != nil {
+		return nil, err
 	}
-	s.log.Printf("event %s type=%s device=%s", ev.EventID, ev.Type, ev.DeviceID)
-	writeJSON(w, http.StatusAccepted, map[string]string{"status": constants.StatusAccepted})
+	if single.Type == "" {
+		return nil, json.Unmarshal(body, &batch) // surface batch error if any
+	}
+	return []models.Event{single}, nil
+}
+
+func readRequestBody(r *http.Request) ([]byte, error) {
+	raw, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	if !codec.IsZstd(r.Header.Get("Content-Encoding")) {
+		return raw, nil
+	}
+	return codec.Decompress(raw)
 }
 
 func (s *Server) handleGetClient(w http.ResponseWriter, r *http.Request) {

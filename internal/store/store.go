@@ -10,8 +10,9 @@ import (
 
 	"github.com/TrustEdgeOrg/TrustTwin/internal/clock"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/constants"
+	"github.com/TrustEdgeOrg/TrustTwin/internal/kafka"
 	"github.com/TrustEdgeOrg/TrustTwin/internal/models"
-	"github.com/TrustEdgeOrg/TrustTwin/internal/state"
+	"github.com/TrustEdgeOrg/TrustTwin/internal/idgen"
 )
 
 type deviceRecord struct {
@@ -22,22 +23,29 @@ type deviceRecord struct {
 }
 
 type Store struct {
-	mu        sync.RWMutex
-	clock     clock.Clock
-	dataDir   string
-	maxEvents int
-	devices   map[string]*deviceRecord
-	tokens    map[string]string
-	events    map[string][]models.Event
-	live      *redisLive
+	mu           sync.RWMutex
+	clock        clock.Clock
+	dataDir      string
+	maxEvents    int
+	disableDisk  bool
+	devices      map[string]*deviceRecord
+	tokens       map[string]string
+	events       map[string][]models.Event
+	live         *redisLive
+	publisher    kafka.Publisher
 }
 
 type Options struct {
-	Clock     clock.Clock
-	DataDir   string
-	MaxEvents int
-	RedisURL  string
-	Logger    *log.Logger
+	Clock        clock.Clock
+	DataDir      string
+	MaxEvents    int
+	// DisableDiskPersistence skips devices.json and events.jsonl (default: write to disk).
+	DisableDiskPersistence bool
+	RedisURL     string
+	KafkaBrokers string
+	KafkaTopic   string
+	Logger       *log.Logger
+	Publisher    kafka.Publisher
 }
 
 func New(dataDir string, maxEvents int) (*Store, error) {
@@ -52,23 +60,42 @@ func NewWithOptions(opts Options) (*Store, error) {
 		opts.Clock = clock.Real{}
 	}
 	s := &Store{
-		clock:     opts.Clock,
-		dataDir:   opts.DataDir,
-		maxEvents: opts.MaxEvents,
-		devices:   map[string]*deviceRecord{},
-		tokens:    map[string]string{},
-		events:    map[string][]models.Event{},
+		clock:        opts.Clock,
+		dataDir:      opts.DataDir,
+		maxEvents:    opts.MaxEvents,
+		disableDisk:  opts.DisableDiskPersistence,
+		devices:      map[string]*deviceRecord{},
+		tokens:       map[string]string{},
+		events:       map[string][]models.Event{},
 	}
-	if err := os.MkdirAll(opts.DataDir, 0o755); err != nil {
-		return nil, err
+	if !s.disableDisk {
+		if err := os.MkdirAll(opts.DataDir, 0o755); err != nil {
+			return nil, err
+		}
+		if err := s.load(); err != nil {
+			return nil, err
+		}
 	}
-	_ = s.load()
 	if opts.RedisURL != "" {
 		live, err := newRedisLive(opts.RedisURL, opts.MaxEvents, opts.Logger, opts.Clock)
 		if err != nil {
 			return nil, err
 		}
 		s.live = live
+		if s.disableDisk {
+			if err := s.loadFromRedis(); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if opts.Publisher != nil {
+		s.publisher = opts.Publisher
+	} else if opts.KafkaBrokers != "" {
+		pub, err := kafka.NewProducer(opts.KafkaBrokers, opts.KafkaTopic, opts.Logger)
+		if err != nil {
+			return nil, err
+		}
+		s.publisher = pub
 	}
 	return s, nil
 }
@@ -77,11 +104,21 @@ func (s *Store) RedisEnabled() bool {
 	return s.live != nil
 }
 
+func (s *Store) KafkaEnabled() bool {
+	return s.publisher != nil
+}
+
 func (s *Store) Close() error {
+	var err error
 	if s.live != nil {
-		return s.live.Close()
+		err = s.live.Close()
 	}
-	return nil
+	if s.publisher != nil {
+		if closeErr := s.publisher.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}
+	return err
 }
 
 func (s *Store) load() error {
@@ -129,6 +166,26 @@ func (s *Store) load() error {
 	return nil
 }
 
+func (s *Store) loadFromRedis() error {
+	if s.live == nil {
+		return nil
+	}
+	records, err := s.live.LoadDeviceAuth()
+	if err != nil {
+		return err
+	}
+	for _, rec := range records {
+		if rec == nil || rec.DeviceID == "" {
+			continue
+		}
+		s.devices[rec.DeviceID] = rec
+		if rec.DeviceToken != "" {
+			s.tokens[rec.DeviceToken] = rec.DeviceID
+		}
+	}
+	return nil
+}
+
 func splitLines(b []byte) [][]byte {
 	var lines [][]byte
 	start := 0
@@ -145,6 +202,9 @@ func splitLines(b []byte) [][]byte {
 }
 
 func (s *Store) persistDevices() error {
+	if s.disableDisk {
+		return nil
+	}
 	list := make([]*deviceRecord, 0, len(s.devices))
 	for _, d := range s.devices {
 		list = append(list, d)
@@ -157,6 +217,9 @@ func (s *Store) persistDevices() error {
 }
 
 func (s *Store) appendEvent(ev models.Event) error {
+	if s.disableDisk {
+		return nil
+	}
 	f, err := os.OpenFile(filepath.Join(s.dataDir, "events.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
@@ -176,7 +239,7 @@ func (s *Store) Register(req models.RegisterRequest) (*models.RegisterResponse, 
 
 	deviceID := req.DeviceID
 	if deviceID == "" {
-		deviceID = "dev_" + state.NewToken()[4:20]
+		deviceID = idgen.NewDeviceID()
 	}
 	rec, ok := s.devices[deviceID]
 	if !ok {
@@ -184,7 +247,7 @@ func (s *Store) Register(req models.RegisterRequest) (*models.RegisterResponse, 
 		s.devices[deviceID] = rec
 	}
 	if rec.DeviceToken == "" {
-		rec.DeviceToken = state.NewToken()
+		rec.DeviceToken = idgen.NewToken()
 		s.tokens[rec.DeviceToken] = deviceID
 	}
 	now := s.clock.Now()
@@ -212,6 +275,11 @@ func (s *Store) Register(req models.RegisterRequest) (*models.RegisterResponse, 
 	}
 	if s.live != nil {
 		s.live.UpsertRegister(deviceID, rec.LastDetails, now)
+		if s.disableDisk {
+			if err := s.live.SaveDeviceAuth(rec); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return &models.RegisterResponse{DeviceID: deviceID, DeviceToken: rec.DeviceToken}, nil
 }
@@ -254,6 +322,14 @@ func (s *Store) AddEvent(ev models.Event) error {
 	}
 	if s.live != nil {
 		s.live.UpsertEvent(ev)
+		if s.disableDisk {
+			if err := s.live.SaveDeviceAuth(rec); err != nil {
+				return err
+			}
+		}
+	}
+	if s.publisher != nil {
+		s.publisher.PublishEvent(ev)
 	}
 	return nil
 }

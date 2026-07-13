@@ -1,5 +1,7 @@
 # TrustTwin API
 
+Ingest API for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) security observability platform. Agents POST endpoint telemetry; production mode mirrors to Redis and publishes to Kafka for detection.
+
 Base URL example: `http://127.0.0.1:8080`
 
 ## Event envelope
@@ -10,7 +12,7 @@ All telemetry uses one envelope:
 {
   "event_id": "evt_...",
   "device_id": "dev_...",
-  "type": "client_details | network_summary | action_summary",
+  "type": "client_details | network_summary | action_summary | process_start | process_exit",
   "ts": "2026-07-03T21:00:00Z",
   "payload": {}
 }
@@ -105,6 +107,18 @@ Short-window behavior (no daily rollup in v1).
 | `presence` | `active` or `idle` |
 | `idle_sec` | Seconds since last input |
 | `app_switches` | Focus changes in window |
+
+### `process_start` / `process_exit`
+
+EDR-lite process visibility (metadata only).
+
+| Field | Description |
+|---|---|
+| `pid` | Process ID |
+| `ppid` | Parent process ID |
+| `user` | Owning user |
+| `comm` | Short process name |
+| `executable` | Binary path or comm |
 
 ## Privacy
 
