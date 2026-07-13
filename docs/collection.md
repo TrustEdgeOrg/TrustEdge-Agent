@@ -9,23 +9,32 @@ The agent watches your device in four areas, batches what it finds, and sends it
 See [High-level flow](architecture.md#high-level-flow) for the full path from device to detection.
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
 flowchart TB
-    subgraph WATCH ["What the agent watches"]
+    subgraph SRC ["Data Sources"]
         direction LR
-        D["Device info<br/>OS, hostname, uptime"]
-        N["Network<br/>IP, connections"]
-        A["User activity<br/>apps in focus, idle time"]
-        P["Processes<br/>starts and exits"]
+        D1["Device Info"]
+        D2["Network"]
+        D3["User Activity"]
+        D4["Processes"]
     end
 
-    BATCH["Batch events together<br/>up to 32 events, or every 2 seconds"]
-    SEND["Send to TrustEdge API<br/>one HTTPS request per batch"]
+    BAT["Event Batcher"]
+    API["Ingest API"]
 
-    D --> BATCH
-    N --> BATCH
-    A --> BATCH
-    P --> BATCH
-    BATCH --> SEND
+    D1 --> BAT
+    D2 --> BAT
+    D3 --> BAT
+    D4 --> BAT
+    BAT -->|Batch upload| API
+
+    classDef source fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
+    classDef batch fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+
+    class D1,D2,D3,D4 source
+    class BAT batch
+    class API api
 ```
 
 **Key properties:**
@@ -138,14 +147,23 @@ Four goroutines produce telemetry. All share the same `enqueue` callback.
 **Two layers run in parallel:**
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
 flowchart TB
-    RT["Real-time notifications<br/>OS reports process started or exited"]
-    POLL["Periodic scan every 10 seconds<br/>catches anything missed"]
-    DEDUP["Skip duplicate events"]
-    OUT["Add to batch"]
+    RT["Real-time OS notifications"]
+    POLL["Periodic scan"]
+    DEDUP["Deduplication"]
+    OUT["Event batch"]
 
     RT --> DEDUP --> OUT
     POLL --> OUT
+
+    classDef rt fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
+    classDef dedup fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef out fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+
+    class RT,POLL rt
+    class DEDUP dedup
+    class OUT out
 ```
 
 #### Event-driven path

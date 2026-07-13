@@ -9,12 +9,18 @@ TrustEdge Agent runs on laptops, workstations, and servers. It collects device p
 ## How it fits in TrustEdge
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
 flowchart LR
-    AGENT["TrustEdge Agent<br/>runs on your devices"]
-    API["TrustEdge-Agent-API<br/>receives events"]
-    TE["TrustEdge<br/>dashboard and detection"]
+    A["TrustEdge Agent"] -->|HTTPS telemetry| B["Ingest API"]
+    B -->|Event stream| C["TrustEdge Platform"]
 
-    AGENT -->|HTTPS| API --> TE
+    classDef agent fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+    classDef platform fill:#DCFCE7,stroke:#16A34A,stroke-width:2px,color:#14532D
+
+    class A agent
+    class B api
+    class C platform
 ```
 
 | Repo | Role |
@@ -26,52 +32,75 @@ flowchart LR
 
 ## How it works
 
-Telemetry moves from the device to detection in six steps:
-
 ```mermaid
-flowchart TB
-    DEVICE["Your endpoint device<br/>laptop, workstation, or server"]
-
-    subgraph AGENT ["TrustEdge Agent — runs on the device"]
-        direction TB
-        S1["① Collect<br/>device, network, activity, processes"]
-        S2["② Batch<br/>group events in memory"]
-        S3["③ Send<br/>upload over HTTPS"]
-        S1 --> S2 --> S3
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
+flowchart LR
+    subgraph EP ["Endpoint"]
+        DEV(["Device"])
     end
 
-    subgraph CLOUD ["TrustEdge cloud"]
-        direction TB
-        S4["④ Ingest API<br/>receive and validate events"]
-        S5["⑤ Kafka<br/>event stream"]
-        S6["⑥ Detection<br/>rules and alerts"]
-        S4 --> S5 --> S6
+    subgraph AG ["TrustEdge Agent"]
+        direction LR
+        COL["Collect"] --> BAT["Batch"] --> SND["Send"]
     end
 
-    DEVICE --> S1
-    S3 --> S4
+    subgraph CL ["TrustEdge Cloud"]
+        direction LR
+        API["Ingest API"] --> KFK[("Kafka")] --> DET["Detection"]
+    end
+
+    DEV --> COL
+    SND -->|HTTPS| API
+
+    classDef endpoint fill:#F8FAFC,stroke:#475569,stroke-width:2px,color:#0F172A
+    classDef agent fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef cloud fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+    classDef stream fill:#FEF9C3,stroke:#CA8A04,stroke-width:2px,color:#713F12
+
+    class DEV endpoint
+    class COL,BAT,SND agent
+    class API,DET cloud
+    class KFK stream
 ```
+
+| Stage | Description |
+|-------|-------------|
+| **Collect** | Gather device, network, activity, and process telemetry from the OS |
+| **Batch** | Buffer events in memory (up to 32 events or every 2 seconds) |
+| **Send** | Upload the batch to the ingest API over HTTPS |
+| **Ingest** | API validates and accepts events |
+| **Kafka** | Events are published to the event stream |
+| **Detection** | TrustEdge applies rules and raises alerts |
 
 ## What the agent watches
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
 flowchart TB
-    subgraph WATCH ["Four areas monitored on each device"]
+    subgraph SRC ["Data Sources"]
         direction LR
-        D["Device info<br/>OS, hostname, uptime"]
-        N["Network<br/>IP, connections"]
-        A["User activity<br/>apps in focus, idle time"]
-        P["Processes<br/>starts and exits"]
+        D1["Device Info"]
+        D2["Network"]
+        D3["User Activity"]
+        D4["Processes"]
     end
 
-    BATCH["Batch events together<br/>up to 32 events, or every 2 seconds"]
-    SEND["Send to TrustEdge API"]
+    BAT["Event Batcher"]
+    API["Ingest API"]
 
-    D --> BATCH
-    N --> BATCH
-    A --> BATCH
-    P --> BATCH
-    BATCH --> SEND
+    D1 --> BAT
+    D2 --> BAT
+    D3 --> BAT
+    D4 --> BAT
+    BAT -->|Batch upload| API
+
+    classDef source fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
+    classDef batch fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+
+    class D1,D2,D3,D4 source
+    class BAT batch
+    class API api
 ```
 
 | Area | What is collected |

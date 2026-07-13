@@ -11,40 +11,45 @@ Events flow to Kafka (`trustedge.agent.events`) for rules-based detection in Tru
 
 ## High-level flow
 
-How telemetry moves from an endpoint to TrustEdge detection — in six steps.
-
 ```mermaid
-flowchart TB
-    DEVICE["Your endpoint device<br/>laptop, workstation, or server"]
-
-    subgraph AGENT ["TrustEdge Agent — runs on the device"]
-        direction TB
-        S1["① Collect<br/>device, network, activity, processes"]
-        S2["② Batch<br/>group events in memory"]
-        S3["③ Send<br/>upload over HTTPS"]
-        S1 --> S2 --> S3
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
+flowchart LR
+    subgraph EP ["Endpoint"]
+        DEV(["Device"])
     end
 
-    subgraph CLOUD ["TrustEdge cloud"]
-        direction TB
-        S4["④ Ingest API<br/>receive and validate events"]
-        S5["⑤ Kafka<br/>event stream"]
-        S6["⑥ Detection<br/>rules and alerts"]
-        S4 --> S5 --> S6
+    subgraph AG ["TrustEdge Agent"]
+        direction LR
+        COL["Collect"] --> BAT["Batch"] --> SND["Send"]
     end
 
-    DEVICE --> S1
-    S3 --> S4
+    subgraph CL ["TrustEdge Cloud"]
+        direction LR
+        API["Ingest API"] --> KFK[("Kafka")] --> DET["Detection"]
+    end
+
+    DEV --> COL
+    SND -->|HTTPS| API
+
+    classDef endpoint fill:#F8FAFC,stroke:#475569,stroke-width:2px,color:#0F172A
+    classDef agent fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef cloud fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+    classDef stream fill:#FEF9C3,stroke:#CA8A04,stroke-width:2px,color:#713F12
+
+    class DEV endpoint
+    class COL,BAT,SND agent
+    class API,DET cloud
+    class KFK stream
 ```
 
-| Step | What happens |
-|------|----------------|
-| **① Collect** | Four collectors gather device, network, user activity, and process telemetry from the OS. |
-| **② Batch** | Events are held in memory and grouped together (up to 32 events or every 2 seconds). |
-| **③ Send** | The agent uploads the batch to the ingest API over HTTPS. |
-| **④ Ingest** | The API validates each event and accepts the batch. |
-| **⑤ Kafka** | Events are published to the event stream. |
-| **⑥ Detection** | TrustEdge applies rules and raises alerts. |
+| Stage | Description |
+|-------|-------------|
+| **Collect** | Four collectors gather device, network, user activity, and process telemetry from the OS |
+| **Batch** | Events are held in memory and grouped together (up to 32 events or every 2 seconds) |
+| **Send** | The agent uploads the batch to the ingest API over HTTPS |
+| **Ingest** | The API validates each event and accepts the batch |
+| **Kafka** | Events are published to the event stream |
+| **Detection** | TrustEdge applies rules and raises alerts |
 
 For collector details, dedup rules, and batch timing, see [Collection and batching](collection.md).
 
@@ -85,14 +90,23 @@ Four goroutines run concurrently inside `Agent.Run()`:
 Process visibility uses two layers:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
 flowchart TB
-    RT["Real-time notifications<br/>OS reports process started or exited"]
-    POLL["Periodic scan every 10 seconds<br/>catches anything missed"]
-    DEDUP["Skip duplicate events"]
-    OUT["Add to batch"]
+    RT["Real-time OS notifications"]
+    POLL["Periodic scan"]
+    DEDUP["Deduplication"]
+    OUT["Event batch"]
 
     RT --> DEDUP --> OUT
     POLL --> OUT
+
+    classDef rt fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
+    classDef dedup fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef out fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+
+    class RT,POLL rt
+    class DEDUP dedup
+    class OUT out
 ```
 
 - **Real-time** — the OS notifies the agent immediately when a process starts or exits (when supported on the platform).
