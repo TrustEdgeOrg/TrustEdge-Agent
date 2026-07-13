@@ -41,7 +41,7 @@ flowchart LR
 
     subgraph AG ["TrustEdge Agent"]
         direction LR
-        COL["Collect"] --> BAT["Batch"] --> SND["Send"]
+        COL["Collect"] --> BAT["Batch"] --> ZIP["Compress"] --> SND["Send"]
     end
 
     subgraph CL ["TrustEdge Cloud"]
@@ -50,15 +50,17 @@ flowchart LR
     end
 
     DEV --> COL
-    SND -->|HTTPS| API
+    SND -->|HTTPS + zstd| API
 
     classDef endpoint fill:#F8FAFC,stroke:#475569,stroke-width:2px,color:#0F172A
     classDef agent fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
     classDef cloud fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
     classDef stream fill:#FEF9C3,stroke:#CA8A04,stroke-width:2px,color:#713F12
+    classDef compress fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
 
     class DEV endpoint
     class COL,BAT,SND agent
+    class ZIP compress
     class API,DET cloud
     class KFK stream
 ```
@@ -67,8 +69,9 @@ flowchart LR
 |-------|-------------|
 | **Collect** | Gather device, network, activity, and process telemetry from the OS |
 | **Batch** | Buffer events in memory (up to 32 events or every 2 seconds) |
+| **Compress** | JSON batches are optionally compressed with zstd when smaller than raw JSON |
 | **Send** | Upload the batch to the ingest API over HTTPS |
-| **Ingest** | API validates and accepts events |
+| **Ingest** | API decompresses if needed, validates, and accepts events |
 | **Kafka** | Events are published to the event stream |
 | **Detection** | TrustEdge applies rules and raises alerts |
 
@@ -86,20 +89,24 @@ flowchart TB
     end
 
     BAT["Event Batcher"]
+    ZIP["zstd Compress"]
     API["Ingest API"]
 
     D1 --> BAT
     D2 --> BAT
     D3 --> BAT
     D4 --> BAT
-    BAT -->|Batch upload| API
+    BAT --> ZIP
+    ZIP -->|HTTPS upload| API
 
     classDef source fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
     classDef batch fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef compress fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
     classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
 
     class D1,D2,D3,D4 source
     class BAT batch
+    class ZIP compress
     class API api
 ```
 
