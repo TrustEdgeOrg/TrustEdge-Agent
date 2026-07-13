@@ -27,7 +27,8 @@ jobs:
             goos: darwin
             goarch: arm64
             bin: trustedge-agent
-            cgo: "1"
+            # Endpoint Security requires entitlements + signed binaries; CI uses poll-only (CGO=0).
+            cgo: "0"
             tags: ""
           - name: windows-amd64
             os: windows-latest
