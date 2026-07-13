@@ -1,108 +1,183 @@
 # TrustEdge Agent
 
-**TrustEdge Agent** is the EDR-lite cross-platform endpoint agent (Go) for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) security observability platform. The agent reports device posture to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) — **no VPN required**.
+A lightweight cross-platform endpoint agent for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) security platform.
 
-Supported platforms: **macOS**, **Linux**, **Windows**.
+TrustEdge Agent runs on laptops, workstations, and servers. It collects device posture — OS info, network activity, user presence, and process lifecycle — and sends it securely to TrustEdge for detection and alerting. **No VPN required.**
 
-| Event type | What it is |
-|---|---|
-| `client_details` | Device identity + online heartbeat |
-| `network_summary` | Coarse network posture (counts, top ports) |
-| `action_summary` | Short-window app focus + idle/active |
-| `process_start` / `process_exit` | EDR-lite process visibility (pid, parent, user, comm) |
+**Platforms:** macOS · Linux · Windows
 
-Part of [TrustEdgeOrg](https://github.com/TrustEdgeOrg). Pairs with [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) (ingest), [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) (dashboard, detection), and [TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient) (optional VPN enroll).
+## How it fits in TrustEdge
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
+flowchart LR
+    A["TrustEdge Agent"] -->|HTTPS telemetry| B["Ingest API"]
+    B -->|Event stream| C["TrustEdge Platform"]
+
+    classDef agent fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+    classDef platform fill:#DCFCE7,stroke:#16A34A,stroke-width:2px,color:#14532D
+
+    class A agent
+    class B api
+    class C platform
+```
+
+| Repo | Role |
+|------|------|
+| **[TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)** (this repo) | Collects endpoint telemetry and uploads it |
+| **[TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)** | Ingest API — validates events, publishes to Kafka |
+| **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | Dashboard, rules engine, alerts |
+| **[TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)** | Optional VPN enroll client |
+
+## How it works
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
+flowchart LR
+    subgraph EP ["Endpoint"]
+        DEV(["Device"])
+    end
+
+    subgraph AG ["TrustEdge Agent"]
+        direction LR
+        COL["Collect"] --> BAT["Batch"] --> SND["Send"]
+    end
+
+    subgraph CL ["TrustEdge Cloud"]
+        direction LR
+        API["Ingest API"] --> KFK[("Kafka")] --> DET["Detection"]
+    end
+
+    DEV --> COL
+    SND -->|HTTPS| API
+
+    classDef endpoint fill:#F8FAFC,stroke:#475569,stroke-width:2px,color:#0F172A
+    classDef agent fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef cloud fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+    classDef stream fill:#FEF9C3,stroke:#CA8A04,stroke-width:2px,color:#713F12
+
+    class DEV endpoint
+    class COL,BAT,SND agent
+    class API,DET cloud
+    class KFK stream
+```
+
+| Stage | Description |
+|-------|-------------|
+| **Collect** | Gather device, network, activity, and process telemetry from the OS |
+| **Batch** | Buffer events in memory (up to 32 events or every 2 seconds) |
+| **Send** | Upload the batch to the ingest API over HTTPS |
+| **Ingest** | API validates and accepts events |
+| **Kafka** | Events are published to the event stream |
+| **Detection** | TrustEdge applies rules and raises alerts |
+
+## What the agent watches
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
+flowchart TB
+    subgraph SRC ["Data Sources"]
+        direction LR
+        D1["Device Info"]
+        D2["Network"]
+        D3["User Activity"]
+        D4["Processes"]
+    end
+
+    BAT["Event Batcher"]
+    API["Ingest API"]
+
+    D1 --> BAT
+    D2 --> BAT
+    D3 --> BAT
+    D4 --> BAT
+    BAT -->|Batch upload| API
+
+    classDef source fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
+    classDef batch fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+
+    class D1,D2,D3,D4 source
+    class BAT batch
+    class API api
+```
+
+| Area | What is collected |
+|------|-------------------|
+| **Device** | Hostname, OS, architecture, agent version, uptime |
+| **Network** | Public IP, connection counts, top remote ports |
+| **User activity** | Foreground app focus, idle/active presence, app switches |
+| **Processes** | Process starts and exits — pid, parent, user, name, executable path |
+
+Details: [Collection and batching](docs/collection.md) · [Architecture](docs/architecture.md)
+
+## Privacy
+
+TrustEdge Agent is designed for **metadata only**. It does **not** collect:
+
+- Window titles or URLs
+- Keystrokes or clipboard contents
+- Screenshots
+- Raw Wi‑Fi SSIDs
+- Full remote IP connection tables
+- Command lines or file contents
+
+Process monitoring can be disabled entirely: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`
+
+## Quick start
+
+```bash
+git clone https://github.com/TrustEdgeOrg/TrustEdge-Agent.git
+cd TrustEdge-Agent
+
+export TRUSTEDGE_AGENT_API_URL=https://your-api-host
+export TRUSTEDGE_AGENT_ENROLL_TOKEN=your-enroll-token
+
+make build
+./bin/trustedge-agent
+```
+
+For local development without building:
+
+```bash
+TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
+```
+
+On first run the agent registers with the API and stores credentials locally (device ID on disk, token in the OS keyring). See [Agent guide](docs/agent.md) for platform paths and permissions.
 
 ## Documentation
 
 | Guide | Description |
 |-------|-------------|
 | [docs/](docs/README.md) | Documentation index |
-| [Architecture](docs/architecture.md) | Telemetry flow, compression, auth |
+| [Architecture](docs/architecture.md) | End-to-end flow, compression, auth |
 | [Collection and batching](docs/collection.md) | Collectors, flush triggers, upload |
-| [Agent](docs/agent.md) | Installation, platforms, collectors |
-| [Configuration](docs/configuration.md) | Environment variables |
-| [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP endpoints (TrustEdge-Agent-API repo) |
+| [Agent](docs/agent.md) | Installation, platforms, credentials |
+| [Configuration](docs/configuration.md) | All environment variables |
+| [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP endpoints and payload schemas |
 
-## Privacy
+## For developers
 
-TrustEdge Agent does **not** collect window titles, URLs, keystrokes, screenshots, raw Wi‑Fi SSIDs, or full remote IP connection lists.
-
-Process monitoring collects **metadata only** (pid, parent pid, user, process name) — not command lines or file contents. Disable with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
-
-## Quick start
-
-Point the agent at your ingest API:
-
-```bash
-cd ~/Desktop/TrustEdge-Agent
-export TRUSTEDGE_AGENT_API_URL=http://YOUR_API_HOST:8080
-export TRUSTEDGE_AGENT_ENROLL_TOKEN=<from server>
-go run ./cmd/trustedge-agent
-```
-
-Or build and run:
-
-```bash
-make build
-./bin/trustedge-agent
-```
-
-**Credentials:**
-
-| OS | Device ID | Device token |
-|----|-----------|--------------|
-| macOS | `~/Library/Application Support/TrustEdge Agent/state.json` | Keychain |
-| Linux | `~/.local/share/TrustEdge Agent/state.json` | Secret Service |
-| Windows | `%APPDATA%\TrustEdge Agent\state.json` | Credential Manager |
-
-## Build
+### Build and test
 
 ```bash
 make build       # → bin/trustedge-agent
-make build-all   # cross-platform agent binaries
+make build-all   # cross-platform binaries
 make test
 ```
 
-## Configuration
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `TRUSTEDGE_AGENT_API_URL` | `http://127.0.0.1:8080` | Ingest API URL |
-| `TRUSTEDGE_AGENT_ENROLL_TOKEN` | _(empty)_ | Required for EC2 when API enforces enroll |
-| `TRUSTEDGE_AGENT_STATE_PATH` | Platform default | Agent device ID file |
-| `TRUSTEDGE_AGENT_DETAILS_INTERVAL` | `60` | `client_details` interval (seconds) |
-| `TRUSTEDGE_AGENT_NETWORK_INTERVAL` | `60` | `network_summary` heartbeat |
-| `TRUSTEDGE_AGENT_ACTION_INTERVAL` | `60` | `action_summary` interval |
-| `TRUSTEDGE_AGENT_PROCESS_INTERVAL` | `10` | Process polling; `0` disables |
-| `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` | `32` | Events per upload batch |
-| `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` | `2` | Max seconds between batch flushes |
-| `TRUSTEDGE_AGENT_PRODUCTION` | `0` | `1` requires HTTPS + enroll token on agent |
-
-Full reference: [docs/configuration.md](docs/configuration.md).
-
-## Authentication
-
-1. **Register** — `POST /v1/register` (+ optional enroll bearer token)
-2. **Telemetry** — `POST /v1/events` with device token (batched, optionally zstd-compressed)
-3. **401 recovery** — agent re-registers once if token rejected
-
-See [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) for server-side ingest, Redis, and Kafka.
-
-## Local dev with TrustEdge stack
-
-```text
-~/Desktop/TrustEdge
-~/Desktop/TrustEdge-Agent
-~/Desktop/TrustEdge-Agent-API
-```
+### Local dev with TrustEdge stack
 
 ```bash
+# Terminal 1 — ingest API
 cd TrustEdge-Agent-API && go run ./cmd/trustedge-agent-api
-cd ../TrustEdge-Agent && TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
+
+# Terminal 2 — agent
+cd TrustEdge-Agent && TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
 ```
 
-## Project layout
+### Project layout
 
 ```text
 cmd/trustedge-agent/     # agent entrypoint
@@ -112,3 +187,5 @@ internal/api/            # HTTP client to ingest API
 internal/codec/          # zstd compression
 docs/                    # documentation
 ```
+
+Part of [TrustEdgeOrg](https://github.com/TrustEdgeOrg).
