@@ -18,7 +18,8 @@ Part of [TrustEdgeOrg](https://github.com/TrustEdgeOrg). Pairs with [TrustEdge-A
 | Guide | Description |
 |-------|-------------|
 | [docs/](docs/README.md) | Documentation index |
-| [Architecture](docs/architecture.md) | Telemetry flow, batching, compression |
+| [Architecture](docs/architecture.md) | Telemetry flow, compression, auth |
+| [Collection and batching](docs/collection.md) | Collectors, flush triggers, upload |
 | [Agent](docs/agent.md) | Installation, platforms, collectors |
 | [Configuration](docs/configuration.md) | Environment variables |
 | [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP endpoints (TrustEdge-Agent-API repo) |

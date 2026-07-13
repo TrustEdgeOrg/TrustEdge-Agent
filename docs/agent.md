@@ -83,7 +83,7 @@ In production mode (`TRUSTEDGE_AGENT_PRODUCTION=1`), tokens are stored in the ke
 | `process_start` | New process: pid, ppid, user, comm, executable path |
 | `process_exit` | Process exit: pid, comm |
 
-See [API reference](api.md) for payload field details.
+See [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) for payload field details. For collection flow, batching, and flush behavior, see [Collection and batching](collection.md).
 
 ## Privacy
 
@@ -126,13 +126,7 @@ Hybrid event-driven + poll model:
 
 ## Batching and upload
 
-Events are not sent individually. The `EventBatcher` buffers them and flushes when:
-
-- Buffer reaches `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` (default 32), or
-- `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` elapses (default 2s), or
-- Agent shuts down
-
-Batches are JSON-marshaled and optionally zstd-compressed before `POST /v1/events`. See [Architecture](architecture.md).
+Events are buffered and flushed in batches before upload. See [Collection and batching](collection.md) for flush triggers, timing examples, and upload details.
 
 ## Auth recovery
 

@@ -1,42 +1,54 @@
 # Architecture
 
-The `trustedge-agent` binary collects endpoint telemetry and POSTs it to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API), which mirrors to Redis and Kafka for the TrustEdge detection engine.
+The `trustedge-agent` binary collects endpoint telemetry and POSTs it to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API), which publishes to Kafka for the TrustEdge detection engine.
 
 | Component | Repo | Role |
 |-----------|------|------|
 | `trustedge-agent` | TrustEdge-Agent | Endpoint agent — collectors, batching, HTTPS upload |
-| `trustedge-agent-api` | TrustEdge-Agent-API | Ingest API — auth, Redis/Kafka |
+| `trustedge-agent-api` | TrustEdge-Agent-API | Ingest API — auth, Kafka |
 
 Events flow to Kafka (`trustedge.agent.events`) for rules-based detection in TrustEdge.
 
-## End-to-end flow
+## High-level flow
+
+How telemetry moves from an endpoint to TrustEdge detection — in six steps.
 
 ```mermaid
-flowchart LR
-    subgraph agent [trustedge-agent agent]
-        C[Collectors]
-        B[EventBatcher]
-        H[HTTP client]
-        C --> B
-        B --> H
+flowchart TB
+    DEVICE["Your endpoint device<br/>laptop, workstation, or server"]
+
+    subgraph AGENT ["TrustEdge Agent — runs on the device"]
+        direction TB
+        S1["① Collect<br/>device, network, activity, processes"]
+        S2["② Batch<br/>group events in memory"]
+        S3["③ Send<br/>upload over HTTPS"]
+        S1 --> S2 --> S3
     end
 
-    subgraph api [trustedge-agent-api]
-        I[POST /v1/events]
-        D[Decompress zstd]
-        S[EventStore]
-        I --> D --> S
+    subgraph CLOUD ["TrustEdge cloud"]
+        direction TB
+        S4["④ Ingest API<br/>receive and validate events"]
+        S5["⑤ Kafka<br/>event stream"]
+        S6["⑥ Detection<br/>rules and alerts"]
+        S4 --> S5 --> S6
     end
 
-    subgraph downstream [Downstream]
-        R[Redis]
-        K[Kafka]
-    end
-
-    H -->|HTTPS + Bearer token| I
-    S --> R
-    S --> K
+    DEVICE --> S1
+    S3 --> S4
 ```
+
+| Step | What happens |
+|------|----------------|
+| **① Collect** | Four collectors gather device, network, user activity, and process telemetry from the OS. |
+| **② Batch** | Events are held in memory and grouped together (up to 32 events or every 2 seconds). |
+| **③ Send** | The agent uploads the batch to the ingest API over HTTPS. |
+| **④ Ingest** | The API validates each event and accepts the batch. |
+| **⑤ Kafka** | Events are published to the event stream. |
+| **⑥ Detection** | TrustEdge applies rules and raises alerts. |
+
+For collector details, dedup rules, and batch timing, see [Collection and batching](collection.md).
+
+## Agent lifecycle
 
 ### Startup
 
@@ -73,30 +85,19 @@ Four goroutines run concurrently inside `Agent.Run()`:
 Process visibility uses two layers:
 
 ```mermaid
-flowchart TD
-    subgraph realtime [Event-driven]
-        L[Linux: netlink PROC connector]
-        W[Windows: ETW kernel process]
-        M[macOS: Endpoint Security]
-    end
+flowchart TB
+    RT["Real-time notifications<br/>OS reports process started or exited"]
+    POLL["Periodic scan every 10 seconds<br/>catches anything missed"]
+    DEDUP["Skip duplicate events"]
+    OUT["Add to batch"]
 
-    subgraph reconcile [Poll reconciliation]
-        P[ProcessMonitor.Poll every ProcessInterval]
-    end
-
-    OBS[Observe dedup]
-    ENQ[enqueue]
-
-    L --> OBS
-    W --> OBS
-    M --> OBS
-    OBS -->|new change| ENQ
-    P --> ENQ
+    RT --> DEDUP --> OUT
+    POLL --> OUT
 ```
 
-- **Event-driven** delivers real-time exec/exit when a platform watcher is available.
-- **Poll** reconciles state periodically and catches anything the watcher missed.
-- `Observe()` deduplicates so the same PID transition is not sent twice.
+- **Real-time** — the OS notifies the agent immediately when a process starts or exits (when supported on the platform).
+- **Periodic scan** — every 10 seconds the agent compares the full process list and catches anything missed.
+- **Dedup** — the same process event is never sent twice.
 
 Disable process monitoring entirely with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
 
@@ -141,7 +142,7 @@ sequenceDiagram
 
 ## API persistence
 
-Ingest persistence (disk, Redis, Kafka) is documented in [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
+Ingest persistence is documented in [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
 ## Project layout
 
