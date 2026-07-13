@@ -1,6 +1,8 @@
 # TrustTwin
 
-**TrustTwin** is the EDR-lite macOS endpoint agent (Go) plus an ingest API for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) security observability platform. The agent reports device posture to your server — **no VPN required**.
+**TrustTwin** is the EDR-lite cross-platform endpoint agent (Go) plus an ingest API for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) security observability platform. The agent reports device posture to your server — **no VPN required**.
+
+Supported platforms: **macOS**, **Linux**, **Windows**.
 
 | Event type | What it is |
 |---|---|
@@ -13,6 +15,17 @@ Part of [TrustEdgeOrg](https://github.com/TrustEdgeOrg). Pairs with [TrustEdge](
 
 Events flow to Redis and Kafka (`trusttwin.events`) for live observability and rules-based detection (process chains, network drift).
 
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [docs/](docs/README.md) | Documentation index |
+| [Architecture](docs/architecture.md) | Telemetry flow, batching, compression |
+| [Agent](docs/agent.md) | Installation, platforms, collectors |
+| [Configuration](docs/configuration.md) | Environment variables |
+| [API reference](docs/api.md) | HTTP endpoints and event payloads |
+| [AWS deploy](aws/README.md) | ECR build and EC2 deploy |
+
 ## Privacy
 
 TrustTwin does **not** collect window titles, URLs, keystrokes, screenshots, raw Wi‑Fi SSIDs, or full remote IP connection lists.
@@ -23,7 +36,7 @@ Process monitoring collects **metadata only** (pid, parent pid, user, process na
 
 | Binary | Role | Where it runs |
 |--------|------|----------------|
-| `trusttwin` | Endpoint agent | Each laptop |
+| `trusttwin` | Endpoint agent | Each laptop / workstation |
 | `trusttwin-api` | Ingest + auth + Redis/Kafka | EC2 Docker (ECR image) |
 
 Production API uses **Redis + Kafka** only (no `devices.json` / `events.jsonl` on disk). Local `./data/` is optional dev fallback when running the API without production mode.
@@ -46,13 +59,19 @@ make build
 ./bin/trusttwin
 ```
 
-Device ID: `~/Library/Application Support/TrustTwin/state.json`  
-Device token: macOS **Keychain** (service `TrustTwin`).
+**Credentials:**
+
+| OS | Device ID | Device token |
+|----|-----------|--------------|
+| macOS | `~/Library/Application Support/TrustTwin/state.json` | Keychain |
+| Linux | `~/.local/share/TrustTwin/state.json` | Secret Service |
+| Windows | `%APPDATA%\TrustTwin\state.json` | Credential Manager |
 
 ## Build
 
 ```bash
-make build    # → bin/trusttwin, bin/trusttwin-api
+make build       # → bin/trusttwin, bin/trusttwin-api
+make build-all   # cross-platform agent binaries
 make test
 ```
 
@@ -62,17 +81,21 @@ make test
 |---|---|---|
 | `TRUSTTWIN_API_URL` | `http://127.0.0.1:8080` | Ingest API URL |
 | `TRUSTTWIN_ENROLL_TOKEN` | _(empty)_ | Required for EC2 when API enforces enroll |
-| `TRUSTTWIN_STATE_PATH` | `~/Library/.../TrustTwin/state.json` | Agent device id file |
+| `TRUSTTWIN_STATE_PATH` | Platform default | Agent device ID file |
 | `TRUSTTWIN_DETAILS_INTERVAL` | `60` | `client_details` interval (seconds) |
 | `TRUSTTWIN_NETWORK_INTERVAL` | `60` | `network_summary` heartbeat |
 | `TRUSTTWIN_ACTION_INTERVAL` | `60` | `action_summary` interval |
 | `TRUSTTWIN_PROCESS_INTERVAL` | `10` | Process polling; `0` disables |
+| `TRUSTTWIN_EVENT_BATCH_SIZE` | `32` | Events per upload batch |
+| `TRUSTTWIN_EVENT_BATCH_FLUSH` | `2` | Max seconds between batch flushes |
 | `TRUSTTWIN_PRODUCTION` | `0` | `1` requires HTTPS + enroll token on agent |
+
+Full reference: [docs/configuration.md](docs/configuration.md).
 
 ## Authentication
 
 1. **Register** — `POST /v1/register` (+ optional enroll bearer token)
-2. **Telemetry** — `POST /v1/events` with device token
+2. **Telemetry** — `POST /v1/events` with device token (batched, optionally zstd-compressed)
 3. **401 recovery** — agent re-registers once if token rejected
 
 ## Deploy trusttwin-api (ECR → EC2)
@@ -95,17 +118,14 @@ cd ../TrustTwin && TRUSTTWIN_API_URL=http://127.0.0.1:8080 go run ./cmd/trusttwi
 
 Compose builds the API from `../TrustTwin` and uses a Docker volume for API state (not repo `data/`).
 
-## API reference
-
-See [docs/api.md](docs/api.md).
-
 ## Project layout
 
 ```text
 cmd/trusttwin/          # agent
 cmd/trusttwin-api/      # ingest API
-internal/collect/       # telemetry collectors
-internal/agent/         # agent runtime
-internal/store/         # API persistence (memory, optional disk, Redis, Kafka)
-docs/api.md
+internal/collect/       # platform telemetry collectors
+internal/agent/         # agent runtime + batcher
+internal/codec/         # zstd compression
+internal/store/         # API persistence (memory, disk, Redis, Kafka)
+docs/                   # documentation
 ```
