@@ -1,8 +1,0 @@
-.git
-.github
-bin
-data
-*.md
-docs
-.env
-.env.*

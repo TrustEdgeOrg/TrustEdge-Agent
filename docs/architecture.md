@@ -1,13 +1,13 @@
 # Architecture
 
-TrustEdge Agent has two binaries:
+The `trustedge-agent` binary collects endpoint telemetry and POSTs it to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API), which mirrors to Redis and Kafka for the TrustEdge detection engine.
 
-| Binary | Role |
-|--------|------|
-| `trustedge-agent` | Endpoint agent — collects telemetry and POSTs to the API |
-| `trustedge-agent-api` | Ingest API — authenticates agents, stores events, mirrors to Redis/Kafka |
+| Component | Repo | Role |
+|-----------|------|------|
+| `trustedge-agent` | TrustEdge-Agent | Endpoint agent — collectors, batching, HTTPS upload |
+| `trustedge-agent-api` | TrustEdge-Agent-API | Ingest API — auth, Redis/Kafka |
 
-Events flow to Redis and Kafka (`trustedge.agent.events`) for live observability and rules-based detection in TrustEdge.
+Events flow to Kafka (`trustedge.agent.events`) for rules-based detection in TrustEdge.
 
 ## End-to-end flow
 
@@ -141,24 +141,17 @@ sequenceDiagram
 
 ## API persistence
 
-| Mode | Storage |
-|------|---------|
-| Dev (default) | In-memory + optional `data/devices.json` and `data/events.jsonl` |
-| Production (`TRUSTEDGE_AGENT_PRODUCTION=1`) | Redis required; disk persistence disabled |
-| Kafka (optional) | Publishes to `KAFKA_TOPIC` (default `trustedge.agent.events`) after ingest |
+Ingest persistence (disk, Redis, Kafka) is documented in [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
 ## Project layout
 
 ```text
 cmd/trustedge-agent/          Agent entrypoint
-cmd/trustedge-agent-api/      API entrypoint
 internal/agent/         Agent runtime, batcher, auth
 internal/api/           HTTP client (register, post events)
 internal/codec/         zstd compress/decompress
 internal/collect/       Platform telemetry collectors
 internal/config/        Env-based configuration
 internal/credentials/   Device ID file + OS keyring token store
-internal/server/        HTTP handlers
-internal/store/         Memory, disk, Redis, Kafka backends
 internal/models/        Event envelopes and payload types
 ```

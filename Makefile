@@ -1,8 +1,7 @@
-.PHONY: build build-all api agent run-api run-agent test fmt docker-image
+.PHONY: build build-all run-agent test fmt
 
 build:
 	mkdir -p bin
-	go build -buildvcs=false -o bin/trustedge-agent-api ./cmd/trustedge-agent-api
 	go build -buildvcs=false -o bin/trustedge-agent ./cmd/trustedge-agent
 
 build-all:
@@ -12,13 +11,8 @@ build-all:
 	GOOS=linux GOARCH=amd64 go build -buildvcs=false -o bin/trustedge-agent-linux-amd64 ./cmd/trustedge-agent
 	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -buildvcs=false -o bin/trustedge-agent-windows-amd64.exe ./cmd/trustedge-agent
 
-api:
-	go run ./cmd/trustedge-agent-api
-
 agent:
 	go run ./cmd/trustedge-agent
-
-run-api: api
 
 run-agent:
 	TRUSTEDGE_AGENT_DETAILS_INTERVAL=30 TRUSTEDGE_AGENT_NETWORK_INTERVAL=30 TRUSTEDGE_AGENT_ACTION_INTERVAL=30 \
@@ -29,6 +23,3 @@ test:
 
 fmt:
 	go fmt ./...
-
-docker-image:
-	docker build -t trustedge-agent-api .
