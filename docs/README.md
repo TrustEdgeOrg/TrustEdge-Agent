@@ -8,6 +8,7 @@ TrustEdge Agent is the EDR-lite cross-platform endpoint agent for the [TrustEdge
 |----------|-------------|
 | [Architecture](architecture.md) | End-to-end telemetry flow, compression, auth, project layout |
 | [Collection and batching](collection.md) | Collectors, batching, flush triggers, upload, concurrency |
+| [Test process cmdline](testing-process-cmdline.md) | Local capture to `events.json`, build and verify `cmdline` |
 | [Agent](agent.md) | Installation, platform support, collectors, credentials |
 | [Configuration](configuration.md) | Environment variables for the agent |
 | [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP endpoints, event types, payloads |

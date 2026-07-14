@@ -10,6 +10,9 @@
 *.out
 
 # Data / runtime
+/data/
+*.db
+events.json
 
 # Stray npm (Go project — no package.json)
 package-lock.json

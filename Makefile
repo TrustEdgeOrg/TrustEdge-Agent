@@ -21,5 +21,8 @@ run-agent:
 test:
 	go test ./...
 
+capture-events:
+	go run ./scripts/capture-events
+
 fmt:
 	go fmt ./...
