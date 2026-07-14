@@ -24,7 +24,7 @@ func main() {
 	if v := os.Getenv("TRUSTEDGE_CAPTURE_OUT"); v != "" {
 		outPath = v
 	}
-	addr := ":8080"
+	addr := ":18080"
 	if v := os.Getenv("TRUSTEDGE_CAPTURE_ADDR"); v != "" {
 		addr = v
 	}

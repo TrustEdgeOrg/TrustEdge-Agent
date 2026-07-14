@@ -10,56 +10,44 @@ This guide captures live agent telemetry into `events.json` so you can verify th
 
 ## 1. Build the agent
 
+Default `make build` uses **`CGO_ENABLED=0`** (poll-only). That avoids the
+`EndpointSecurity` linker error on machines without the full macOS SDK.
+
 ```bash
 cd TrustEdge-Agent
 make build
 # → bin/trustedge-agent
 ```
 
-Or without installing a binary:
+Poll still collects `cmdline` via `ps` on macOS — enough to verify this feature.
+
+Only if you have entitlements / SDK for Endpoint Security:
 
 ```bash
-go build -buildvcs=false -o bin/trustedge-agent ./cmd/trustedge-agent
+make build-cgo
 ```
-
-On macOS CI-style builds use poll-only process monitoring:
-
-```bash
-CGO_ENABLED=0 go build -buildvcs=false -o bin/trustedge-agent ./cmd/trustedge-agent
-```
-
-With CGO enabled (default on macOS), the Endpoint Security watcher may fail without entitlements — the agent then falls back to poll. That is fine for cmdline testing; poll still fills `cmdline` from `ps`.
 
 ## 2. Start the capture server (Terminal 1)
 
+Capture defaults to **`:18080`** so it does not clash with Docker Compose / TrustEdge on `:8080`.
+
 ```bash
 cd TrustEdge-Agent
-go run ./scripts/capture-events
+make capture-events
+# or: go run ./scripts/capture-events
 ```
 
 You should see:
 
 ```text
-capture server listening on http://127.0.0.1:8080
+capture server listening on http://127.0.0.1:18080
 writing events to .../TrustEdge-Agent/events.json
 ```
 
-This writes accepted events to **`events.json`** in the repo root (gitignored).
+If the port is busy:
 
-Example shape (also in [`testdata/events.example.json`](../testdata/events.example.json)):
-
-```json
-{
-  "type": "process_start",
-  "payload": {
-    "pid": 4242,
-    "ppid": 1000,
-    "user": "elad",
-    "comm": "curl",
-    "executable": "/usr/bin/curl",
-    "cmdline": "curl https://example.com"
-  }
-}
+```bash
+TRUSTEDGE_CAPTURE_ADDR=:18081 go run ./scripts/capture-events
 ```
 
 ## 3. Run the agent (Terminal 2)
@@ -69,7 +57,7 @@ Use short intervals so process polls happen quickly:
 ```bash
 cd TrustEdge-Agent
 
-export TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080
+export TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:18080
 export TRUSTEDGE_AGENT_PROCESS_INTERVAL=2
 export TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH=1
 export TRUSTEDGE_AGENT_DETAILS_INTERVAL=30
@@ -83,7 +71,7 @@ Look for log lines like:
 
 ```text
 trustedge-agent: registered device ...
-trustedge-agent: reporting to http://127.0.0.1:8080
+trustedge-agent: reporting to http://127.0.0.1:18080
 trustedge-agent: posted batch (N events)
 ```
 
@@ -95,12 +83,11 @@ curl -sS -o /dev/null https://example.com
 python3 -c 'import time; time.sleep(2)'
 ```
 
-Wait a few seconds for the next process poll / watcher event and batch flush.
+Wait a few seconds for the next process poll and batch flush.
 
 ## 5. Inspect `events.json`
 
 ```bash
-# all process events that include cmdline
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -119,7 +106,7 @@ Or with `jq` if installed:
 jq '[.[] | select(.type|startswith("process_"))] | .[-5:] | .[] | {type, pid: .payload.pid, cmdline: .payload.cmdline}' events.json
 ```
 
-**Success looks like:** a `process_start` whose `payload.cmdline` contains your command (e.g. `curl https://example.com` or `python3 -c ...`).
+**Success looks like:** a `process_start` whose `payload.cmdline` contains your command (e.g. `curl https://example.com`).
 
 ## 6. Reset and re-run
 
@@ -134,15 +121,16 @@ echo '[]' > events.json
 ## Unit tests (no agent run)
 
 ```bash
-CGO_ENABLED=0 go test ./internal/collect/ -count=1
+make test
 ```
 
 ## Troubleshooting
 
 | Symptom | What to check |
 |---------|----------------|
-| No `events.json` growth | Capture server running? Agent `API_URL` correct? |
+| `bind: address already in use` on 8080 | Use default `:18080` (Docker often owns 8080) |
+| `framework 'EndpointSecurity' not found` | Use `make build` (`CGO_ENABLED=0`), not plain CGO `go build` |
+| No `events.json` growth | Capture running? Agent `API_URL` matches port `18080`? |
 | Events but no `process_*` | `PROCESS_INTERVAL` not `0`? Spawn a short-lived process |
-| Process events without `cmdline` | Wrong branch? Rebuild agent; on Linux poll uses `/proc` |
-| macOS ES watcher errors | Expected without entitlements; poll still provides cmdline |
-| Permission / keyring prompts | Local env is fine; use empty enroll token for capture server |
+| Process events without `cmdline` | Rebuild on this branch; macOS poll uses `ps` args |
+| Permission / keyring prompts | Local env is fine; empty enroll token works with capture |
