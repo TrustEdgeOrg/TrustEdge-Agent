@@ -15,7 +15,8 @@ TrustEdge Agent is the EDR-lite cross-platform endpoint agent for the [TrustEdge
 
 ## Quick links
 
-- **Run agent locally:** `TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent`
+- **Run agent (EC2 API default):** `go run ./cmd/trustedge-agent` or `make run-agent`
+- **Run agent against local API:** `make run-agent-local`
 - **Run ingest API locally:** [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) — `go run ./cmd/trustedge-agent-api`
 - **Build all platforms:** `make build-all`
 - **Tests:** `make test`

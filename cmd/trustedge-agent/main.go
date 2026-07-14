@@ -35,6 +35,8 @@ func main() {
 	}
 
 	client := api.New(cfg.APIURL, cfg.EnrollToken, "")
+	client.Compress = cfg.Compress
+	client.Batch = cfg.Batch
 	collector := collect.NewCollector(clk, collect.DefaultProbe{}, config.AgentVersion, cfg.PublicIPLookupURL)
 
 	a := agent.New(agent.Dependencies{

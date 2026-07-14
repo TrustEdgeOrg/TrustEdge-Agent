@@ -20,13 +20,17 @@ type AgentConfig struct {
 	StatePath         string
 	PublicIPLookupURL string
 	Production        bool
-	DetailsInterval   time.Duration
-	NetworkInterval   time.Duration
-	NetworkDebounce   time.Duration
-	ActionInterval    time.Duration
-	ProcessInterval   time.Duration
-	EventBatchSize    int
-	EventBatchFlush   time.Duration
+	// Compress enables optional zstd on /v1/events (default true).
+	Compress bool
+	// Batch enables {"events":[...]} envelopes for multi-event flushes (default true).
+	Batch           bool
+	DetailsInterval time.Duration
+	NetworkInterval time.Duration
+	NetworkDebounce time.Duration
+	ActionInterval  time.Duration
+	ProcessInterval time.Duration
+	EventBatchSize  int
+	EventBatchFlush time.Duration
 }
 
 func (c AgentConfig) Validate() error {
@@ -88,6 +92,14 @@ func envBool(primary, legacy string) bool {
 	default:
 		return false
 	}
+}
+
+// envBoolDefault reads a bool env with an explicit default when unset.
+func envBoolDefault(primary, legacy string, fallback bool) bool {
+	if _, ok := lookupEnv(primary, legacy); !ok {
+		return fallback
+	}
+	return envBool(primary, legacy)
 }
 
 func envInt(primary, legacy string, fallback int) int {
@@ -168,11 +180,13 @@ func resolveStatePath(configured string) string {
 func LoadAgent() AgentConfig {
 	configuredState := env("TRUSTEDGE_AGENT_STATE_PATH", "TRUSTTWIN_STATE_PATH", "")
 	return AgentConfig{
-		APIURL:            strings.TrimRight(env("TRUSTEDGE_AGENT_API_URL", "TRUSTTWIN_API_URL", "http://127.0.0.1:8080"), "/"),
+		APIURL:            strings.TrimRight(env("TRUSTEDGE_AGENT_API_URL", "TRUSTTWIN_API_URL", "http://44.218.45.174:8080"), "/"),
 		EnrollToken:       env("TRUSTEDGE_AGENT_ENROLL_TOKEN", "TRUSTTWIN_ENROLL_TOKEN", ""),
 		StatePath:         resolveStatePath(configuredState),
 		PublicIPLookupURL: loadPublicIPLookupURL(),
 		Production:        envBool("TRUSTEDGE_AGENT_PRODUCTION", "TRUSTTWIN_PRODUCTION"),
+		Compress:          envBoolDefault("TRUSTEDGE_AGENT_COMPRESS", "TRUSTTWIN_COMPRESS", true),
+		Batch:             envBoolDefault("TRUSTEDGE_AGENT_BATCH", "TRUSTTWIN_BATCH", true),
 		DetailsInterval:   envDuration("TRUSTEDGE_AGENT_DETAILS_INTERVAL", "TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),
 		NetworkInterval:   envDuration("TRUSTEDGE_AGENT_NETWORK_INTERVAL", "TRUSTTWIN_NETWORK_INTERVAL", 60*time.Second),
 		NetworkDebounce:   envDuration("TRUSTEDGE_AGENT_NETWORK_DEBOUNCE", "TRUSTTWIN_NETWORK_DEBOUNCE", 2*time.Second),

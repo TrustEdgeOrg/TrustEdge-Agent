@@ -41,15 +41,17 @@ make build-all      # → bin/trustedge-agent-{darwin,linux,windows}-*
 ### Run
 
 ```bash
-export TRUSTEDGE_AGENT_API_URL=http://YOUR_API_HOST:8080
-export TRUSTEDGE_AGENT_ENROLL_TOKEN=<enroll-token>   # required in production
+# Default is the EC2 Agent API (44.218.45.174:8080). Override if needed:
+export TRUSTEDGE_AGENT_API_URL=http://44.218.45.174:8080
+export TRUSTEDGE_AGENT_ENROLL_TOKEN=<from EC2 /etc/trustedge/agent-enroll.token>
 ./bin/trustedge-agent
 ```
 
-Or during development:
+Or against a local ingest API:
 
 ```bash
-TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
+make run-agent-local
+# or: TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
 ```
 
 ## Credentials and state

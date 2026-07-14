@@ -138,17 +138,19 @@ Process events include **command lines** (truncated at 4 KiB). Disable process m
 git clone https://github.com/TrustEdgeOrg/TrustEdge-Agent.git
 cd TrustEdge-Agent
 
-export TRUSTEDGE_AGENT_API_URL=https://your-api-host
+# Default API URL is the EC2 Agent API (http://44.218.45.174:8080).
+# Enroll token is required on EC2 — copy from the host:
+#   ssh ubuntu@44.218.45.174 'sudo cat /etc/trustedge/agent-enroll.token'
 export TRUSTEDGE_AGENT_ENROLL_TOKEN=your-enroll-token
 
 make build
 ./bin/trustedge-agent
 ```
 
-For local development without building:
+Against a local ingest API:
 
 ```bash
-TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
+make run-agent-local
 ```
 
 On first run the agent registers with the API and stores credentials locally (device ID on disk, token in the OS keyring). See [Agent guide](docs/agent.md) for platform paths and permissions.
@@ -174,14 +176,23 @@ make build-all   # cross-platform binaries
 make test
 ```
 
-### Local dev with TrustEdge stack
+### Local ingest API (optional)
 
 ```bash
-# Terminal 1 — ingest API
-cd TrustEdge-Agent-API && go run ./cmd/trustedge-agent-api
+# Terminal 1 — local Agent API
+cd TrustEdge-Agent-API && # start per that repo's README
 
-# Terminal 2 — agent
-cd TrustEdge-Agent && TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
+# Terminal 2 — agent against localhost
+cd TrustEdge-Agent && make run-agent-local
+```
+
+### EC2 Agent API (default)
+
+Ensure the EC2 host (`netgarde-backend` / `44.218.45.174`) is running and `trustedge-agent-api` is up on `:8080`, then:
+
+```bash
+export TRUSTEDGE_AGENT_ENROLL_TOKEN="$(ssh ubuntu@44.218.45.174 'sudo cat /etc/trustedge/agent-enroll.token')"
+make run-agent
 ```
 
 ### Project layout
