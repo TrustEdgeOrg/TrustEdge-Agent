@@ -115,22 +115,22 @@ flowchart TB
 | **Device** | Hostname, OS, architecture, agent version, uptime |
 | **Network** | Public IP, connection counts, top remote ports |
 | **User activity** | Foreground app focus, idle/active presence, app switches |
-| **Processes** | Process starts and exits — pid, parent, user, name, executable path |
+| **Processes** | Process starts and exits — pid, parent, user, name, executable path, command line |
 
 Details: [Collection and batching](docs/collection.md) · [Architecture](docs/architecture.md)
 
 ## Privacy
 
-TrustEdge Agent is designed for **metadata only**. It does **not** collect:
+TrustEdge Agent is designed for **endpoint posture telemetry**. It does **not** collect:
 
 - Window titles or URLs
 - Keystrokes or clipboard contents
 - Screenshots
 - Raw Wi‑Fi SSIDs
 - Full remote IP connection tables
-- Command lines or file contents
+- File contents
 
-Process monitoring can be disabled entirely: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`
+Process events include **command lines** (truncated at 4 KiB). Disable process monitoring with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
 
 ## Quick start
 

@@ -146,16 +146,7 @@ func procEventChange(ev []byte) (ProcessChange, bool) {
 		if !ok {
 			row = processRow{PID: pid, PPID: ppid}
 		}
-		return ProcessChange{
-			Type: constants.TypeProcessExit,
-			Payload: map[string]any{
-				"pid":        row.PID,
-				"ppid":       row.PPID,
-				"user":       row.User,
-				"comm":       row.Comm,
-				"executable": row.Executable,
-			},
-		}, true
+		return ProcessChange{Type: constants.TypeProcessExit, Payload: processPayload(row)}, true
 	default:
 		return ProcessChange{}, false
 	}

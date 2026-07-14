@@ -11,7 +11,45 @@ package collect
 #include <stdlib.h>
 #include <string.h>
 
-extern void trusttwinEsDispatch(int eventType, int pid, int ppid, char *path);
+extern void trusttwinEsDispatch(int eventType, int pid, int ppid, char *path, char *cmdline);
+
+static char *es_join_exec_args(const es_event_exec_t *exec) {
+	if (exec == NULL) {
+		return NULL;
+	}
+	uint32_t n = es_exec_arg_count(exec);
+	if (n == 0) {
+		return NULL;
+	}
+
+	size_t total = 1;
+	for (uint32_t i = 0; i < n; i++) {
+		es_string_token_t arg = es_exec_arg(exec, i);
+		if (arg.data == NULL || arg.length == 0) {
+			continue;
+		}
+		total += (size_t)arg.length + 1;
+	}
+
+	char *out = (char *)malloc(total);
+	if (out == NULL) {
+		return NULL;
+	}
+	size_t pos = 0;
+	for (uint32_t i = 0; i < n; i++) {
+		es_string_token_t arg = es_exec_arg(exec, i);
+		if (arg.data == NULL || arg.length == 0) {
+			continue;
+		}
+		if (pos > 0) {
+			out[pos++] = ' ';
+		}
+		memcpy(out + pos, arg.data, (size_t)arg.length);
+		pos += (size_t)arg.length;
+	}
+	out[pos] = '\0';
+	return out;
+}
 
 static void trusttwin_es_handler(es_client_t *client, const es_message_t *msg) {
 	(void)client;
@@ -22,6 +60,7 @@ static void trusttwin_es_handler(es_client_t *client, const es_message_t *msg) {
 	int pid = 0;
 	int ppid = 0;
 	char *path = NULL;
+	char *cmdline = NULL;
 
 	switch (msg->event_type) {
 	case ES_EVENT_TYPE_NOTIFY_EXEC:
@@ -33,7 +72,8 @@ static void trusttwin_es_handler(es_client_t *client, const es_message_t *msg) {
 				path = strdup(msg->event.exec.target->executable->path.data);
 			}
 		}
-		trusttwinEsDispatch(1, pid, ppid, path);
+		cmdline = es_join_exec_args(&msg->event.exec);
+		trusttwinEsDispatch(1, pid, ppid, path, cmdline);
 		break;
 	case ES_EVENT_TYPE_NOTIFY_EXIT:
 		if (msg->process != NULL) {
@@ -44,7 +84,7 @@ static void trusttwin_es_handler(es_client_t *client, const es_message_t *msg) {
 				path = strdup(msg->process->executable->path.data);
 			}
 		}
-		trusttwinEsDispatch(2, pid, ppid, path);
+		trusttwinEsDispatch(2, pid, ppid, path, NULL);
 		break;
 	default:
 		break;
@@ -52,6 +92,9 @@ static void trusttwin_es_handler(es_client_t *client, const es_message_t *msg) {
 
 	if (path != NULL) {
 		free(path);
+	}
+	if (cmdline != NULL) {
+		free(cmdline);
 	}
 }
 
@@ -149,7 +192,7 @@ func (w *darwinProcessWatcher) run(ctx context.Context, out chan<- ProcessChange
 }
 
 //export trusttwinEsDispatch
-func trusttwinEsDispatch(eventType C.int, pid C.int, ppid C.int, path *C.char) {
+func trusttwinEsDispatch(eventType C.int, pid C.int, ppid C.int, path *C.char, cmdline *C.char) {
 	esMu.Lock()
 	dispatch := esDispatch
 	esMu.Unlock()
@@ -161,12 +204,17 @@ func trusttwinEsDispatch(eventType C.int, pid C.int, ppid C.int, path *C.char) {
 	if path != nil {
 		exe = C.GoString(path)
 	}
+	cmd := ""
+	if cmdline != nil {
+		cmd = truncateCmdline(C.GoString(cmdline))
+	}
 	comm := filepath.Base(exe)
 	row := processRow{
 		PID:        int(pid),
 		PPID:       int(ppid),
 		Comm:       comm,
 		Executable: exe,
+		Cmdline:    cmd,
 	}
 
 	var ch ProcessChange
@@ -174,16 +222,7 @@ func trusttwinEsDispatch(eventType C.int, pid C.int, ppid C.int, path *C.char) {
 	case 1:
 		ch = ProcessChange{Type: constants.TypeProcessStart, Payload: processPayload(row)}
 	case 2:
-		ch = ProcessChange{
-			Type: constants.TypeProcessExit,
-			Payload: map[string]any{
-				"pid":        row.PID,
-				"ppid":       row.PPID,
-				"user":       row.User,
-				"comm":       row.Comm,
-				"executable": row.Executable,
-			},
-		}
+		ch = ProcessChange{Type: constants.TypeProcessExit, Payload: processPayload(row)}
 	default:
 		return
 	}

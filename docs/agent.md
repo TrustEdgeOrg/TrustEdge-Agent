@@ -80,8 +80,8 @@ In production mode (`TRUSTEDGE_AGENT_PRODUCTION=1`), tokens are stored in the ke
 | `client_details` | Device identity, OS, arch, agent version, uptime — online heartbeat |
 | `network_summary` | Coarse network posture: public IP, interface type, socket counts, top remote ports |
 | `action_summary` | Short-window app focus, idle/active presence, app switch count |
-| `process_start` | New process: pid, ppid, user, comm, executable path |
-| `process_exit` | Process exit: pid, comm |
+| `process_start` | New process: pid, ppid, user, comm, executable path, command line |
+| `process_exit` | Process exit: pid, ppid, user, comm, executable path, command line (enriched from start when available) |
 
 See [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) for payload field details. For collection flow, batching, and flush behavior, see [Collection and batching](collection.md).
 
@@ -94,11 +94,9 @@ TrustEdge Agent does **not** collect:
 - Screenshots
 - Raw Wi‑Fi SSIDs
 - Full remote IP connection tables
-- Command lines or file contents
+- File contents
 
-Process monitoring collects **metadata only** (pid, parent pid, user, process name, executable path).
-
-Disable process monitoring with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
+Process monitoring collects process metadata **and command line** (pid, parent pid, user, process name, executable path, cmdline). Command lines are truncated at 4 KiB. Disable with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
 
 ## Collectors in detail
 

@@ -1,4 +1,4 @@
-//go:build darwin || linux
+//go:build darwin
 
 package collect
 
@@ -6,12 +6,14 @@ import (
 	"bufio"
 	"bytes"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
 
 var listProcesses = func() ([]processRow, error) {
-	out, err := exec.Command("ps", "-axo", "pid=,ppid=,user=,comm=").Output()
+	// args= must be last so remaining fields reconstruct the command line.
+	out, err := exec.Command("ps", "-axo", "pid=,ppid=,user=,args=").Output()
 	if err != nil {
 		return nil, err
 	}
@@ -21,6 +23,8 @@ var listProcesses = func() ([]processRow, error) {
 func parsePSOutput(out []byte) []processRow {
 	var rows []processRow
 	scanner := bufio.NewScanner(bytes.NewReader(out))
+	// Long command lines can exceed the default token size.
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -36,13 +40,16 @@ func parsePSOutput(out []byte) []processRow {
 			continue
 		}
 		user := fields[2]
-		comm := fields[3]
+		cmdline := truncateCmdline(strings.Join(fields[3:], " "))
+		exe := fields[3]
+		comm := filepath.Base(exe)
 		rows = append(rows, processRow{
 			PID:        pid,
 			PPID:       ppid,
 			User:       user,
 			Comm:       comm,
-			Executable: comm,
+			Executable: exe,
+			Cmdline:    cmdline,
 		})
 	}
 	return rows

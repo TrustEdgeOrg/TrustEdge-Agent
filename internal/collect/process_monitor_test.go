@@ -1,6 +1,7 @@
 package collect
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
@@ -43,9 +44,10 @@ func TestProcessMonitorObserveDedup(t *testing.T) {
 	start := ProcessChange{
 		Type: constants.TypeProcessStart,
 		Payload: map[string]any{
-			"pid":  10,
-			"ppid": 1,
-			"comm": "curl",
+			"pid":     10,
+			"ppid":    1,
+			"comm":    "curl",
+			"cmdline": "curl https://example.com",
 		},
 	}
 	if !m.Observe(start) {
@@ -53,6 +55,47 @@ func TestProcessMonitorObserveDedup(t *testing.T) {
 	}
 	if m.Observe(start) {
 		t.Fatal("duplicate start should not post")
+	}
+
+	exit := ProcessChange{
+		Type: constants.TypeProcessExit,
+		Payload: map[string]any{
+			"pid": 10,
+		},
+	}
+	if !m.Observe(exit) {
+		t.Fatal("exit should post")
+	}
+	if exit.Payload["cmdline"] != "curl https://example.com" {
+		t.Fatalf("exit should inherit cmdline, got %v", exit.Payload["cmdline"])
+	}
+	if exit.Payload["comm"] != "curl" {
+		t.Fatalf("exit should inherit comm, got %v", exit.Payload["comm"])
+	}
+}
+
+func TestTruncateCmdlineShared(t *testing.T) {
+	short := "echo hi"
+	if truncateCmdline(short) != short {
+		t.Fatal("short unchanged")
+	}
+	b := make([]byte, maxCmdlineBytes+5)
+	for i := range b {
+		b[i] = 'x'
+	}
+	out := truncateCmdline(string(b))
+	if len(out) != maxCmdlineBytes+3 || !strings.HasSuffix(out, "...") {
+		t.Fatalf("got len=%d", len(out))
+	}
+}
+
+func TestJoinNullSeparatedCmdline(t *testing.T) {
+	got := joinNullSeparatedCmdline([]byte("curl\x00-I\x00https://example.com\x00"))
+	if got != "curl -I https://example.com" {
+		t.Fatalf("got=%q", got)
+	}
+	if joinNullSeparatedCmdline(nil) != "" {
+		t.Fatal("nil should be empty")
 	}
 }
 

@@ -146,7 +146,7 @@ Four goroutines produce telemetry. All share the same `enqueue` callback.
 
 ### Process monitor
 
-**Purpose:** Process lifecycle visibility — new and exited processes with metadata only (no command lines).
+**Purpose:** Process lifecycle visibility — new and exited processes with metadata and command line.
 
 **Two layers run in parallel:**
 
