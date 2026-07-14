@@ -34,9 +34,41 @@ func processRowFromPID(pid int) (processRow, bool) {
 		PPID:       ppid,
 		Comm:       commName,
 		Executable: exe,
+		Cmdline:    readProcCmdline(proc),
 		User:       procOwner(filepath.Join("/proc", proc, "status")),
 	}
 	return row, true
+}
+
+func readProcCmdline(proc string) string {
+	data, err := os.ReadFile(filepath.Join("/proc", proc, "cmdline"))
+	if err != nil {
+		return ""
+	}
+	return joinNullSeparatedCmdline(data)
+}
+
+var listProcesses = func() ([]processRow, error) {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]processRow, 0, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil || pid <= 0 {
+			continue
+		}
+		row, ok := processRowFromPID(pid)
+		if !ok {
+			continue
+		}
+		rows = append(rows, row)
+	}
+	return rows, nil
 }
 
 func parseProcStat(stat []byte) (ppid int, comm string, ok bool) {

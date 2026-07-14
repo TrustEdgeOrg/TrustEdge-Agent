@@ -6,9 +6,11 @@ All settings are environment variables. Copy [.env.example](../.env.example) as 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TRUSTEDGE_AGENT_API_URL` | `http://127.0.0.1:8080` | Ingest API base URL (no trailing slash) — see [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
+| `TRUSTEDGE_AGENT_API_URL` | `http://44.218.45.174:8080` | Ingest API base URL (no trailing slash) — EC2 by default; use `http://127.0.0.1:8080` for local — see [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
 | `TRUSTEDGE_AGENT_ENROLL_TOKEN` | _(empty)_ | Bearer token for `POST /v1/register`; required when `TRUSTEDGE_AGENT_PRODUCTION=1` |
 | `TRUSTEDGE_AGENT_PRODUCTION` | `0` | `1` requires HTTPS API URL and enroll token |
+| `TRUSTEDGE_AGENT_COMPRESS` | `1` | `0` disables zstd on `/v1/events` (use `0` against older EC2 `trusttwin-api` images) |
+| `TRUSTEDGE_AGENT_BATCH` | `1` | `0` sends one Event object per POST instead of `{"events":[...]}` (required for older EC2 images) |
 | `TRUSTEDGE_AGENT_STATE_PATH` | Platform default | Device ID state file path (see [Agent](agent.md)) |
 | `TRUSTEDGE_AGENT_DETAILS_INTERVAL` | `60` | `client_details` interval (seconds or Go duration) |
 | `TRUSTEDGE_AGENT_NETWORK_INTERVAL` | `60` | `network_summary` heartbeat interval |

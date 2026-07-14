@@ -19,7 +19,13 @@ type Client struct {
 	BaseURL     string
 	EnrollToken string
 	DeviceToken string
-	HTTP        *http.Client
+	// Compress enables zstd when it shrinks the body. Disable for older
+	// ingest APIs that ignore Content-Encoding and treat the body as JSON.
+	Compress bool
+	// Batch sends multiple events as {"events":[...]}. Disable for older
+	// ingest APIs that only accept a single Event object per request.
+	Batch bool
+	HTTP  *http.Client
 }
 
 func New(baseURL, enrollToken, deviceToken string) *Client {
@@ -27,6 +33,8 @@ func New(baseURL, enrollToken, deviceToken string) *Client {
 		BaseURL:     baseURL,
 		EnrollToken: enrollToken,
 		DeviceToken: deviceToken,
+		Compress:    true,
+		Batch:       true,
 		HTTP:        &http.Client{Timeout: 30 * time.Second},
 	}
 }
@@ -76,12 +84,17 @@ func (c *Client) PostEvents(events []models.Event) error {
 	if len(events) == 0 {
 		return nil
 	}
-	if len(events) == 1 {
-		body, err := json.Marshal(events[0])
-		if err != nil {
-			return err
+	if len(events) == 1 || !c.Batch {
+		for i := range events {
+			body, err := json.Marshal(events[i])
+			if err != nil {
+				return err
+			}
+			if err := c.postEventsBody(body); err != nil {
+				return err
+			}
 		}
-		return c.postEventsBody(body)
+		return nil
 	}
 	body, err := json.Marshal(models.EventBatch{Events: events})
 	if err != nil {
@@ -91,9 +104,14 @@ func (c *Client) PostEvents(events []models.Event) error {
 }
 
 func (c *Client) postEventsBody(body []byte) error {
-	payload, compressed, err := codec.MaybeCompress(body)
-	if err != nil {
-		return err
+	payload := body
+	compressed := false
+	if c.Compress {
+		var err error
+		payload, compressed, err = codec.MaybeCompress(body)
+		if err != nil {
+			return err
+		}
 	}
 	httpReq, err := http.NewRequest(http.MethodPost, c.BaseURL+"/v1/events", bytes.NewReader(payload))
 	if err != nil {

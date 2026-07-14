@@ -50,3 +50,18 @@ func TestParseProcStat(t *testing.T) {
 		t.Fatalf("ppid=%d comm=%q ok=%v", ppid, comm, ok)
 	}
 }
+
+func TestTruncateCmdline(t *testing.T) {
+	short := "curl -I https://example.com"
+	if truncateCmdline(short) != short {
+		t.Fatal("short cmdline should be unchanged")
+	}
+	b := make([]byte, maxCmdlineBytes+10)
+	for i := range b {
+		b[i] = 'a'
+	}
+	out := truncateCmdline(string(b))
+	if len(out) != maxCmdlineBytes+3 || out[len(out)-3:] != "..." {
+		t.Fatalf("len=%d suffix=%q", len(out), out[len(out)-3:])
+	}
+}
