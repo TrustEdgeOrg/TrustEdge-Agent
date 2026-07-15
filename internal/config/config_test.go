@@ -39,12 +39,33 @@ func TestEnvDurationRejectsNegative(t *testing.T) {
 	}
 }
 
+func TestAgentConfigValidateRequiresAPIURL(t *testing.T) {
+	cfg := AgentConfig{}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected error for empty APIURL")
+	}
+}
+
+func TestLoadAgentAPIURLHasNoHardcodedDefault(t *testing.T) {
+	t.Setenv("TRUSTEDGE_AGENT_API_URL", "")
+	t.Setenv("TRUSTTWIN_API_URL", "")
+	cfg := LoadAgent()
+	if cfg.APIURL != "" {
+		t.Fatalf("APIURL=%q want empty", cfg.APIURL)
+	}
+}
+
 func TestAgentConfigValidateProduction(t *testing.T) {
 	tests := []struct {
 		name    string
 		cfg     AgentConfig
 		wantErr bool
 	}{
+		{
+			name:    "missing api url",
+			cfg:     AgentConfig{},
+			wantErr: true,
+		},
 		{
 			name: "dev mode allows http",
 			cfg: AgentConfig{

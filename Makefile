@@ -17,7 +17,11 @@ build-all:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -buildvcs=false -o bin/trustedge-agent-linux-amd64 ./cmd/trustedge-agent
 	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -buildvcs=false -o bin/trustedge-agent-windows-amd64.exe ./cmd/trustedge-agent
 
-# Default target is the EC2 Agent API (override with TRUSTEDGE_AGENT_API_URL).
+# Ingest URL is required by the agent. Make targets default to the EC2 demo host
+# when TRUSTEDGE_AGENT_API_URL is unset; override with env or EC2_API_URL=.
+EC2_API_URL ?= http://44.218.45.174:8080
+export TRUSTEDGE_AGENT_API_URL ?= $(EC2_API_URL)
+
 agent:
 	CGO_ENABLED=0 go run ./cmd/trustedge-agent
 
