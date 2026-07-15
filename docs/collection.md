@@ -1,21 +1,35 @@
-# Collection and batching
+# <img src="assets/icons/collection.svg" width="28" height="28" align="absmiddle" alt="" /> Collection and batching
 
 How `trustedge-agent` collects telemetry, buffers it in a durable ring, and uploads to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
-| Jump to | |
-|---------|---|
-| Overview | [Mental model](#mental-model) |
-| Collectors | [Collectors](#collectors) |
-| Queue & flush | [Batching](#batching) |
-| HTTP path | [Upload](#upload) |
-| Goroutines | [Concurrency model](#concurrency-model) |
-| Knobs | [Configuration quick reference](#configuration-quick-reference) |
+<p align="center">
+  <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#mental-model">Overview</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#collectors">Collectors</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/queue.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#batching">Batching</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#upload">Upload</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/concurrency.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#concurrency-model">Concurrency</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#configuration-quick-reference">Config</a>
+</p>
 
-Related: [Architecture](architecture.md) · [Agent guide](agent.md) · [Configuration](configuration.md)
+> **Also see**
+> <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Architecture](architecture.md)
+> · <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" /> [Agent guide](agent.md)
+> · <img src="assets/icons/config.svg" width="16" height="16" align="absmiddle" alt="" /> [Configuration](configuration.md)
 
 ---
 
-## Mental model
+## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Mental model
 
 Four collectors enqueue into one batcher. The batcher persists pending events, optionally compresses, and uploads over HTTPS.
 
@@ -63,7 +77,7 @@ End-to-end stages: [High-level flow](architecture.md#high-level-flow).
 
 ---
 
-## Runtime startup
+## <img src="assets/icons/install.svg" width="22" height="22" align="absmiddle" alt="" /> Runtime startup
 
 `Agent.Run()` (`internal/agent/agent.go`):
 
@@ -78,7 +92,7 @@ End-to-end stages: [High-level flow](architecture.md#high-level-flow).
 
 ---
 
-## Event envelope
+## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> Event envelope
 
 Every enqueue becomes a `models.Event`:
 
@@ -94,7 +108,7 @@ Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent
 
 ---
 
-## Collectors
+## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Collectors
 
 | Collector | Event type(s) | Default timing | Config |
 |-----------|---------------|----------------|--------|
@@ -207,7 +221,7 @@ Platform privileges: [Agent guide](agent.md#platforms).
 
 ---
 
-## Batching
+## <img src="assets/icons/queue.svg" width="22" height="22" align="absmiddle" alt="" /> Batching
 
 `EventBatcher` (`internal/agent/batcher.go`) + `EventRing` (`internal/agent/ring.go`): append on enqueue; remove only after a successful upload.
 
@@ -254,7 +268,7 @@ Busy hosts hit the **size** trigger more; quiet hosts lean on the **2s** timer.
 
 ---
 
-## Upload
+## <img src="assets/icons/upload.svg" width="22" height="22" align="absmiddle" alt="" /> Upload
 
 ### Serialization
 
@@ -297,7 +311,7 @@ Other errors (timeout, 5xx, …): leave the batch in the ring; exponential backo
 
 ---
 
-## Concurrency model
+## <img src="assets/icons/concurrency.svg" width="22" height="22" align="absmiddle" alt="" /> Concurrency model
 
 ```text
 main goroutine
@@ -314,7 +328,7 @@ Collectors are independent — a slow public-IP lookup does not block process en
 
 ---
 
-## Configuration quick reference
+## <img src="assets/icons/config.svg" width="22" height="22" align="absmiddle" alt="" /> Configuration quick reference
 
 | Variable | Default | Affects |
 |----------|---------|---------|
@@ -335,7 +349,7 @@ Full list: [Configuration](configuration.md).
 
 ---
 
-## Source code map
+## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> Source code map
 
 | Concern | Package / file |
 |---------|----------------|
@@ -352,7 +366,7 @@ Full list: [Configuration](configuration.md).
 
 ---
 
-## Known limitations
+## <img src="assets/icons/privacy.svg" width="22" height="22" align="absmiddle" alt="" /> Known limitations
 
 | Behavior | Detail |
 |----------|--------|
@@ -363,11 +377,11 @@ Full list: [Configuration](configuration.md).
 
 ---
 
-## Related docs
+## <img src="assets/icons/architecture.svg" width="22" height="22" align="absmiddle" alt="" /> Related docs
 
-| Doc | Purpose |
-|-----|---------|
-| [Architecture](architecture.md) | End-to-end stages, auth sequence, layout |
-| [Agent guide](agent.md) | Install, platforms, privacy, credentials |
-| [Configuration](configuration.md) | Every environment variable |
-| [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | Payload fields |
+| | Doc | Purpose |
+|---|-----|---------|
+| <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Architecture](architecture.md) | End-to-end stages, auth sequence, layout |
+| <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | [Agent guide](agent.md) | Install, platforms, privacy, credentials |
+| <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [Configuration](configuration.md) | Every environment variable |
+| <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" /> | [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | Payload fields |

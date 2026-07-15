@@ -1,20 +1,35 @@
-# Agent guide
+# <img src="assets/icons/agent.svg" width="28" height="28" align="absmiddle" alt="" /> Agent guide
 
 The `trustedge-agent` binary runs on each endpoint (laptop, workstation, or server) and reports device posture to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) over HTTPS. **No VPN required.**
 
-| You are here for… | Jump to |
-|-------------------|---------|
-| Install & run | [Installation](#installation) |
-| Where credentials live | [Credentials and state](#credentials-and-state) |
-| What leaves the device | [Telemetry](#telemetry) · [Privacy](#privacy) |
-| OS / watcher notes | [Platforms](#platforms) |
-| Auth after `401` | [Auth recovery](#auth-recovery) |
+<p align="center">
+  <img src="assets/icons/install.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#installation">Install</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/lock.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#credentials-and-state">Credentials</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#telemetry">Telemetry</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/privacy.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#privacy">Privacy</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#platforms">Platforms</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/lock.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#auth-recovery">Auth recovery</a>
+</p>
 
-Related: [Architecture](architecture.md) · [Collection & batching](collection.md) · [Configuration](configuration.md)
+> **Also see**
+> <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Architecture](architecture.md)
+> · <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection & batching](collection.md)
+> · <img src="assets/icons/config.svg" width="16" height="16" align="absmiddle" alt="" /> [Configuration](configuration.md)
 
 ---
 
-## Platforms
+## <img src="assets/icons/platforms.svg" width="22" height="22" align="absmiddle" alt="" /> Platforms
 
 | OS | Default local build | Richer process watcher | Credential store |
 |----|---------------------|------------------------|------------------|
@@ -36,7 +51,7 @@ If the watcher cannot start, the agent **falls back to poll-only** process monit
 
 ---
 
-## Installation
+## <img src="assets/icons/install.svg" width="22" height="22" align="absmiddle" alt="" /> Installation
 
 ### Build
 
@@ -75,7 +90,7 @@ Production checklist: set `TRUSTEDGE_AGENT_PRODUCTION=1` so the agent requires *
 
 ---
 
-## Credentials and state
+## <img src="assets/icons/lock.svg" width="22" height="22" align="absmiddle" alt="" /> Credentials and state
 
 On first successful register, the agent stores:
 
@@ -99,7 +114,7 @@ With `TRUSTEDGE_AGENT_PRODUCTION=1`, tokens stay in the **keyring only** — not
 
 ---
 
-## Telemetry
+## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Telemetry
 
 | Event type | What it reports |
 |------------|-----------------|
@@ -125,7 +140,7 @@ Public IP comes from a configurable lookup URL (default: ipify). Disable with `T
 
 ---
 
-## Privacy
+## <img src="assets/icons/privacy.svg" width="22" height="22" align="absmiddle" alt="" /> Privacy
 
 The agent does **not** collect:
 
@@ -144,7 +159,7 @@ export TRUSTEDGE_AGENT_PROCESS_INTERVAL=0
 
 ---
 
-## Auth recovery
+## <img src="assets/icons/lock.svg" width="22" height="22" align="absmiddle" alt="" /> Auth recovery
 
 Uploads carry the device token. On **`401 Unauthorized`**:
 
@@ -157,14 +172,14 @@ Failed uploads otherwise stay in the durable ring and retry with exponential bac
 
 ---
 
-## Local stack with TrustEdge
+## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Local stack with TrustEdge
 
 ```bash
 # Terminal 1 — TrustEdge compose / scripts (Redis, stream, API)
-cd ~/Desktop/TrustEdge && ./scripts/dev-up.sh
+cd TrustEdge && ./scripts/dev-up.sh
 
 # Terminal 2 — this agent
-cd ~/Desktop/TrustEdge-Agent
+cd TrustEdge-Agent
 export TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080
 go run ./cmd/trustedge-agent
 ```
@@ -173,11 +188,11 @@ Or point at any local [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/Trus
 
 ---
 
-## See also
+## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> See also
 
-| Doc | Purpose |
-|-----|---------|
-| [Architecture](architecture.md) | Lifecycle, upload path, durable ring |
-| [Collection & batching](collection.md) | Collectors, flush triggers, concurrency |
-| [Configuration](configuration.md) | Every environment variable |
-| [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP schemas |
+| | Doc | Purpose |
+|---|-----|---------|
+| <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Architecture](architecture.md) | Lifecycle, upload path, durable ring |
+| <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" /> | [Collection & batching](collection.md) | Collectors, flush triggers, concurrency |
+| <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [Configuration](configuration.md) | Every environment variable |
+| <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" /> | [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP schemas |

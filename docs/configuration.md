@@ -1,8 +1,29 @@
-# Configuration
+# <img src="assets/icons/config.svg" width="28" height="28" align="absmiddle" alt="" /> Configuration
 
 All settings are environment variables. Copy [.env.example](../.env.example) as a starting point.
 
-## Agent (`trustedge-agent`)
+<p align="center">
+  <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#agent-trustedge-agent">Agent vars</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#interval-format">Intervals</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/lock.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#production-checklist">Production</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#api-server-configuration">API server</a>
+</p>
+
+> **Also see**
+> <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Architecture](architecture.md)
+> · <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" /> [Agent guide](agent.md)
+> · <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection & batching](collection.md)
+
+---
+
+## <img src="assets/icons/agent.svg" width="22" height="22" align="absmiddle" alt="" /> Agent (`trustedge-agent`)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -27,14 +48,14 @@ All settings are environment variables. Copy [.env.example](../.env.example) as 
 | `TRUSTEDGE_AGENT_METRICS_INTERVAL` | `5m` | Periodic agent status log; `0` disables |
 | `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | provider default | Public IP lookup URL for `network_summary`; set to `off` to disable |
 
-### Interval format
+### <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" /> Interval format
 
 Duration env vars accept:
 
 - A number of seconds: `60`, `30.5`
 - A Go duration string: `2s`, `1m`, `500ms`
 
-### Production checklist
+### <img src="assets/icons/lock.svg" width="18" height="18" align="absmiddle" alt="" /> Production checklist
 
 ```bash
 export TRUSTEDGE_AGENT_PRODUCTION=1
@@ -42,16 +63,22 @@ export TRUSTEDGE_AGENT_API_URL=https://your-ingest.example
 export TRUSTEDGE_AGENT_ENROLL_TOKEN=<from your API>
 ```
 
-Do not commit real API hosts, enroll tokens, or device tokens. Prefer placeholders in docs and `.env.example`.
+> Do not commit real API hosts, enroll tokens, or device tokens. Prefer placeholders in docs and `.env.example`.
 
-## API server configuration
+---
+
+## <img src="assets/icons/upload.svg" width="22" height="22" align="absmiddle" alt="" /> API server configuration
 
 Redis, Kafka, and ingest API settings live in [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
-## Legacy environment variables
+---
+
+## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> Legacy environment variables
 
 `TRUSTTWIN_*` names remain supported as fallbacks during migration (for example `TRUSTTWIN_API_URL` → `TRUSTEDGE_AGENT_API_URL`). Prefer `TRUSTEDGE_AGENT_*` for new deployments.
 
-## CI
+---
+
+## <img src="assets/icons/platforms.svg" width="22" height="22" align="absmiddle" alt="" /> CI
 
 Agent CI (`.github/workflows/agent-ci.yml`) runs `go test ./...` and builds on Linux, macOS, and Windows.

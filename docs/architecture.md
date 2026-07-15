@@ -1,27 +1,41 @@
-# Architecture
+# <img src="assets/icons/architecture.svg" width="28" height="28" align="absmiddle" alt="" /> Architecture
 
 The `trustedge-agent` binary collects endpoint telemetry and POSTs it to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API). The API can publish to a stream for TrustEdge detection.
 
-| Component | Repo | Role |
-|-----------|------|------|
-| `trustedge-agent` | [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) | Collect · batch · compress · secure upload |
-| `trustedge-agent-api` | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Register · ingest · optional Kafka publish |
-| TrustEdge | [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) | Detection · alerts · UI |
+| | Component | Repo | Role |
+|---|-----------|------|------|
+| <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | `trustedge-agent` | [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) | Collect · batch · compress · secure upload |
+| <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" /> | `trustedge-agent-api` | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Register · ingest · optional Kafka publish |
+| <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" /> | TrustEdge | [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) | Detection · alerts · UI |
 
-| Jump to | |
-|---------|---|
-| End-to-end stages | [High-level flow](#high-level-flow) |
-| Startup & upload path | [Agent lifecycle](#agent-lifecycle) |
-| Collectors | [Collectors](#collectors) |
-| Durable queue & flush | [Batching](#batching) |
-| zstd | [Compression](#compression) |
-| Register / 401 | [Authentication](#authentication) |
+<p align="center">
+  <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#high-level-flow">Flow</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#agent-lifecycle">Lifecycle</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#collectors">Collectors</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/queue.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#batching">Batching</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/compress.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#compression">Compression</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/lock.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#authentication">Auth</a>
+</p>
 
-Related: [Agent guide](agent.md) · [Collection & batching](collection.md) · [Configuration](configuration.md)
+> **Also see**
+> <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" /> [Agent guide](agent.md)
+> · <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection & batching](collection.md)
+> · <img src="assets/icons/config.svg" width="16" height="16" align="absmiddle" alt="" /> [Configuration](configuration.md)
 
 ---
 
-## High-level flow
+## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> High-level flow
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
@@ -70,7 +84,7 @@ Collector timers and flush edge cases: [Collection & batching](collection.md).
 
 ---
 
-## Agent lifecycle
+## <img src="assets/icons/agent.svg" width="22" height="22" align="absmiddle" alt="" /> Agent lifecycle
 
 ### Startup
 
@@ -96,7 +110,7 @@ Status metrics (interval `TRUSTEDGE_AGENT_METRICS_INTERVAL`): upload counters, p
 
 ---
 
-## Collectors
+## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Collectors
 
 Four goroutines run inside `Agent.Run()`:
 
@@ -137,7 +151,7 @@ Disable processes: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`. Platform / CGO notes: [
 
 ---
 
-## Batching
+## <img src="assets/icons/queue.svg" width="22" height="22" align="absmiddle" alt="" /> Batching
 
 `EventBatcher` (`internal/agent/batcher.go`) writes through a durable ring (`internal/agent/ring.go`) before upload:
 
@@ -160,7 +174,7 @@ Wire shapes:
 
 ---
 
-## Compression
+## <img src="assets/icons/compress.svg" width="22" height="22" align="absmiddle" alt="" /> Compression
 
 `internal/codec` applies **zstd** only when it wins:
 
@@ -170,7 +184,7 @@ Wire shapes:
 
 ---
 
-## Authentication
+## <img src="assets/icons/lock.svg" width="22" height="22" align="absmiddle" alt="" /> Authentication
 
 ```mermaid
 sequenceDiagram
@@ -192,13 +206,13 @@ Device ID lives on disk; the token lives in the OS keyring. Details: [Agent guid
 
 ---
 
-## API persistence
+## <img src="assets/icons/upload.svg" width="22" height="22" align="absmiddle" alt="" /> API persistence
 
 Ingest storage and Kafka publishing are documented in [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
 ---
 
-## Project layout
+## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> Project layout
 
 ```text
 cmd/trustedge-agent/     Entrypoint — config, slog, signal lifecycle
