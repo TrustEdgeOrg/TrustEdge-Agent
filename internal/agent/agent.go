@@ -92,7 +92,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	go func() {
 		for change := range monitor.Run(ctx) {
 			a.log.Printf("network event: %s", change.Reason)
-			enqueue(constants.TypeNetworkSummary, a.collector.NetworkSummaryPayload())
+			enqueue(constants.TypeNetworkSummary, change.Payload)
 		}
 	}()
 
