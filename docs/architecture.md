@@ -85,7 +85,7 @@ Four goroutines run concurrently inside `Agent.Run()`:
 |-----------|------------|---------|
 | Client details | `client_details` | Once on startup, then every `DetailsInterval` (default 60s) |
 | Network monitor | `network_summary` | On interface/IP change (debounced) + heartbeat every `NetworkInterval` |
-| Action tracker | `action_summary` | Every `ActionInterval` (default 60s) |
+| Action tracker | `action_summary` | Sample every `ActionSampleInterval` (default 5s); emit every `ActionInterval` (default 60s) |
 | Process monitor | `process_start` / `process_exit` | Event-driven + poll every `ProcessInterval` (default 10s) |
 
 ### Process monitoring (hybrid)

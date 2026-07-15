@@ -99,9 +99,16 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 	}()
 
-	tracker := a.collector.NewActionTracker(a.cfg.ActionInterval)
+	sampleEvery := a.cfg.ActionSampleInterval
+	if sampleEvery <= 0 {
+		sampleEvery = constants.DefaultActionSampleInterval
+	}
+	if a.cfg.ActionInterval > 0 && sampleEvery > a.cfg.ActionInterval {
+		sampleEvery = a.cfg.ActionInterval
+	}
+	tracker := a.collector.NewActionTracker(sampleEvery)
+	go a.loop(ctx, sampleEvery, tracker.Sample)
 	go a.loop(ctx, a.cfg.ActionInterval, func() {
-		tracker.Sample()
 		enqueue(constants.TypeActionSummary, collect.ActionSummaryPayload(tracker.SnapshotAndReset()))
 	})
 
