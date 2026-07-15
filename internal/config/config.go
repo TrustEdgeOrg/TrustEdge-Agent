@@ -78,10 +78,12 @@ func envDuration(primary, legacy string, fallback time.Duration) time.Duration {
 	if v == "" {
 		return fallback
 	}
-	if secs, err := strconv.ParseFloat(v, 64); err == nil && secs > 0 {
+	// Accept explicit 0 / 0s (e.g. TRUSTEDGE_AGENT_PROCESS_INTERVAL=0 disables
+	// process monitoring). Reject negatives and unparseable values.
+	if secs, err := strconv.ParseFloat(v, 64); err == nil && secs >= 0 {
 		return time.Duration(secs * float64(time.Second))
 	}
-	if d, err := time.ParseDuration(v); err == nil && d > 0 {
+	if d, err := time.ParseDuration(v); err == nil && d >= 0 {
 		return d
 	}
 	return fallback
