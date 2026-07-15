@@ -1,15 +1,41 @@
-# Architecture
+# <img src="assets/icons/architecture.svg" width="28" height="28" align="absmiddle" alt="" /> Architecture
 
-The `trustedge-agent` binary collects endpoint telemetry and POSTs it to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API), which publishes to Kafka for the TrustEdge detection engine.
+The `trustedge-agent` binary collects endpoint telemetry and POSTs it to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API). The API can publish to a stream for TrustEdge detection.
 
-| Component | Repo | Role |
-|-----------|------|------|
-| `trustedge-agent` | TrustEdge-Agent | Endpoint agent — collectors, batching, HTTPS upload |
-| `trustedge-agent-api` | TrustEdge-Agent-API | Ingest API — auth, Kafka |
+| | Component | Repo | Role |
+|---|-----------|------|------|
+| <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | `trustedge-agent` | [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) | Collect · batch · compress · secure upload |
+| <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" /> | `trustedge-agent-api` | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Register · ingest · optional Kafka publish |
+| <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" /> | TrustEdge | [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) | Detection · alerts · UI |
 
-Events flow to Kafka (`trustedge.agent.events`) for rules-based detection in TrustEdge.
+<p align="center">
+  <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#high-level-flow">Flow</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#agent-lifecycle">Lifecycle</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#collectors">Collectors</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/queue.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#batching">Batching</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/compress.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#compression">Compression</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/lock.svg" width="18" height="18" align="absmiddle" alt="" />
+  &nbsp;<a href="#authentication">Auth</a>
+</p>
 
-## High-level flow
+> **Also see**
+> <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" /> [Agent guide](agent.md)
+> · <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection & batching](collection.md)
+> · <img src="assets/icons/config.svg" width="16" height="16" align="absmiddle" alt="" /> [Configuration](configuration.md)
+
+---
+
+## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> High-level flow
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
@@ -20,12 +46,12 @@ flowchart LR
 
     subgraph AG ["TrustEdge Agent"]
         direction LR
-        COL["Collect"] --> BAT["Batch"] --> ZIP["Compress"] --> SND["Send"]
+        COL["Collect"] --> BAT["Batch"] --> ZIP["Compress"] --> SND["Secure upload"]
     end
 
-    subgraph CL ["TrustEdge Cloud"]
+    subgraph CL ["TrustEdge"]
         direction LR
-        API["Ingest API"] --> KFK[("Kafka")] --> DET["Detection"]
+        API["Agent API"] --> STR["Stream"] --> DET["Detection"] --> ALT["Alert"]
     end
 
     DEV --> COL
@@ -40,58 +66,62 @@ flowchart LR
     class DEV endpoint
     class COL,BAT,SND agent
     class ZIP compress
-    class API,DET cloud
-    class KFK stream
+    class API,DET,ALT cloud
+    class STR stream
 ```
 
 | Stage | Description |
 |-------|-------------|
-| **Collect** | Four collectors gather device, network, user activity, and process telemetry from the OS |
-| **Batch** | Events are held in memory and grouped together (up to 32 events or every 2 seconds) |
-| **Compress** | JSON batches are optionally compressed with zstd when smaller than raw JSON |
-| **Send** | The agent uploads the batch to the ingest API over HTTPS |
-| **Ingest** | The API decompresses if needed, validates each event, and accepts the batch |
-| **Kafka** | Events are published to the event stream |
-| **Detection** | TrustEdge applies rules and raises alerts |
+| **Collect** | Four concurrent sources: device, network, activity, processes |
+| **Batch** | Events land in a **durable ring**; flushed by size, timer, or shutdown |
+| **Compress** | Optional **zstd** when smaller than raw JSON |
+| **Secure upload** | HTTPS `POST /v1/events` with the device bearer token |
+| **Agent API** | Decompress · validate · accept (`202`) |
+| **Stream** | Optional publish (e.g. Kafka `trustedge.agent.events`) |
+| **Detection → Alert** | TrustEdge rules raise alerts |
 
-For collector details, dedup rules, and batch timing, see [Collection and batching](collection.md).
+Collector timers and flush edge cases: [Collection & batching](collection.md).
 
-## Agent lifecycle
+---
+
+## <img src="assets/icons/agent.svg" width="22" height="22" align="absmiddle" alt="" /> Agent lifecycle
 
 ### Startup
 
-1. `cmd/trustedge-agent` loads config and builds the collector, API client, and credentials store.
-2. `EnsureRegistered()` loads saved device ID + token from disk/keyring, or calls `POST /v1/register`.
-3. `Agent.Run()` starts collectors and the batch flush loop.
+1. `cmd/trustedge-agent` loads config, builds the API client, credentials store, and metrics.  
+2. `EnsureRegistered()` loads device ID + token from disk/keyring, or calls `POST /v1/register`.  
+3. `Agent.Run()` starts collectors, the batch flush loop, and optional periodic status logs.
 
 ### Telemetry path
 
-1. **Collect** — four concurrent sources produce typed payloads.
-2. **Enqueue** — each source calls `batcher.Enqueue(type, payload)`.
-3. **Buffer** — `EventBatcher` pushes `models.Event` records into a durable ring (timestamp, device ID, type, payload).
-4. **Flush** — when the ring has at least `EventBatchSize` (default 32) pending, `EventBatchFlush` elapses (default 2s), or the agent shuts down.
-5. **Post** — `postEvents()` calls `client.PostEvents()`; events are acked from the ring only after success.
-6. **Compress** — JSON is marshaled, then passed through `codec.MaybeCompress()`. If zstd shrinks the payload, the client sets `Content-Encoding: zstd`.
-7. **Ingest** — the API decompresses if needed, decodes a batch or single event, validates, and calls `store.AddEvent()` per event.
+1. **Collect** — sources emit typed payloads.  
+2. **Enqueue** — `batcher.Enqueue(type, payload)`.  
+3. **Buffer** — `EventBatcher` appends `models.Event` records to the durable ring.  
+4. **Flush** — pending ≥ `EventBatchSize` (default 32), `EventBatchFlush` elapses (default 2s), or shutdown.  
+5. **Compress** — marshal JSON → `codec.MaybeCompress()`; set `Content-Encoding: zstd` when used.  
+6. **Post** — `client.PostEvents()`; **Ack** from the ring only after success.  
+7. **Ingest** — API decompresses if needed, validates, stores / publishes.  
 8. **Response** — `202 Accepted` with `{ "status": "accepted", "accepted": N }`.
 
-Failed uploads stay in the durable event ring and are retried with exponential backoff (capped by `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`). When the ring is full, the oldest pending events are overwritten. The agent emits structured logs (`text` or `json`) and periodic status metrics (`upload_*`, `pending`, `auth_recover_total`).
+Failed uploads stay in the ring and retry with exponential backoff (capped by `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`). When the ring is full, the **oldest** pending events are overwritten. Shutdown does a short best-effort flush (default **3s**); anything not uploaded remains on disk for the next start.
 
+Structured logs: `TRUSTEDGE_AGENT_LOG_FORMAT=text|json`.  
+Status metrics (interval `TRUSTEDGE_AGENT_METRICS_INTERVAL`): upload counters, pending depth, `auth_recover_total`.
 
-## Collectors
+---
 
-Four goroutines run concurrently inside `Agent.Run()`:
+## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Collectors
+
+Four goroutines run inside `Agent.Run()`:
 
 | Collector | Event type | Trigger |
 |-----------|------------|---------|
-| Client details | `client_details` | Once on startup, then every `DetailsInterval` (default 60s) |
-| Network monitor | `network_summary` | On interface/IP change (debounced) + heartbeat every `NetworkInterval` |
-| Action tracker | `action_summary` | Sample every `ActionSampleInterval` (default 5s); emit every `ActionInterval` (default 60s) |
-| Process monitor | `process_start` / `process_exit` | Event-driven + poll every `ProcessInterval` (default 10s) |
+| Client details | `client_details` | Once at startup, then every `DetailsInterval` (default 60s) |
+| Network monitor | `network_summary` | Interface/IP change (debounced) + `NetworkInterval` heartbeat |
+| Action tracker | `action_summary` | Sample every `ActionSampleInterval` (5s); emit every `ActionInterval` (60s) |
+| Process monitor | `process_start` / `process_exit` | OS watcher (when available) + poll every `ProcessInterval` (10s) |
 
 ### Process monitoring (hybrid)
-
-Process visibility uses two layers:
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
@@ -99,10 +129,10 @@ flowchart TB
     RT["Real-time OS notifications"]
     POLL["Periodic scan"]
     DEDUP["Deduplication"]
-    OUT["Event batch"]
+    OUT["Durable ring → batch"]
 
     RT --> DEDUP --> OUT
-    POLL --> OUT
+    POLL --> DEDUP
 
     classDef rt fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
     classDef dedup fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
@@ -113,66 +143,85 @@ flowchart TB
     class OUT out
 ```
 
-- **Real-time** — the OS notifies the agent immediately when a process starts or exits (when supported on the platform).
-- **Periodic scan** — every 10 seconds the agent compares the full process list and catches anything missed.
-- **Dedup** — the same process event is never sent twice.
+- **Real-time** — OS notifies on start/exit when the platform watcher is available.  
+- **Periodic scan** — reconciles the process table and catches misses.  
+- **Dedup** — same PID transition is not emitted twice.
 
-Disable process monitoring entirely with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
+Disable processes: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`. Platform / CGO notes: [Agent guide](agent.md#platforms).
 
-## Batching
+---
 
-The `EventBatcher` (`internal/agent/batcher.go`) coalesces events in a durable ring before upload:
+## <img src="assets/icons/queue.svg" width="22" height="22" align="absmiddle" alt="" /> Batching
+
+`EventBatcher` (`internal/agent/batcher.go`) writes through a durable ring (`internal/agent/ring.go`) before upload:
 
 | Flush trigger | Default |
 |---------------|---------|
-| Pending size | 32 events (`TRUSTEDGE_AGENT_EVENT_BATCH_SIZE`) |
-| Time interval | 2 seconds (`TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH`) |
-| Shutdown | Final flush on context cancel |
+| Pending size | 32 (`TRUSTEDGE_AGENT_EVENT_BATCH_SIZE`) |
+| Time interval | 2s (`TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH`) |
+| Shutdown | Best-effort flush (3s bound) |
 
-Failed uploads remain queued and are retried with exponential backoff (max `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`). Queue file defaults to `events.queue.json` beside the device state file.
+| Queue knob | Default |
+|------------|---------|
+| Capacity | 4096 (`TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY`) |
+| Path | `events.queue.json` beside the state file |
+| Max backoff | 60s (`TRUSTEDGE_AGENT_EVENT_RETRY_MAX`) |
 
-A single-event flush sends a plain `Event` JSON object. Multi-event flushes send `{"events":[...]}`.
+Wire shapes:
 
-## Compression
+- One event → plain `Event` JSON  
+- Several events → `{"events":[...]}`
 
-The agent compresses telemetry with **zstd** (`internal/codec`):
+---
 
-- `MaybeCompress()` only sends compressed data when it is smaller than the original JSON.
-- Compressed requests include `Content-Encoding: zstd`.
-- The API decompresses on ingest; uncompressed JSON remains accepted for backward compatibility.
-- Typical batches (32 events) compress well; tiny single-event payloads may stay uncompressed.
+## <img src="assets/icons/compress.svg" width="22" height="22" align="absmiddle" alt="" /> Compression
 
-## Authentication
+`internal/codec` applies **zstd** only when it wins:
+
+- Smaller than raw JSON → send compressed + `Content-Encoding: zstd`  
+- Otherwise → send plain JSON  
+- API accepts both (backward compatible)
+
+---
+
+## <img src="assets/icons/lock.svg" width="22" height="22" align="absmiddle" alt="" /> Authentication
 
 ```mermaid
 sequenceDiagram
     participant A as Agent
-    participant API as trustedge-agent-api
+    participant API as Agent API
 
     A->>API: POST /v1/register (optional enroll bearer)
     API-->>A: device_id + device_token
     A->>API: POST /v1/events (device bearer)
     API-->>A: 202 Accepted
-    Note over A,API: On 401: agent clears token, re-registers, retries once
+    Note over A,API: On 401: clear token, re-register once (serialized), retry batch
 ```
 
-1. **Register** — `POST /v1/register` with optional enroll bearer token.
-2. **Telemetry** — `POST /v1/events` with device bearer token.
-3. **Recovery** — on `401 Unauthorized`, the agent clears the stored token, re-registers (serialized so concurrent failures share one register), and retries the batch once.
+1. **Register** — `POST /v1/register` (optional enroll bearer).  
+2. **Telemetry** — `POST /v1/events` with device bearer.  
+3. **Recovery** — on `401`, clear token, re-register (mutex so concurrent 401s share one register), retry the batch once.
 
-## API persistence
+Device ID lives on disk; the token lives in the OS keyring. Details: [Agent guide](agent.md#credentials-and-state).
 
-Ingest persistence is documented in [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
+---
 
-## Project layout
+## <img src="assets/icons/upload.svg" width="22" height="22" align="absmiddle" alt="" /> API persistence
+
+Ingest storage and Kafka publishing are documented in [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
+
+---
+
+## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> Project layout
 
 ```text
-cmd/trustedge-agent/          Agent entrypoint
-internal/agent/         Agent runtime, batcher, durable ring, auth
-internal/api/           HTTP client (register, post events)
-internal/codec/         zstd compress/decompress
-internal/collect/       Platform telemetry collectors
-internal/config/        Env-based configuration
-internal/credentials/   Device ID file + OS keyring token store
-internal/models/        Event envelopes and payload types
+cmd/trustedge-agent/     Entrypoint — config, slog, signal lifecycle
+internal/agent/          Runtime, durable ring, batcher, auth, metrics
+internal/collect/        OS collectors + platform watchers
+internal/api/            HTTPS client (register + events)
+internal/credentials/    Device ID file + keyring tokens
+internal/codec/          Optional zstd
+internal/config/         Env-based configuration
+internal/models/         Event envelopes and payloads
+docs/                    Architecture, collection, agent, configuration
 ```

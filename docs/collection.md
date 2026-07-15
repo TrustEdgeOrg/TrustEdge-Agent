@@ -1,153 +1,155 @@
-# Collection and batching
+# <img src="assets/icons/collection.svg" width="28" height="28" align="absmiddle" alt="" /> Collection and batching
 
-This document describes how `trustedge-agent` collects endpoint telemetry, buffers it, and uploads it to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API). For system-wide architecture and deployment, see [Architecture](architecture.md). For environment variables, see [Configuration](configuration.md).
+How `trustedge-agent` collects telemetry, buffers it in a durable ring, and uploads to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
-## Mental model
+---
 
-The agent watches your device in four areas, batches what it finds, and sends it to TrustEdge in one upload.
+## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Mental model
 
-See [High-level flow](architecture.md#high-level-flow) for the full path from device to detection.
+Four collectors enqueue into one batcher. The batcher persists pending events, optionally compresses, and uploads over HTTPS.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
 flowchart TB
-    subgraph SRC ["Data Sources"]
+    subgraph SRC ["Collectors"]
         direction LR
-        D1["Device Info"]
+        D1["Device"]
         D2["Network"]
-        D3["User Activity"]
+        D3["Activity"]
         D4["Processes"]
     end
 
-    BAT["Event Batcher"]
-    ZIP["zstd Compress"]
-    API["Ingest API"]
+    RING["Durable ring"]
+    BAT["Batch flush"]
+    ZIP["zstd"]
+    API["Agent API"]
 
-    D1 --> BAT
-    D2 --> BAT
-    D3 --> BAT
-    D4 --> BAT
-    BAT --> ZIP
-    ZIP -->|HTTPS upload| API
+    D1 --> RING
+    D2 --> RING
+    D3 --> RING
+    D4 --> RING
+    RING --> BAT --> ZIP -->|HTTPS| API
 
     classDef source fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
-    classDef batch fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef ring fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
     classDef compress fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
     classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
 
     class D1,D2,D3,D4 source
-    class BAT batch
+    class RING,BAT ring
     class ZIP compress
     class API api
 ```
 
-**Key properties:**
+**Rules of the road:**
 
-- Collectors only add events to the batch — they never talk to the network directly.
-- Events from different areas (device, network, etc.) can be sent in the same batch.
-- Failed uploads stay in a durable ring and are retried with backoff (auth errors still get one immediate re-register retry).
+- Collectors only **enqueue** — they never talk to the network.
+- Mixed event types can share one batch.
+- Failed uploads stay in the ring and retry with backoff.
+- `401` still gets one immediate re-register + retry (serialized).
 
-## Runtime startup
+End-to-end stages: [High-level flow](architecture.md#high-level-flow).
 
-`Agent.Run()` (`internal/agent/agent.go`) wires everything together:
+---
 
-1. Create `EventBatcher` and start `batcher.Run(ctx)` in a goroutine.
-2. Define `enqueue(typ, payload)` → `batcher.Enqueue(typ, payload)`.
-3. Emit one `client_details` event immediately.
-4. Start the four collector loops (details below).
-5. Block until the context is cancelled (SIGINT/SIGTERM).
-6. On shutdown, the batcher performs a final flush with a short independent timeout (default 3s); remaining events stay in the durable ring.
+## <img src="assets/icons/install.svg" width="22" height="22" align="absmiddle" alt="" /> Runtime startup
 
-Registration (`EnsureRegistered`) happens before `Run()` and is independent of collection.
+`Agent.Run()` (`internal/agent/agent.go`):
 
-## Event envelope
+1. Open `EventBatcher` (restores pending events from disk if present) and start `batcher.Run(ctx)`.  
+2. Bind `enqueue(typ, payload)` → `batcher.Enqueue`.  
+3. Emit one `client_details` immediately.  
+4. Start the four collector loops.  
+5. Block until cancel (SIGINT / SIGTERM).  
+6. Best-effort final flush (default **3s**); leftovers remain in the durable ring.
 
-Every enqueued payload becomes a `models.Event`:
+`EnsureRegistered()` runs **before** `Run()` and is independent of collection.
+
+---
+
+## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> Event envelope
+
+Every enqueue becomes a `models.Event`:
 
 | Field | Source |
 |-------|--------|
-| `event_id` | Generated timestamp ID (`evt_YYYYMMDDTHHMMSS.nnnnnnnnn`) |
-| `device_id` | From credentials store (set at registration) |
-| `type` | Event type constant (see table below) |
-| `ts` | UTC timestamp at enqueue time |
+| `event_id` | Timestamp ID (`evt_YYYYMMDDTHHMMSS.nnnnnnnnn`) |
+| `device_id` | Credentials store (set at registration) |
+| `type` | Event type constant |
+| `ts` | UTC at enqueue |
 | `payload` | Collector-specific map |
 
-Payload field schemas are documented in the [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md).
+Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md).
 
-## Collectors
+---
 
-Four goroutines produce telemetry. All share the same `enqueue` callback.
+## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Collectors
 
-| Collector | Event type(s) | Default interval | Config variable |
-|-----------|---------------|------------------|-----------------|
-| Client details | `client_details` | 60s | `TRUSTEDGE_AGENT_DETAILS_INTERVAL` |
-| Network monitor | `network_summary` | 60s heartbeat + on change | `TRUSTEDGE_AGENT_NETWORK_INTERVAL`, `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE` |
-| Action tracker | `action_summary` | Sample every 5s; emit every 60s | `TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL` / `TRUSTEDGE_AGENT_ACTION_INTERVAL` |
-| Process monitor | `process_start`, `process_exit` | 10s poll + event-driven | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` (`0` disables) |
+| Collector | Event type(s) | Default timing | Config |
+|-----------|---------------|----------------|--------|
+| Client details | `client_details` | 60s (+ once at start) | `TRUSTEDGE_AGENT_DETAILS_INTERVAL` |
+| Network monitor | `network_summary` | 60s heartbeat + on change | `NETWORK_INTERVAL`, `NETWORK_DEBOUNCE` |
+| Action tracker | `action_summary` | Sample 5s / emit 60s | `ACTION_SAMPLE_INTERVAL`, `ACTION_INTERVAL` |
+| Process monitor | `process_start`, `process_exit` | 10s poll + watcher | `PROCESS_INTERVAL` (`0` = off) |
+
+*(Config names above are abbreviated; full names use the `TRUSTEDGE_AGENT_` prefix.)*
 
 ### Client details
 
-**Purpose:** Device identity and presence heartbeat for the TrustEdge twin graph.
+**Purpose:** Device identity and online heartbeat.
 
-**Trigger:**
-
-- Once immediately when `Agent.Run()` starts.
-- Then on a fixed ticker (`DetailsInterval`).
+**Trigger:** Once when `Run()` starts, then every `DetailsInterval`.
 
 **Payload includes:** hostname, OS, OS version, arch, agent version, timezone, status (`online`), uptime since agent start.
 
-**Implementation:** `Collector.ClientDetailsPayload()` in `internal/collect/collector.go`.
+**Code:** `Collector.ClientDetailsPayload()` in `internal/collect/collector.go`.
 
 ### Network summary
 
-**Purpose:** Coarse network posture — public IP, interface type, socket counts, top remote ports.
-
-**Trigger:**
+**Purpose:** Coarse posture — public IP, interface type, socket counts, top remote ports.
 
 | Reason | When |
 |--------|------|
-| `initial` | Once when the network monitor starts |
-| `link_change` | OS signals a link change, debounced |
-| `heartbeat` | Every `NetworkInterval`, always emitted |
+| `initial` | Once when the monitor starts |
+| `link_change` | OS link change, after debounce |
+| `heartbeat` | Every `NetworkInterval` (always emitted) |
 
-**Debounce:** Rapid link changes are coalesced. The monitor waits `NetworkDebounce` (default 2s) after the last signal before emitting.
+**Debounce:** Wait `NetworkDebounce` (default 2s) after the last signal before emitting.
 
-**Dedup:** For `initial` and `link_change`, the monitor compares a **summary fingerprint** (public IP, network type, listening/established counts, top ports). If unchanged since the last post, the event is skipped. **Heartbeats always post** so liveness continues even when posture is stable. The same payload used for fingerprinting is attached to `NetworkChange` and enqueued — the agent does not collect the summary a second time.
+**Dedup:** For `initial` / `link_change`, compare a **summary fingerprint**. Unchanged → skip. Heartbeats **always** post. The fingerprint payload is reused on enqueue (no second collection pass).
 
-**Data collection** (`NetworkSummaryPayload`):
+**Collection** (`NetworkSummaryPayload`):
 
-- Public IP via HTTP lookup (`TRUSTEDGE_AGENT_PUBLIC_IP_URL`; set `off` to disable).
-- Network type from active interfaces.
-- Listening and established socket counts via `netstat -an`.
-- Top 5 remote ports by connection count.
+- Public IP via `TRUSTEDGE_AGENT_PUBLIC_IP_URL` (`off` disables)  
+- Network type from active interfaces  
+- Listening / established counts via `netstat -an`  
+- Top 5 remote ports by connection count  
 
-**Implementation:** `NetworkMonitor` in `internal/collect/network_monitor.go`, platform watchers in `network_watch_*.go`.
+**Code:** `NetworkMonitor` in `internal/collect/network_monitor.go`; watchers in `network_watch_*.go`.
 
 ### Action summary
 
-**Purpose:** Short-window user activity — foreground app focus, idle/active presence, app switches.
+**Purpose:** Short-window activity — focus, idle/active presence, app switches.
 
-**Trigger:** Two loops:
+Two loops:
 
-1. Every `ActionSampleInterval` (default 5s): `tracker.Sample()` — read foreground app and accumulate focus.
-2. Every `ActionInterval` (default 60s): `tracker.SnapshotAndReset()` → enqueue one `action_summary`.
+1. Every `ActionSampleInterval` (5s) → `tracker.Sample()`  
+2. Every `ActionInterval` (60s) → `SnapshotAndReset()` → enqueue one `action_summary`
 
-**Sampling logic:**
+**Sampling:**
 
-- Foreground app is read via platform probe (`foreground_*.go`) on the fast sample ticker.
-- Focus time is accumulated per app (by bundle ID, falling back to name), adding `ActionSampleInterval` seconds each sample.
-- App switches are counted when the foreground app changes between samples.
-- Presence is `active` if idle seconds &lt; 60, otherwise `idle` (checked at summary time).
+- Foreground via platform probe (`foreground_*.go`)  
+- Focus accumulated per app (bundle ID, else name), +sample interval each tick  
+- Switches counted when foreground key changes  
+- Presence `active` if idle &lt; 60s, else `idle` (at snapshot time)
 
-**Payload includes:** `window_start`, `window_end`, `focus[]`, `presence`, `idle_sec`, `app_switches`.
+**Payload:** `window_start`, `window_end`, `focus[]`, `presence`, `idle_sec`, `app_switches`.
 
-**Implementation:** `ActionTracker` in `internal/collect/actions.go`.
+**Code:** `ActionTracker` in `internal/collect/actions.go`.
 
 ### Process monitor
 
-**Purpose:** Process lifecycle visibility — new and exited processes with metadata and command line.
-
-**Two layers run in parallel:**
+**Purpose:** Process lifecycle with metadata and command line (truncated at 4 KiB).
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
@@ -155,10 +157,10 @@ flowchart TB
     RT["Real-time OS notifications"]
     POLL["Periodic scan"]
     DEDUP["Deduplication"]
-    OUT["Event batch"]
+    OUT["Durable ring"]
 
     RT --> DEDUP --> OUT
-    POLL --> OUT
+    POLL --> DEDUP
 
     classDef rt fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
     classDef dedup fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
@@ -171,77 +173,77 @@ flowchart TB
 
 #### Event-driven path
 
-When a platform watcher is available (`NewProcessWatcher`), it streams `process_start` and `process_exit` in real time. Each change passes through `ProcessMonitor.Observe()`:
+When `NewProcessWatcher` is available, starts/exits stream through `ProcessMonitor.Observe()`:
 
-- **Start:** Skip if PID is already in the `seen` map (dedup).
-- **Exit:** Always accepted; enriches missing fields from `seen`, then removes PID.
+- **Start:** skip if PID already in `seen`  
+- **Exit:** always accepted; enrich from `seen`, then remove PID  
 
-If the watcher is unavailable (permissions, CGO disabled on macOS, etc.), poll-only mode is used.
+Unavailable watcher (permissions, CGO off on macOS, …) → poll-only.
 
 #### Poll path
 
 Every `ProcessInterval`, `ProcessMonitor.Poll()`:
 
-1. Lists the current process table (platform-specific).
-2. On the **first poll**, seeds `seen` silently — **no events emitted**.
-3. On subsequent polls, diffs against `seen`:
-   - PIDs in current but not in `seen` → `process_start`
-   - PIDs in `seen` but not in current → `process_exit`
-4. Caps at **100 `process_start` events per poll** to avoid flooding after large state drift.
+1. List the process table.  
+2. **First poll** seeds `seen` silently — **no events**.  
+3. Later polls diff: new PIDs → `process_start`, missing → `process_exit`.  
+4. Cap **100 `process_start` events per poll**.
 
-**Disable entirely:** `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
+Disable: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
 
-**Implementation:** `ProcessMonitor` in `internal/collect/process_monitor.go`, watchers in `process_watch_*.go`.
+**Code:** `ProcessMonitor` in `internal/collect/process_monitor.go`; watchers in `process_watch_*.go`.  
+Platform privileges: [Agent guide](agent.md#platforms).
 
-## Batching
+---
 
-The `EventBatcher` (`internal/agent/batcher.go`) shares a durable ring buffer (`EventRing`) across all collectors. Events are appended to the ring on enqueue and only removed after a successful upload.
+## <img src="assets/icons/queue.svg" width="22" height="22" align="absmiddle" alt="" /> Batching
+
+`EventBatcher` (`internal/agent/batcher.go`) + `EventRing` (`internal/agent/ring.go`): append on enqueue; remove only after a successful upload.
 
 ### Flush triggers
 
-Any one of these causes a flush:
-
 | Trigger | Default | Config |
 |---------|---------|--------|
-| Buffer full | 32 events | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` |
-| Timer | 2 seconds | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` |
-| Shutdown | Context cancelled | — |
+| Size | 32 events | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` |
+| Timer | 2s | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` |
+| Shutdown | Context cancelled | ~3s best-effort bound |
 
-### Flush behavior
+### Flush steps
 
-1. `Peek` up to `EventBatchSize` events from the ring (do not remove them yet).
-2. Call `postEvents(ctx, batch)` (see [Upload](#upload)). HTTP uses the request context so cancel/shutdown can abort in-flight uploads.
-3. On success, `Ack` those events (persist the shorter ring). On failure, leave them queued and increase flush backoff up to `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`.
-4. Log success (`posted batch`) or failure (`post batch failed`) with structured fields (`events`, `pending`, `latency_ms` / `err`). Periodic `agent status` lines report upload counters and queue depth.
+1. `Peek` up to batch size (do not remove yet).  
+2. `postEvents(ctx, batch)` — HTTP uses request context so cancel can abort in-flight uploads.  
+3. Success → `Ack` (persist shorter ring). Failure → leave queued; increase backoff up to `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`.  
+4. Structured logs (`posted batch` / `post batch failed`) plus periodic `agent status` metrics.
 
 ### Offline ring
 
 | Setting | Default | Behavior |
 |---------|---------|----------|
 | `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Bounded FIFO; overwrite oldest when full |
-| `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH` | `<state-dir>/events.queue.json` | Atomic JSON persistence across restarts |
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH` | `<state-dir>/events.queue.json` | Atomic JSON across restarts |
 
 ### Coalescing
 
-When the buffer hits max size, `signalFlush()` sends a non-blocking signal on a buffered channel (size 1). Multiple size-triggered signals coalesce — only one immediate flush is queued.
+Size-triggered `signalFlush()` uses a buffered channel of size 1 — multiple signals coalesce into one wake.
 
 ### Timing example
 
-With defaults (batch size 32, flush 2s) and all collectors active:
+Defaults (size 32, flush 2s), collectors active:
 
+```text
+t=0s     client_details + network initial enqueued
+t=2s     timer flush → POST pending
+t=10s    process poll may add starts/exits
+t=12s    timer flush → POST accumulated
+…
+t=60s    client_details + action_summary + network heartbeat may share a batch
 ```
-t=0s    client_details enqueued (1 event in buffer)
-t=0s    network_summary initial enqueued (2 events)
-t=2s    timer flush → POST 2 events
-t=10s   process poll may add starts/exits
-t=12s   timer flush → POST accumulated events
-...
-t=60s   client_details + action_summary + network heartbeat → may batch together
-```
 
-High-activity endpoints (many process events) hit the size trigger more often; quiet endpoints rely on the 2s timer.
+Busy hosts hit the **size** trigger more; quiet hosts lean on the **2s** timer.
 
-## Upload
+---
+
+## <img src="assets/icons/upload.svg" width="22" height="22" align="absmiddle" alt="" /> Upload
 
 ### Serialization
 
@@ -249,98 +251,112 @@ High-activity endpoints (many process events) hit the size trigger more often; q
 
 | Batch size | JSON shape |
 |------------|------------|
-| 1 event | Plain `Event` object |
-| 2+ events | `{"events":[...]}` (`EventBatch`) |
+| 1 | Plain `Event` |
+| 2+ | `{"events":[...]}` |
 
 ### Compression
 
-JSON is passed through `codec.MaybeCompress()` (zstd):
+`codec.MaybeCompress()` (zstd):
 
-- Compressed only when smaller than raw JSON.
-- Compressed requests set `Content-Encoding: zstd`.
-- Small single-event payloads often stay uncompressed.
+- Compress only when smaller than raw JSON  
+- Then set `Content-Encoding: zstd`  
+- Tiny single-event payloads often stay plain
 
-### HTTP request
+### HTTP
 
-```
+```http
 POST /v1/events
 Content-Type: application/json
-Content-Encoding: zstd          (if compressed)
+Content-Encoding: zstd          # if compressed
 Authorization: Bearer <device_token>
 ```
 
-The API responds with `202 Accepted` and `{ "status": "accepted", "accepted": N }`.
+Response: `202 Accepted` · `{ "status": "accepted", "accepted": N }`.
 
 ### Auth recovery
 
-On `401 Unauthorized` (`internal/agent/auth.go`):
+On `401` (`internal/agent/auth.go`):
 
-1. Serialize recovery under a mutex (concurrent 401s share one re-register).
-2. Clear stored device token.
-3. Re-register via `POST /v1/register` unless another goroutine already refreshed the token.
+1. Mutex so concurrent 401s share one recovery.  
+2. Clear device token.  
+3. `POST /v1/register` unless another caller already refreshed.  
 4. Retry the **same batch** once.
 
-Any other error (network timeout, 5xx, etc.) is logged and the batch stays in the durable ring for retry with exponential backoff.
+Other errors (timeout, 5xx, …): leave the batch in the ring; exponential backoff on the flush loop.
 
-## Concurrency model
+---
+
+## <img src="assets/icons/concurrency.svg" width="22" height="22" align="absmiddle" alt="" /> Concurrency model
 
 ```text
 main goroutine
-├── batcher.Run()          — flush loop (timer + wake channel + shutdown)
-├── loop(DetailsInterval)  — client_details
-├── NetworkMonitor.Run()   — network_summary (watcher + heartbeat)
-├── loop(ActionSampleInterval) — Sample() foreground focus
-├── loop(ActionInterval)   — action_summary snapshot
-├── ProcessWatcher.Run()   — event-driven process events (if available)
-└── loop(ProcessInterval)  — process poll reconciliation
+├── batcher.Run()                 — flush loop (timer + wake + shutdown)
+├── loop(DetailsInterval)         — client_details
+├── NetworkMonitor.Run()          — network_summary
+├── loop(ActionSampleInterval)    — Sample() foreground
+├── loop(ActionInterval)          — action_summary snapshot
+├── ProcessWatcher.Run()          — event-driven processes (if available)
+└── loop(ProcessInterval)         — process poll reconcile
 ```
 
-Collectors are independent — a slow public IP lookup in network collection does not block process events from enqueueing (though it may delay that collector's next emit).
+Collectors are independent — a slow public-IP lookup does not block process enqueues (it only delays that collector’s next emit).
 
-## Configuration quick reference
+---
+
+## <img src="assets/icons/config.svg" width="22" height="22" align="absmiddle" alt="" /> Configuration quick reference
 
 | Variable | Default | Affects |
 |----------|---------|---------|
 | `TRUSTEDGE_AGENT_DETAILS_INTERVAL` | `60` | Client details heartbeat |
 | `TRUSTEDGE_AGENT_NETWORK_INTERVAL` | `60` | Network heartbeat |
-| `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE` | `2` | Network change debounce |
+| `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE` | `2` | Change debounce |
 | `TRUSTEDGE_AGENT_ACTION_INTERVAL` | `60` | Action summary window |
-| `TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL` | `5` | Foreground sample rate inside each window |
+| `TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL` | `5` | Foreground sample rate |
 | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` | `10` | Process poll; `0` = off |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` | `32` | Max events before flush |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` | `2` | Max seconds between flushes |
 | `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Offline ring capacity |
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH` | beside state file | Queue persistence path |
 | `TRUSTEDGE_AGENT_EVENT_RETRY_MAX` | `60` | Max upload retry backoff |
 | `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | ipify | Public IP lookup; `off` disables |
 
-Full reference: [Configuration](configuration.md).
+Full list: [Configuration](configuration.md).
 
-## Source code map
+---
+
+## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> Source code map
 
 | Concern | Package / file |
 |---------|----------------|
-| Agent orchestration | `internal/agent/agent.go` |
+| Orchestration | `internal/agent/agent.go` |
 | Batching + flush | `internal/agent/batcher.go` |
-| Durable event ring | `internal/agent/ring.go` |
+| Durable ring | `internal/agent/ring.go` |
 | Auth + upload | `internal/agent/auth.go` |
+| Metrics | `internal/agent/metrics.go` |
 | HTTP client | `internal/api/client.go` |
-| zstd compression | `internal/codec/zstd.go` |
-| Event models | `internal/models/events.go` |
+| zstd | `internal/codec/zstd.go` |
+| Models | `internal/models/events.go` |
 | Collectors | `internal/collect/` |
 | Config | `internal/config/config.go` |
 
-## Known limitations
+---
+
+## <img src="assets/icons/privacy.svg" width="22" height="22" align="absmiddle" alt="" /> Known limitations
 
 | Behavior | Detail |
 |----------|--------|
-| Bounded offline ring | When capacity is exceeded, oldest pending events are overwritten |
-| Process poll cap | Max 100 `process_start` events per poll cycle |
-| Silent first poll | Process monitor seeds state without emitting |
-| Network dedup | Change events skipped when fingerprint unchanged; heartbeats always post |
+| Bounded offline ring | Oldest pending events overwritten when full |
+| Process poll cap | Max 100 `process_start` events per poll |
+| Silent first poll | Seeds `seen` without emitting |
+| Network dedup | Change events skipped if fingerprint unchanged; heartbeats always post |
 
-## Related docs
+---
 
-- [Architecture](architecture.md) — end-to-end system diagram, API persistence, project layout
-- [Agent](agent.md) — installation, platform requirements, privacy boundaries
-- [Configuration](configuration.md) — all environment variables
-- [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) — payload field details
+## <img src="assets/icons/architecture.svg" width="22" height="22" align="absmiddle" alt="" /> Related docs
+
+| | Doc | Purpose |
+|---|-----|---------|
+| <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Architecture](architecture.md) | End-to-end stages, auth sequence, layout |
+| <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | [Agent guide](agent.md) | Install, platforms, privacy, credentials |
+| <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [Configuration](configuration.md) | Every environment variable |
+| <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" /> | [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | Payload fields |
