@@ -1,6 +1,43 @@
 package config
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
+
+func TestEnvDurationAllowsExplicitZero(t *testing.T) {
+	t.Setenv("TRUSTEDGE_AGENT_PROCESS_INTERVAL", "0")
+	t.Setenv("TRUSTTWIN_PROCESS_INTERVAL", "")
+	cfg := LoadAgent()
+	if cfg.ProcessInterval != 0 {
+		t.Fatalf("ProcessInterval=%v want 0", cfg.ProcessInterval)
+	}
+}
+
+func TestEnvDurationZeroDurationString(t *testing.T) {
+	t.Setenv("TRUSTEDGE_AGENT_PROCESS_INTERVAL", "0s")
+	cfg := LoadAgent()
+	if cfg.ProcessInterval != 0 {
+		t.Fatalf("ProcessInterval=%v want 0", cfg.ProcessInterval)
+	}
+}
+
+func TestEnvDurationUnsetUsesFallback(t *testing.T) {
+	t.Setenv("TRUSTEDGE_AGENT_PROCESS_INTERVAL", "")
+	t.Setenv("TRUSTTWIN_PROCESS_INTERVAL", "")
+	cfg := LoadAgent()
+	if cfg.ProcessInterval != 10*time.Second {
+		t.Fatalf("ProcessInterval=%v want 10s", cfg.ProcessInterval)
+	}
+}
+
+func TestEnvDurationRejectsNegative(t *testing.T) {
+	t.Setenv("TRUSTEDGE_AGENT_PROCESS_INTERVAL", "-5")
+	cfg := LoadAgent()
+	if cfg.ProcessInterval != 10*time.Second {
+		t.Fatalf("ProcessInterval=%v want fallback 10s", cfg.ProcessInterval)
+	}
+}
 
 func TestAgentConfigValidateProduction(t *testing.T) {
 	tests := []struct {

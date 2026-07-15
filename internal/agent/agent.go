@@ -128,6 +128,9 @@ func (a *Agent) Run(ctx context.Context) error {
 }
 
 func (a *Agent) loop(ctx context.Context, every time.Duration, fn func()) {
+	if every <= 0 {
+		return
+	}
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
