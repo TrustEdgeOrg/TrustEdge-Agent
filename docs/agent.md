@@ -2,31 +2,6 @@
 
 The `trustedge-agent` binary runs on each endpoint (laptop, workstation, or server) and reports device posture to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) over HTTPS. **No VPN required.**
 
-<p align="center">
-  <img src="assets/icons/install.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#installation">Install</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/lock.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#credentials-and-state">Credentials</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#telemetry">Telemetry</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/privacy.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#privacy">Privacy</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#platforms">Platforms</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/lock.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#auth-recovery">Auth recovery</a>
-</p>
-
-> **Also see**
-> <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Architecture](architecture.md)
-> · <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection & batching](collection.md)
-> · <img src="assets/icons/config.svg" width="16" height="16" align="absmiddle" alt="" /> [Configuration](configuration.md)
-
 ---
 
 ## <img src="assets/icons/platforms.svg" width="22" height="22" align="absmiddle" alt="" /> Platforms
