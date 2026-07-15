@@ -7,11 +7,11 @@ A focused Go agent that observes device posture on macOS, Linux, and Windows —
 [![Agent CI](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml)
 
 <p align="center">
-  <img src="docs/assets/pipeline.svg" alt="Watch your device → Keep safe even offline → Send to TrustEdge → Detect and alert you" width="880" />
+  <img src="docs/assets/pipeline.svg" alt="Endpoint → Collector → Batch → Compress → Secure upload → Agent API → Stream → Detection → Alert" width="1000" />
 </p>
 
 <p align="center">
-  <strong>Watch</strong> → <strong>Keep safe offline</strong> → <strong>Send to TrustEdge</strong> → <strong>Detect &amp; alert</strong>
+  <strong>Endpoint</strong> → <strong>Collector</strong> → <strong>Batch</strong> → <strong>Compress</strong> → <strong>Secure upload</strong> → <strong>Agent API</strong> → <strong>Stream</strong> → <strong>Detection</strong> → <strong>Alert</strong>
 </p>
 
 ---
@@ -56,10 +56,15 @@ Process command lines are truncated at 4 KiB. Turn process monitoring off with `
 
 ## How it works
 
-1. **Watch your device** — the agent quietly notices OS, network, activity, and process changes.  
-2. **Keep safe offline** — if Wi‑Fi drops, events stay on the device until they can be delivered.  
-3. **Send to TrustEdge** — uploads go over a secure connection when the network is back.  
-4. **Detect & alert** — TrustEdge analyzes the stream and raises alerts when something looks wrong.
+1. **Endpoint** — the laptop or workstation running the agent.  
+2. **Collector** — gathers device, network, activity, and process signals.  
+3. **Batch** — groups events for efficient delivery.  
+4. **Compress** — shrinks payloads before they leave the device.  
+5. **Secure upload** — sends over HTTPS with the device token.  
+6. **Agent API** — receives and authenticates ingest traffic.  
+7. **Stream** — forwards events into the TrustEdge pipeline.  
+8. **Detection** — rules analyze the stream for risk.  
+9. **Alert** — operators get notified in TrustEdge.
 
 Want the engineering detail? See [Architecture](docs/architecture.md) · [Collection & batching](docs/collection.md).
 
