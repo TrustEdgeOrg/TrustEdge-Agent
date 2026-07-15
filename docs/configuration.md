@@ -6,12 +6,12 @@ All settings are environment variables. Copy [.env.example](../.env.example) as 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TRUSTEDGE_AGENT_API_URL` | _(required)_ | Ingest API base URL (no trailing slash). Example EC2: `http://44.218.45.174:8080`; local: `http://127.0.0.1:8080` — see [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
+| `TRUSTEDGE_AGENT_API_URL` | _(required)_ | Ingest API base URL (no trailing slash). Local example: `http://127.0.0.1:8080`. See [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
 | `TRUSTEDGE_AGENT_ENROLL_TOKEN` | _(empty)_ | Bearer token for `POST /v1/register`; required when `TRUSTEDGE_AGENT_PRODUCTION=1` |
 | `TRUSTEDGE_AGENT_PRODUCTION` | `0` | `1` requires HTTPS API URL and enroll token |
-| `TRUSTEDGE_AGENT_COMPRESS` | `1` | `0` disables zstd on `/v1/events` (use `0` against older EC2 `trusttwin-api` images) |
-| `TRUSTEDGE_AGENT_BATCH` | `1` | `0` sends one Event object per POST instead of `{"events":[...]}` (required for older EC2 images) |
-| `TRUSTEDGE_AGENT_STATE_PATH` | Platform default | Device ID state file path (see [Agent](agent.md)) |
+| `TRUSTEDGE_AGENT_COMPRESS` | `1` | `0` disables zstd on `/v1/events` (compat with older ingest images) |
+| `TRUSTEDGE_AGENT_BATCH` | `1` | `0` sends one Event object per POST instead of `{"events":[...]}` (compat with older ingest images) |
+| `TRUSTEDGE_AGENT_STATE_PATH` | Platform default | Device ID state file path (see [Agent guide](agent.md)) |
 | `TRUSTEDGE_AGENT_DETAILS_INTERVAL` | `60` | `client_details` interval (seconds or Go duration) |
 | `TRUSTEDGE_AGENT_NETWORK_INTERVAL` | `60` | `network_summary` heartbeat interval |
 | `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE` | `2` | Debounce for network change events |
@@ -25,7 +25,7 @@ All settings are environment variables. Copy [.env.example](../.env.example) as 
 | `TRUSTEDGE_AGENT_EVENT_RETRY_MAX` | `60` | Max backoff between retries after a failed upload |
 | `TRUSTEDGE_AGENT_LOG_FORMAT` | `text` | `text` or `json` structured logs |
 | `TRUSTEDGE_AGENT_METRICS_INTERVAL` | `5m` | Periodic agent status log; `0` disables |
-| `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | ipify default | Public IP lookup URL; set to `off` to disable |
+| `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | provider default | Public IP lookup URL for `network_summary`; set to `off` to disable |
 
 ### Interval format
 
@@ -34,13 +34,15 @@ Duration env vars accept:
 - A number of seconds: `60`, `30.5`
 - A Go duration string: `2s`, `1m`, `500ms`
 
-### Production agent checklist
+### Production checklist
 
 ```bash
 export TRUSTEDGE_AGENT_PRODUCTION=1
-export TRUSTEDGE_AGENT_API_URL=https://api.example.com
-export TRUSTEDGE_AGENT_ENROLL_TOKEN=<from server>
+export TRUSTEDGE_AGENT_API_URL=https://your-ingest.example
+export TRUSTEDGE_AGENT_ENROLL_TOKEN=<from your API>
 ```
+
+Do not commit real API hosts, enroll tokens, or device tokens. Prefer placeholders in docs and `.env.example`.
 
 ## API server configuration
 
@@ -48,7 +50,7 @@ Redis, Kafka, and ingest API settings live in [TrustEdge-Agent-API](https://gith
 
 ## Legacy environment variables
 
-`TRUSTTWIN_*` environment variables remain supported as fallbacks during migration (for example `TRUSTTWIN_API_URL` → `TRUSTEDGE_AGENT_API_URL`). Prefer the `TRUSTEDGE_AGENT_*` names for new deployments.
+`TRUSTTWIN_*` names remain supported as fallbacks during migration (for example `TRUSTTWIN_API_URL` → `TRUSTEDGE_AGENT_API_URL`). Prefer `TRUSTEDGE_AGENT_*` for new deployments.
 
 ## CI
 
