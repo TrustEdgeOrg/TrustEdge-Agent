@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/api"
@@ -23,7 +24,7 @@ type Dependencies struct {
 	Collector *collect.Collector
 }
 
-// Agent reports telemetry to the TrustTwin API.
+// Agent reports telemetry to the TrustEdge Agent API.
 type Agent struct {
 	cfg       config.AgentConfig
 	log       *log.Logger
@@ -31,7 +32,9 @@ type Agent struct {
 	client    api.EventClient
 	creds     credentials.Store
 	collector *collect.Collector
-	deviceID  string
+
+	authMu   sync.Mutex
+	deviceID string
 }
 
 func New(deps Dependencies) *Agent {
@@ -57,7 +60,7 @@ func (a *Agent) EnsureRegistered(ctx context.Context) error {
 func (a *Agent) Run(ctx context.Context) error {
 	batcher, err := NewEventBatcher(
 		a.clock,
-		func() string { return a.deviceID },
+		a.currentDeviceID,
 		a.postEvents,
 		a.log,
 		BatcherOptions{

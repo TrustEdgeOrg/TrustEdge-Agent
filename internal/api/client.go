@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/codec"
@@ -19,7 +20,6 @@ var ErrUnauthorized = errors.New("unauthorized")
 type Client struct {
 	BaseURL     string
 	EnrollToken string
-	DeviceToken string
 	// Compress enables zstd when it shrinks the body. Disable for older
 	// ingest APIs that ignore Content-Encoding and treat the body as JSON.
 	Compress bool
@@ -27,13 +27,16 @@ type Client struct {
 	// ingest APIs that only accept a single Event object per request.
 	Batch bool
 	HTTP  *http.Client
+
+	mu          sync.Mutex
+	deviceToken string
 }
 
 func New(baseURL, enrollToken, deviceToken string) *Client {
 	return &Client{
 		BaseURL:     baseURL,
 		EnrollToken: enrollToken,
-		DeviceToken: deviceToken,
+		deviceToken: deviceToken,
 		Compress:    true,
 		Batch:       true,
 		HTTP:        &http.Client{Timeout: 30 * time.Second},
@@ -41,7 +44,15 @@ func New(baseURL, enrollToken, deviceToken string) *Client {
 }
 
 func (c *Client) SetDeviceToken(token string) {
-	c.DeviceToken = token
+	c.mu.Lock()
+	c.deviceToken = token
+	c.mu.Unlock()
+}
+
+func (c *Client) DeviceToken() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.deviceToken
 }
 
 func (c *Client) Register(ctx context.Context, req models.RegisterRequest) (*models.RegisterResponse, error) {
@@ -73,7 +84,7 @@ func (c *Client) Register(ctx context.Context, req models.RegisterRequest) (*mod
 	if err := json.Unmarshal(data, &out); err != nil {
 		return nil, err
 	}
-	c.DeviceToken = out.DeviceToken
+	c.SetDeviceToken(out.DeviceToken)
 	return &out, nil
 }
 
@@ -122,8 +133,8 @@ func (c *Client) postEventsBody(ctx context.Context, body []byte) error {
 	if compressed {
 		httpReq.Header.Set("Content-Encoding", codec.ContentEncoding)
 	}
-	if c.DeviceToken != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.DeviceToken)
+	if tok := c.DeviceToken(); tok != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+tok)
 	}
 	resp, err := c.HTTP.Do(httpReq)
 	if err != nil {
