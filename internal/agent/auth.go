@@ -9,7 +9,6 @@ import (
 )
 
 func (a *Agent) ensureRegistered(ctx context.Context) error {
-	_ = ctx
 	deviceID, token, err := a.creds.Load()
 	if err != nil {
 		return err
@@ -20,12 +19,12 @@ func (a *Agent) ensureRegistered(ctx context.Context) error {
 		a.log.Printf("using device %s", a.deviceID)
 		return nil
 	}
-	return a.register()
+	return a.register(ctx)
 }
 
-func (a *Agent) register() error {
+func (a *Agent) register(ctx context.Context) error {
 	details := a.collector.ClientDetails()
-	reg, err := a.client.Register(models.RegisterRequest{
+	reg, err := a.client.Register(ctx, models.RegisterRequest{
 		DeviceID:     a.deviceID,
 		Hostname:     details.Hostname,
 		OS:           details.OS,
@@ -46,31 +45,30 @@ func (a *Agent) register() error {
 }
 
 func (a *Agent) recoverAuth(ctx context.Context) error {
-	_ = ctx
 	if err := a.creds.ClearToken(); err != nil {
 		return err
 	}
 	a.client.SetDeviceToken("")
-	return a.register()
+	return a.register(ctx)
 }
 
-func (a *Agent) postEvent(ev models.Event) error {
-	return a.postEvents([]models.Event{ev})
+func (a *Agent) postEvent(ctx context.Context, ev models.Event) error {
+	return a.postEvents(ctx, []models.Event{ev})
 }
 
-func (a *Agent) postEvents(events []models.Event) error {
+func (a *Agent) postEvents(ctx context.Context, events []models.Event) error {
 	if len(events) == 0 {
 		return nil
 	}
-	err := a.client.PostEvents(events)
+	err := a.client.PostEvents(ctx, events)
 	if err == nil {
 		return nil
 	}
 	if !errors.Is(err, api.ErrUnauthorized) {
 		return err
 	}
-	if recErr := a.recoverAuth(context.Background()); recErr != nil {
+	if recErr := a.recoverAuth(ctx); recErr != nil {
 		return recErr
 	}
-	return a.client.PostEvents(events)
+	return a.client.PostEvents(ctx, events)
 }

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,9 +17,25 @@ func TestPostEventUnauthorized(t *testing.T) {
 	defer srv.Close()
 
 	c := New(srv.URL, "", "tok_bad")
-	err := c.PostEvent(models.Event{DeviceID: "dev_test", Type: "client_details"})
+	err := c.PostEvent(context.Background(), models.Event{DeviceID: "dev_test", Type: "client_details"})
 	if err != ErrUnauthorized {
 		t.Fatalf("PostEvent()=%v want ErrUnauthorized", err)
+	}
+}
+
+func TestPostEventsHonorsContextCancel(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("handler should not run for a pre-canceled request")
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "", "tok_test")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := c.PostEvent(ctx, models.Event{DeviceID: "dev_test", Type: "client_details"})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err=%v want context.Canceled", err)
 	}
 }
 

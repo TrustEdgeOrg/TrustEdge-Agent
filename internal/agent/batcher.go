@@ -9,29 +9,34 @@ import (
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 )
 
+// DefaultShutdownFlushTimeout bounds the final upload attempt after cancel.
+const DefaultShutdownFlushTimeout = 3 * time.Second
+
 // BatcherOptions configure flush sizing and the durable offline queue.
 type BatcherOptions struct {
-	MaxSize    int
-	FlushEvery time.Duration
-	QueuePath  string
-	Capacity   int
-	MaxBackoff time.Duration
+	MaxSize              int
+	FlushEvery           time.Duration
+	QueuePath            string
+	Capacity             int
+	MaxBackoff           time.Duration
+	ShutdownFlushTimeout time.Duration
 }
 
 // EventBatcher collects telemetry into a durable ring and flushes batches to the API.
 type EventBatcher struct {
-	clock      clock.Clock
-	deviceID   func() string
-	postBatch  func([]models.Event) error
-	log        *log.Logger
-	maxSize    int
-	flushEvery time.Duration
-	maxBackoff time.Duration
-	queue      *EventRing
-	wake       chan struct{}
+	clock                clock.Clock
+	deviceID             func() string
+	postBatch            func(context.Context, []models.Event) error
+	log                  *log.Logger
+	maxSize              int
+	flushEvery           time.Duration
+	maxBackoff           time.Duration
+	shutdownFlushTimeout time.Duration
+	queue                *EventRing
+	wake                 chan struct{}
 }
 
-func NewEventBatcher(clk clock.Clock, deviceID func() string, postBatch func([]models.Event) error, logger *log.Logger, opts BatcherOptions) (*EventBatcher, error) {
+func NewEventBatcher(clk clock.Clock, deviceID func() string, postBatch func(context.Context, []models.Event) error, logger *log.Logger, opts BatcherOptions) (*EventBatcher, error) {
 	if opts.MaxSize <= 0 {
 		opts.MaxSize = 32
 	}
@@ -41,20 +46,24 @@ func NewEventBatcher(clk clock.Clock, deviceID func() string, postBatch func([]m
 	if opts.MaxBackoff <= 0 {
 		opts.MaxBackoff = 60 * time.Second
 	}
+	if opts.ShutdownFlushTimeout <= 0 {
+		opts.ShutdownFlushTimeout = DefaultShutdownFlushTimeout
+	}
 	ring, err := OpenEventRing(opts.QueuePath, opts.Capacity)
 	if err != nil {
 		return nil, err
 	}
 	b := &EventBatcher{
-		clock:      clk,
-		deviceID:   deviceID,
-		postBatch:  postBatch,
-		log:        logger,
-		maxSize:    opts.MaxSize,
-		flushEvery: opts.FlushEvery,
-		maxBackoff: opts.MaxBackoff,
-		queue:      ring,
-		wake:       make(chan struct{}, 1),
+		clock:                clk,
+		deviceID:             deviceID,
+		postBatch:            postBatch,
+		log:                  logger,
+		maxSize:              opts.MaxSize,
+		flushEvery:           opts.FlushEvery,
+		maxBackoff:           opts.MaxBackoff,
+		shutdownFlushTimeout: opts.ShutdownFlushTimeout,
+		queue:                ring,
+		wake:                 make(chan struct{}, 1),
 	}
 	if pending := ring.Len(); pending > 0 && logger != nil {
 		logger.Printf("event queue: restored %d pending event(s)", pending)
@@ -84,10 +93,14 @@ func (b *EventBatcher) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			_ = b.Flush()
+			// Parent ctx is cancelled; use a short independent deadline for a
+			// best-effort final flush. Unacked events remain in the durable ring.
+			flushCtx, cancel := context.WithTimeout(context.Background(), b.shutdownFlushTimeout)
+			_ = b.Flush(flushCtx)
+			cancel()
 			return
 		case <-timer.C:
-			err := b.Flush()
+			err := b.Flush(ctx)
 			if err != nil {
 				backoff = nextBackoff(backoff, b.flushEvery, b.maxBackoff)
 			} else {
@@ -104,7 +117,7 @@ func (b *EventBatcher) Run(ctx context.Context) {
 				default:
 				}
 			}
-			err := b.Flush()
+			err := b.Flush(ctx)
 			if err != nil {
 				backoff = nextBackoff(backoff, b.flushEvery, b.maxBackoff)
 			} else {
@@ -119,12 +132,12 @@ func (b *EventBatcher) Run(ctx context.Context) {
 }
 
 // Flush peeks a batch, posts it, and only acks on success so failures stay queued.
-func (b *EventBatcher) Flush() error {
+func (b *EventBatcher) Flush(ctx context.Context) error {
 	batch := b.queue.Peek(b.maxSize)
 	if len(batch) == 0 {
 		return nil
 	}
-	if err := b.postBatch(batch); err != nil {
+	if err := b.postBatch(ctx, batch); err != nil {
 		if b.log != nil {
 			b.log.Printf("post batch (%d events, pending=%d): %v", len(batch), b.queue.Len(), err)
 		}

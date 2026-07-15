@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -33,7 +34,7 @@ func TestPostEventsBatchUsesBatchEnvelope(t *testing.T) {
 			Payload:  map[string]any{"pid": i, "comm": "curl"},
 		})
 	}
-	if err := c.PostEvents(events); err != nil {
+	if err := c.PostEvents(context.Background(), events); err != nil {
 		t.Fatal(err)
 	}
 	if encoded != codec.ContentEncoding {
@@ -63,7 +64,7 @@ func TestPostEventsSingleUsesEventEnvelope(t *testing.T) {
 
 	c := New(srv.URL, "", "tok_test")
 	ev := models.Event{DeviceID: "dev_test", Type: "client_details", Payload: map[string]any{}}
-	if err := c.PostEvents([]models.Event{ev}); err != nil {
+	if err := c.PostEvents(context.Background(), []models.Event{ev}); err != nil {
 		t.Fatal(err)
 	}
 	if encoded == codec.ContentEncoding {
@@ -101,7 +102,7 @@ func TestPostEventsCompressDisabledSendsPlainJSON(t *testing.T) {
 			Payload:  map[string]any{"pid": i, "comm": "curl"},
 		})
 	}
-	if err := c.PostEvents(events); err != nil {
+	if err := c.PostEvents(context.Background(), events); err != nil {
 		t.Fatal(err)
 	}
 	if encoded != "" {
@@ -129,7 +130,7 @@ func TestPostEventsBatchDisabledPostsSingles(t *testing.T) {
 		{DeviceID: "dev_test", Type: "client_details", Payload: map[string]any{}},
 		{DeviceID: "dev_test", Type: "network_summary", Payload: map[string]any{}},
 	}
-	if err := c.PostEvents(events); err != nil {
+	if err := c.PostEvents(context.Background(), events); err != nil {
 		t.Fatal(err)
 	}
 	if len(bodies) != 2 {

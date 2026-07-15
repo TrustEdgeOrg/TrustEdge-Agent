@@ -56,7 +56,7 @@ flowchart TB
 3. Emit one `client_details` event immediately.
 4. Start the four collector loops (details below).
 5. Block until the context is cancelled (SIGINT/SIGTERM).
-6. On shutdown, the batcher performs a final flush.
+6. On shutdown, the batcher performs a final flush with a short independent timeout (default 3s); remaining events stay in the durable ring.
 
 Registration (`EnsureRegistered`) happens before `Run()` and is independent of collection.
 
@@ -211,7 +211,7 @@ Any one of these causes a flush:
 ### Flush behavior
 
 1. `Peek` up to `EventBatchSize` events from the ring (do not remove them yet).
-2. Call `postEvents(batch)` (see [Upload](#upload)).
+2. Call `postEvents(ctx, batch)` (see [Upload](#upload)). HTTP uses the request context so cancel/shutdown can abort in-flight uploads.
 3. On success, `Ack` those events (persist the shorter ring). On failure, leave them queued and increase flush backoff up to `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`.
 4. Log success (`posted batch (N events, pending=…)`) or failure (`post batch (N events, pending=…): <err>`).
 
