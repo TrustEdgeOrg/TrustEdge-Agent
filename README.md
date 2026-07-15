@@ -1,211 +1,195 @@
 # TrustEdge Agent
 
-A lightweight cross-platform endpoint agent for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) security platform.
+**Cross-platform endpoint telemetry for modern detection.**
 
-TrustEdge Agent runs on laptops, workstations, and servers. It collects device posture — OS info, network activity, user presence, and process lifecycle — and sends it securely to TrustEdge for detection and alerting. **No VPN required.**
+A focused Go agent that observes device posture on macOS, Linux, and Windows — then delivers reliable, compressed events to [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) over HTTPS. No VPN required.
 
-**Platforms:** macOS · Linux · Windows
+[![Agent CI](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml)
 
-## How it fits in TrustEdge
-
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
-flowchart LR
-    A["TrustEdge Agent"] -->|HTTPS telemetry| B["Ingest API"]
-    B -->|Event stream| C["TrustEdge Platform"]
-
-    classDef agent fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
-    classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
-    classDef platform fill:#DCFCE7,stroke:#16A34A,stroke-width:2px,color:#14532D
-
-    class A agent
-    class B api
-    class C platform
+```text
+Endpoint  →  Collect  →  Durable ring  →  zstd  →  HTTPS  →  Ingest API  →  Kafka  →  Detection
 ```
 
-| Repo | Role |
-|------|------|
-| **[TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)** (this repo) | Collects endpoint telemetry and uploads it |
-| **[TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)** | Ingest API — validates events, publishes to Kafka |
-| **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | Dashboard, rules engine, alerts |
-| **[TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)** | Optional VPN enroll client |
+---
+
+## Why it exists
+
+Security teams need **endpoint signal** without deploying heavyweight EDR stacks or routing traffic through a VPN. TrustEdge Agent is the thin collector at the edge of that pipeline:
+
+| This agent | Hands off to |
+|------------|--------------|
+| Collect & upload telemetry | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) (auth, Kafka) |
+| Survive offline / flaky networks | [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) (rules, alerts, UI) |
+
+Built for laptops and workstations first: lightweight, privacy-aware, and engineered to fail soft when the network disappears.
+
+---
+
+## What it collects
+
+| Signal | Event types | Useful for |
+|--------|-------------|------------|
+| **Device** | `client_details` | Inventory, OS drift, agent health |
+| **Network** | `network_summary` | Public IP / posture changes, connection load |
+| **Activity** | `action_summary` | Foreground focus, idle vs active, app switches |
+| **Processes** | `process_start` / `process_exit` | Lifecycle + cmdline (optional; can be disabled) |
+
+<details>
+<summary><strong>Privacy boundaries</strong> — what we deliberately do not collect</summary>
+
+- Window titles or URLs  
+- Keystrokes or clipboard  
+- Screenshots  
+- Raw Wi‑Fi SSIDs  
+- Full remote IP connection tables  
+- File contents  
+
+Process command lines are truncated at 4 KiB. Turn process monitoring off with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
+
+</details>
+
+---
 
 ## How it works
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
 flowchart LR
-    subgraph EP ["Endpoint"]
-        DEV(["Device"])
-    end
-
-    subgraph AG ["TrustEdge Agent"]
-        direction LR
-        COL["Collect"] --> BAT["Batch"] --> ZIP["Compress"] --> SND["Send"]
-    end
-
-    subgraph CL ["TrustEdge Cloud"]
-        direction LR
-        API["Ingest API"] --> KFK[("Kafka")] --> DET["Detection"]
-    end
-
-    DEV --> COL
-    SND -->|HTTPS + zstd| API
-
-    classDef endpoint fill:#F8FAFC,stroke:#475569,stroke-width:2px,color:#0F172A
-    classDef agent fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
-    classDef cloud fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
-    classDef stream fill:#FEF9C3,stroke:#CA8A04,stroke-width:2px,color:#713F12
-    classDef compress fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
-
-    class DEV endpoint
-    class COL,BAT,SND agent
-    class ZIP compress
-    class API,DET cloud
-    class KFK stream
+  subgraph Endpoint
+    C[Collectors]
+    R[(Durable ring)]
+    U[HTTPS + zstd]
+    C --> R --> U
+  end
+  subgraph Cloud
+    API[Ingest API]
+    K[(Kafka)]
+    D[Detection]
+    API --> K --> D
+  end
+  U --> API
 ```
 
-| Stage | Description |
-|-------|-------------|
-| **Collect** | Gather device, network, activity, and process telemetry from the OS |
-| **Batch** | Buffer events in a durable ring (up to 32 per upload, or every 2 seconds) |
-| **Compress** | JSON batches are optionally compressed with zstd when smaller than raw JSON |
-| **Send** | Upload the batch to the ingest API over HTTPS |
-| **Ingest** | API decompresses if needed, validates, and accepts events |
-| **Kafka** | Events are published to the event stream |
-| **Detection** | TrustEdge applies rules and raises alerts |
+1. **Collect** — concurrent OS collectors (details, network, activity, processes).  
+2. **Queue** — events land in a **bounded, on-disk ring**; only removed after a successful upload.  
+3. **Batch** — flush by size (default 32) or time (default 2s).  
+4. **Compress** — optional zstd when it shrinks the payload.  
+5. **Deliver** — `POST /v1/events` with device bearer auth; 401 triggers a single serialized re-register + retry.  
+6. **Observe** — structured `slog` logs + periodic status metrics (`pending`, upload success/fail, auth recoveries).
 
-## What the agent watches
+Deep dive: [Architecture](docs/architecture.md) · [Collection & batching](docs/collection.md)
 
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
-flowchart TB
-    subgraph SRC ["Data Sources"]
-        direction LR
-        D1["Device Info"]
-        D2["Network"]
-        D3["User Activity"]
-        D4["Processes"]
-    end
+---
 
-    BAT["Event Batcher"]
-    ZIP["zstd Compress"]
-    API["Ingest API"]
+## Engineering highlights
 
-    D1 --> BAT
-    D2 --> BAT
-    D3 --> BAT
-    D4 --> BAT
-    BAT --> ZIP
-    ZIP -->|HTTPS upload| API
+Things that matter in a production endpoint agent — already in this codebase:
 
-    classDef source fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
-    classDef batch fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
-    classDef compress fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
-    classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+| Area | Design choice |
+|------|----------------|
+| **Reliability** | Durable event ring with overwrite-oldest policy + exponential backoff |
+| **Shutdown** | Context-aware HTTP; short best-effort flush (events remain queued) |
+| **Auth** | Device token in OS keyring; concurrent 401s share one re-register |
+| **Efficiency** | Network summary built once per emit; zstd when beneficial |
+| **Activity signal** | Fast foreground sampling (5s) inside slower summary windows (60s) |
+| **Safety defaults** | Ingest URL required — no accidental cleartext default host |
+| **Operability** | `text` / `json` logs + `agent status` metrics interval |
+| **Platforms** | macOS · Linux · Windows; CI builds all three |
 
-    class D1,D2,D3,D4 source
-    class BAT batch
-    class ZIP compress
-    class API api
-```
-
-| Area | What is collected |
-|------|-------------------|
-| **Device** | Hostname, OS, architecture, agent version, uptime |
-| **Network** | Public IP, connection counts, top remote ports |
-| **User activity** | Foreground app focus, idle/active presence, app switches |
-| **Processes** | Process starts and exits — pid, parent, user, name, executable path, command line |
-
-Details: [Collection and batching](docs/collection.md) · [Architecture](docs/architecture.md)
-
-## Privacy
-
-TrustEdge Agent is designed for **endpoint posture telemetry**. It does **not** collect:
-
-- Window titles or URLs
-- Keystrokes or clipboard contents
-- Screenshots
-- Raw Wi‑Fi SSIDs
-- Full remote IP connection tables
-- File contents
-
-Process events include **command lines** (truncated at 4 KiB). Disable process monitoring with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
+---
 
 ## Quick start
+
+### Prerequisites
+
+- Go **1.22+**
+- An ingest API base URL (`TRUSTEDGE_AGENT_API_URL`)
+
+### Local (recommended)
 
 ```bash
 git clone https://github.com/TrustEdgeOrg/TrustEdge-Agent.git
 cd TrustEdge-Agent
 
-# Set the ingest API URL (required — no built-in default).
-export TRUSTEDGE_AGENT_API_URL=http://44.218.45.174:8080
-# Enroll token is required on EC2 — copy from the host:
-#   ssh ubuntu@44.218.45.174 'sudo cat /etc/trustedge/agent-enroll.token'
-export TRUSTEDGE_AGENT_ENROLL_TOKEN=your-enroll-token
+# Point at a local TrustEdge-Agent-API (or capture server)
+export TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080
+# export TRUSTEDGE_AGENT_ENROLL_TOKEN=...   # if your API requires enroll
 
 make build
 ./bin/trustedge-agent
 ```
 
-Against a local ingest API:
+Or one step: `make run-agent-local`.
+
+On first run the agent registers, stores a device ID on disk, and keeps the device token in the **OS keyring**.
+
+### Demo against a remote ingest host
 
 ```bash
-make run-agent-local
+export TRUSTEDGE_AGENT_API_URL=https://your-ingest.example
+export TRUSTEDGE_AGENT_ENROLL_TOKEN=your-enroll-token
+make run-agent   # or: make agent
 ```
 
-Or use `make run-agent` / `make agent`, which point at the EC2 demo API explicitly.
-On first run the agent registers with the API and stores credentials locally (device ID on disk, token in the OS keyring). See [Agent guide](docs/agent.md) for platform paths and permissions.
+Production checklist: `TRUSTEDGE_AGENT_PRODUCTION=1` enforces **HTTPS** + enroll token.  
+Full knobs: [Configuration](docs/configuration.md).
 
-## Documentation
+---
 
-| Guide | Description |
-|-------|-------------|
-| [docs/](docs/README.md) | Documentation index |
-| [Architecture](docs/architecture.md) | End-to-end flow, compression, auth |
-| [Collection and batching](docs/collection.md) | Collectors, flush triggers, upload |
-| [Agent](docs/agent.md) | Installation, platforms, credentials |
-| [Configuration](docs/configuration.md) | All environment variables |
-| [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP endpoints and payload schemas |
+## Platform support
 
-## For developers
+| OS | Collection notes |
+|----|------------------|
+| **macOS** | Native foreground/idle; optional Endpoint Security watcher (CGO); poll fallback |
+| **Linux** | procfs / netlink where available; poll reconciliation |
+| **Windows** | ETW / Win32 probes; poll reconciliation |
 
-### Build and test
+Default CI builds use **CGO=0** (portable poll-mode). Optional `make build-cgo` enables richer watchers where the SDK allows.
 
-```bash
-make build       # → bin/trustedge-agent
-make build-all   # cross-platform binaries
-make test
-```
+---
 
-### Local ingest API (optional)
-
-```bash
-# Terminal 1 — local Agent API
-cd TrustEdge-Agent-API && # start per that repo's README
-
-# Terminal 2 — agent against localhost
-cd TrustEdge-Agent && make run-agent-local
-```
-
-### EC2 Agent API (default)
-
-Ensure the EC2 host (`netgarde-backend` / `44.218.45.174`) is running and `trustedge-agent-api` is up on `:8080`, then:
-
-```bash
-export TRUSTEDGE_AGENT_ENROLL_TOKEN="$(ssh ubuntu@44.218.45.174 'sudo cat /etc/trustedge/agent-enroll.token')"
-make run-agent
-```
-
-### Project layout
+## Project layout
 
 ```text
-cmd/trustedge-agent/     # agent entrypoint
-internal/collect/        # platform telemetry collectors
-internal/agent/          # agent runtime + batcher
-internal/api/            # HTTP client to ingest API
-internal/codec/          # zstd compression
-docs/                    # documentation
+cmd/trustedge-agent/     Entrypoint — config, slog, signal lifecycle
+internal/agent/          Runtime, durable ring, batcher, auth, metrics
+internal/collect/        OS collectors + platform watchers
+internal/api/            HTTPS client (register + events, context-aware)
+internal/credentials/    Device ID + keyring-backed tokens
+internal/codec/          Optional zstd
+internal/config/         Env-based configuration + validation
+docs/                    Architecture, collection, agent, configuration
 ```
 
-Part of [TrustEdgeOrg](https://github.com/TrustEdgeOrg).
+---
+
+## Develop
+
+```bash
+make test          # CGO_ENABLED=0 go test ./...
+make build         # → bin/trustedge-agent
+make build-all     # cross-compile darwin / linux / windows
+make capture-events  # local fake ingest on :18080 for capturing payloads
+```
+
+| Doc | Purpose |
+|-----|---------|
+| [Architecture](docs/architecture.md) | Lifecycle, upload path, auth recovery |
+| [Collection](docs/collection.md) | Collectors, flush rules, concurrency |
+| [Agent guide](docs/agent.md) | Install paths, credentials, platforms |
+| [Configuration](docs/configuration.md) | Every environment variable |
+| [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP schemas |
+
+---
+
+## Ecosystem
+
+| Repository | Role |
+|------------|------|
+| **[TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)** | This agent |
+| **[TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)** | Ingest · validate · Kafka |
+| **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | Dashboard · rules · alerts |
+| **[TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)** | Optional VPN enroll client |
+
+---
+
+Part of [TrustEdgeOrg](https://github.com/TrustEdgeOrg) · Built with Go.
