@@ -2,31 +2,6 @@
 
 How `trustedge-agent` collects telemetry, buffers it in a durable ring, and uploads to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
-<p align="center">
-  <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#mental-model">Overview</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#collectors">Collectors</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/queue.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#batching">Batching</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#upload">Upload</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/concurrency.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#concurrency-model">Concurrency</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#configuration-quick-reference">Config</a>
-</p>
-
-> **Also see**
-> <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Architecture](architecture.md)
-> · <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" /> [Agent guide](agent.md)
-> · <img src="assets/icons/config.svg" width="16" height="16" align="absmiddle" alt="" /> [Configuration](configuration.md)
-
 ---
 
 ## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Mental model
