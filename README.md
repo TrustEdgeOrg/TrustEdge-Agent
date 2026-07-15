@@ -7,7 +7,7 @@ A focused Go agent that observes device posture on macOS, Linux, and Windows —
 [![Agent CI](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml)
 
 <p align="center">
-  <img src="docs/assets/pipeline.svg" alt="Endpoint to Collect to Durable ring to zstd to HTTPS to Ingest API to Kafka to Detection" width="920" />
+  <img src="docs/assets/pipeline.svg" alt="Your device gathers signals, queues them offline, compresses, sends securely, then TrustEdge receives, streams, and detects threats" width="920" />
 </p>
 
 ---
@@ -54,12 +54,12 @@ Process command lines are truncated at 4 KiB. Turn process monitoring off with `
 
 Along the path above:
 
-1. **Collect** — concurrent OS collectors (details, network, activity, processes).  
-2. **Queue** — events land in a **bounded, on-disk ring**; only removed after a successful upload.  
-3. **Batch** — flush by size (default 32) or time (default 2s).  
-4. **Compress** — optional zstd when it shrinks the payload.  
-5. **Deliver** — `POST /v1/events` with device bearer auth; 401 triggers a single serialized re-register + retry.  
-6. **Observe** — structured `slog` logs + periodic status metrics (`pending`, upload success/fail, auth recoveries).
+1. **Gather** — watch the device for posture signals (OS info, network, activity, processes).  
+2. **Offline queue** — keep events safely on disk until upload succeeds (even if the network drops).  
+3. **Batch** — group events for efficient delivery (by count or a short timer).  
+4. **Compress** — shrink payloads when it helps.  
+5. **Send securely** — upload over encrypted HTTPS with device credentials; recover automatically if auth fails.  
+6. **Observe** — structured logs and periodic health status for operators.
 
 Deep dive: [Architecture](docs/architecture.md) · [Collection & batching](docs/collection.md)
 
