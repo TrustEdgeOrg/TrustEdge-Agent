@@ -37,6 +37,9 @@ type AgentConfig struct {
 }
 
 func (c AgentConfig) Validate() error {
+	if strings.TrimSpace(c.APIURL) == "" {
+		return errors.New("TRUSTEDGE_AGENT_API_URL is required (or pass -api-url)")
+	}
 	if !c.Production {
 		return nil
 	}
@@ -194,7 +197,7 @@ func LoadAgent() AgentConfig {
 		queuePath = defaultEventQueuePath(statePath)
 	}
 	return AgentConfig{
-		APIURL:             strings.TrimRight(env("TRUSTEDGE_AGENT_API_URL", "TRUSTTWIN_API_URL", "http://44.218.45.174:8080"), "/"),
+		APIURL:             strings.TrimRight(env("TRUSTEDGE_AGENT_API_URL", "TRUSTTWIN_API_URL", ""), "/"),
 		EnrollToken:        env("TRUSTEDGE_AGENT_ENROLL_TOKEN", "TRUSTTWIN_ENROLL_TOKEN", ""),
 		StatePath:          statePath,
 		PublicIPLookupURL:  loadPublicIPLookupURL(),

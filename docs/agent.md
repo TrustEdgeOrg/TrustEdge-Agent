@@ -41,7 +41,7 @@ make build-all      # → bin/trustedge-agent-{darwin,linux,windows}-*
 ### Run
 
 ```bash
-# Default is the EC2 Agent API (44.218.45.174:8080). Override if needed:
+# API URL is required (no built-in default). EC2 demo host example:
 export TRUSTEDGE_AGENT_API_URL=http://44.218.45.174:8080
 export TRUSTEDGE_AGENT_ENROLL_TOKEN=<from EC2 /etc/trustedge/agent-enroll.token>
 ./bin/trustedge-agent

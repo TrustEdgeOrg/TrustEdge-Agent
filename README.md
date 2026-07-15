@@ -138,7 +138,8 @@ Process events include **command lines** (truncated at 4 KiB). Disable process m
 git clone https://github.com/TrustEdgeOrg/TrustEdge-Agent.git
 cd TrustEdge-Agent
 
-# Default API URL is the EC2 Agent API (http://44.218.45.174:8080).
+# Set the ingest API URL (required — no built-in default).
+export TRUSTEDGE_AGENT_API_URL=http://44.218.45.174:8080
 # Enroll token is required on EC2 — copy from the host:
 #   ssh ubuntu@44.218.45.174 'sudo cat /etc/trustedge/agent-enroll.token'
 export TRUSTEDGE_AGENT_ENROLL_TOKEN=your-enroll-token
@@ -153,6 +154,7 @@ Against a local ingest API:
 make run-agent-local
 ```
 
+Or use `make run-agent` / `make agent`, which point at the EC2 demo API explicitly.
 On first run the agent registers with the API and stores credentials locally (device ID on disk, token in the OS keyring). See [Agent guide](docs/agent.md) for platform paths and permissions.
 
 ## Documentation

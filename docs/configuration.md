@@ -6,7 +6,7 @@ All settings are environment variables. Copy [.env.example](../.env.example) as 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TRUSTEDGE_AGENT_API_URL` | `http://44.218.45.174:8080` | Ingest API base URL (no trailing slash) — EC2 by default; use `http://127.0.0.1:8080` for local — see [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
+| `TRUSTEDGE_AGENT_API_URL` | _(required)_ | Ingest API base URL (no trailing slash). Example EC2: `http://44.218.45.174:8080`; local: `http://127.0.0.1:8080` — see [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
 | `TRUSTEDGE_AGENT_ENROLL_TOKEN` | _(empty)_ | Bearer token for `POST /v1/register`; required when `TRUSTEDGE_AGENT_PRODUCTION=1` |
 | `TRUSTEDGE_AGENT_PRODUCTION` | `0` | `1` requires HTTPS API URL and enroll token |
 | `TRUSTEDGE_AGENT_COMPRESS` | `1` | `0` disables zstd on `/v1/events` (use `0` against older EC2 `trusttwin-api` images) |
