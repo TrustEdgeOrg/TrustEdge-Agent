@@ -1,67 +1,79 @@
-# Agent
+# <img src="assets/icons/agent.svg" width="28" height="28" align="absmiddle" alt="" /> Agent guide
 
-The `trustedge-agent` binary runs on each endpoint (laptop, workstation, server) and reports device posture to the ingest API. No VPN is required.
+The `trustedge-agent` binary runs on each endpoint (laptop, workstation, or server) and reports device posture to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) over HTTPS. **No VPN required.**
 
-## Supported platforms
+---
 
-| OS | Build | Process watcher | Credentials |
-|----|-------|-----------------|-------------|
-| **macOS** (arm64, amd64) | CGO enabled (default) | Endpoint Security (CGO) | Keychain |
-| **macOS** (CGO=0) | Poll-only process monitoring | — | Keychain |
-| **Linux** (amd64) | CGO optional | Netlink PROC connector | Secret Service keyring |
-| **Windows** (amd64) | CGO enabled | ETW kernel process | Windows Credential Manager |
+## <img src="assets/icons/platforms.svg" width="22" height="22" align="absmiddle" alt="" /> Platforms
 
-CI builds and tests all three platforms (`.github/workflows/agent-ci.yml`).
+| OS | Default local build | Richer process watcher | Credential store |
+|----|---------------------|------------------------|------------------|
+| **macOS** (arm64 / amd64) | `CGO=0` poll mode | Endpoint Security (needs `make build-cgo` + entitlement) | Keychain |
+| **Linux** (amd64) | `CGO=0` poll mode | Netlink PROC connector | Secret Service |
+| **Windows** (amd64) | Poll / ETW depending on build | ETW kernel process (admin) | Credential Manager |
 
-### Platform requirements
+CI builds and tests all three platforms (`.github/workflows/agent-ci.yml`). Default `make build` / `make test` use **`CGO_ENABLED=0`** for portable poll-mode binaries.
 
-| Platform | Process watcher needs |
-|----------|----------------------|
-| Linux | Root or `CAP_NET_ADMIN` for netlink connector |
-| Windows | Administrator for ETW |
-| macOS | Apple Endpoint Security entitlement, signed binary, user approval |
+### Watcher privileges
 
-When the watcher is unavailable, the agent falls back to poll-only process monitoring.
+| Platform | Needed for the event-driven watcher |
+|----------|-------------------------------------|
+| Linux | Root or `CAP_NET_ADMIN` |
+| Windows | Administrator |
+| macOS | Endpoint Security entitlement, signed binary, user approval |
 
-## Installation
+If the watcher cannot start, the agent **falls back to poll-only** process monitoring — no hard failure.
 
-### From source
+---
+
+## <img src="assets/icons/install.svg" width="22" height="22" align="absmiddle" alt="" /> Installation
+
+### Build
 
 ```bash
 cd TrustEdge-Agent
-make build          # → bin/trustedge-agent
+make build          # → bin/trustedge-agent  (CGO=0)
+make build-cgo      # richer macOS / Windows watchers where available
+make build-all      # cross-compile → bin/trustedge-agent-{darwin,linux,windows}-*
 ```
 
-Cross-platform binaries:
+Requires **Go 1.22+**.
+
+### Run (local API)
 
 ```bash
-make build-all      # → bin/trustedge-agent-{darwin,linux,windows}-*
-```
+export TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080
+# export TRUSTEDGE_AGENT_ENROLL_TOKEN=...   # if your API requires enroll
 
-### Run
-
-```bash
-# API URL is required (no built-in default). EC2 demo host example:
-export TRUSTEDGE_AGENT_API_URL=http://44.218.45.174:8080
-export TRUSTEDGE_AGENT_ENROLL_TOKEN=<from EC2 /etc/trustedge/agent-enroll.token>
+make build
 ./bin/trustedge-agent
 ```
 
-Or against a local ingest API:
+One-liner: `make run-agent-local`.
+
+### Run (remote ingest)
 
 ```bash
-make run-agent-local
-# or: TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
+export TRUSTEDGE_AGENT_API_URL=https://your-ingest.example
+export TRUSTEDGE_AGENT_ENROLL_TOKEN=your-enroll-token
+./bin/trustedge-agent
 ```
 
-## Credentials and state
+Production checklist: set `TRUSTEDGE_AGENT_PRODUCTION=1` so the agent requires **HTTPS** and an enroll token.
 
-On first run the agent registers with the API and stores credentials locally:
+> `TRUSTEDGE_AGENT_API_URL` is **required** — there is no baked-in default host.
 
-| Item | Storage |
-|------|---------|
-| Device ID | State JSON file (platform default path) |
-| Device token | OS keyring (macOS Keychain, Linux Secret Service, Windows Credential Manager) |
+---
+
+## <img src="assets/icons/lock.svg" width="22" height="22" align="absmiddle" alt="" /> Credentials and state
+
+On first successful register, the agent stores:
+
+| Item | Where |
+|------|--------|
+| **Device ID** | State JSON (platform path below) |
+| **Device token** | OS keyring (Keychain / Secret Service / Credential Manager) |
+| **Pending events** | Durable ring file next to state (`events.queue.json` by default) |
 
 ### Default state paths
 
@@ -71,81 +83,91 @@ On first run the agent registers with the API and stores credentials locally:
 | Linux | `~/.local/share/TrustEdge Agent/state.json` |
 | Windows | `%APPDATA%\TrustEdge Agent\state.json` |
 
-Override with `TRUSTEDGE_AGENT_STATE_PATH`.
+Override with `TRUSTEDGE_AGENT_STATE_PATH`. Queue path override: `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH`.
 
-In production mode (`TRUSTEDGE_AGENT_PRODUCTION=1`), tokens are stored in the keyring only — not in `state.json`.
+With `TRUSTEDGE_AGENT_PRODUCTION=1`, tokens stay in the **keyring only** — not written into `state.json`.
 
-## Telemetry types
+---
+
+## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Telemetry
 
 | Event type | What it reports |
 |------------|-----------------|
-| `client_details` | Device identity, OS, arch, agent version, uptime — online heartbeat |
-| `network_summary` | Coarse network posture: public IP, interface type, socket counts, top remote ports |
-| `action_summary` | Short-window app focus, idle/active presence, app switch count |
-| `process_start` | New process: pid, ppid, user, comm, executable path, command line |
-| `process_exit` | Process exit: pid, ppid, user, comm, executable path, command line (enriched from start when available) |
+| `client_details` | Device identity, OS, arch, agent version, uptime (heartbeat) |
+| `network_summary` | Public IP, interface type, socket counts, top remote ports |
+| `action_summary` | Foreground focus, idle vs active, app switches |
+| `process_start` | New process: pid, ppid, user, name, path, cmdline |
+| `process_exit` | Exit lifecycle (enriched from start when available) |
 
-See [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) for payload field details. For collection flow, batching, and flush behavior, see [Collection and batching](collection.md).
+Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md).  
+Timers, flush rules, concurrency: [Collection & batching](collection.md).
 
-## Privacy
+### How collectors behave
 
-TrustEdge Agent does **not** collect:
+| Collector | Behavior |
+|-----------|----------|
+| **Client details** | Once at startup, then on `TRUSTEDGE_AGENT_DETAILS_INTERVAL` |
+| **Network** | On interface/address change (debounced) + periodic heartbeat |
+| **Actions** | Sample foreground every ~5s; emit one summary per ~60s window |
+| **Processes** | Watcher (when available) + poll reconcile + dedup |
 
-- Window titles or URLs
-- Keystrokes or clipboard
-- Screenshots
-- Raw Wi‑Fi SSIDs
-- Full remote IP connection tables
-- File contents
+Public IP comes from a configurable lookup URL (default: ipify). Disable with `TRUSTEDGE_AGENT_PUBLIC_IP_URL=off`.
 
-Process monitoring collects process metadata **and command line** (pid, parent pid, user, process name, executable path, cmdline). Command lines are truncated at 4 KiB. Disable with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
+---
 
-## Collectors in detail
+## <img src="assets/icons/privacy.svg" width="22" height="22" align="absmiddle" alt="" /> Privacy
 
-### Client details
+The agent does **not** collect:
 
-Sent immediately on startup, then on a fixed interval. Provides presence heartbeat for the TrustEdge twin graph.
+- Window titles or URLs  
+- Keystrokes or clipboard  
+- Screenshots  
+- Raw Wi‑Fi SSIDs  
+- Full remote IP connection tables  
+- File contents  
 
-### Network summary
-
-`NetworkMonitor` watches OS network state. Emits when interfaces or addresses change (debounced by `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE`, default 2s) and on a periodic heartbeat (`TRUSTEDGE_AGENT_NETWORK_INTERVAL`).
-
-Public IP is fetched from a configurable URL (default: ipify). Set `TRUSTEDGE_AGENT_PUBLIC_IP_URL=off` to disable outbound lookup.
-
-### Action summary
-
-`ActionTracker` samples the foreground app frequently (default every 5s), then emits one `action_summary` each window (default 60s) with focus durations, switches, and presence.
-
-### Process monitor
-
-Hybrid event-driven + poll model:
-
-1. **Watcher** (when available) streams `process_start` / `process_exit` in real time.
-2. **Poll** every `ProcessInterval` reconciles the process table and enqueues missed transitions.
-3. **Dedup** via `Observe()` prevents duplicate events for the same PID transition.
-
-## Batching and upload
-
-Events are buffered and flushed in batches before upload. See [Collection and batching](collection.md) for flush triggers, timing examples, and upload details.
-
-## Auth recovery
-
-If the API returns `401 Unauthorized` on a telemetry upload, the agent:
-
-1. Serializes recovery so concurrent 401s only re-register once
-2. Clears the stored device token
-3. Re-registers via `POST /v1/register` (unless another caller already refreshed the token)
-4. Retries the failed batch once
-
-## Local dev with TrustEdge
+Process monitoring includes metadata **and command line** (truncated at 4 KiB). Turn processes off with:
 
 ```bash
-# Terminal 1 — TrustEdge stack (Redis, Redpanda, API)
-cd ~/Desktop/TrustEdge && ./scripts/dev-up.sh
-
-# Terminal 2 — agent
-cd ~/Desktop/TrustEdge-Agent
-TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
+export TRUSTEDGE_AGENT_PROCESS_INTERVAL=0
 ```
 
-TrustEdge `docker-compose.yml` can build the API from `../TrustEdge-Agent` for integrated local testing.
+---
+
+## <img src="assets/icons/lock.svg" width="22" height="22" align="absmiddle" alt="" /> Auth recovery
+
+Uploads carry the device token. On **`401 Unauthorized`**:
+
+1. Serialize recovery so concurrent 401s only re-register once  
+2. Clear the stored device token  
+3. `POST /v1/register` (skipped if another goroutine already refreshed)  
+4. Retry the failed batch once  
+
+Failed uploads otherwise stay in the durable ring and retry with exponential backoff.
+
+---
+
+## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Local stack with TrustEdge
+
+```bash
+# Terminal 1 — TrustEdge compose / scripts (Redis, stream, API)
+cd TrustEdge && ./scripts/dev-up.sh
+
+# Terminal 2 — this agent
+cd TrustEdge-Agent
+export TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080
+go run ./cmd/trustedge-agent
+```
+
+Or point at any local [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) instance on `:8080`.
+
+---
+
+## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> See also
+
+| | Doc | Purpose |
+|---|-----|---------|
+| <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Architecture](architecture.md) | Lifecycle, upload path, durable ring |
+| <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" /> | [Collection & batching](collection.md) | Collectors, flush triggers, concurrency |
+| <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [Configuration](configuration.md) | Every environment variable |
+| <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" /> | [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP schemas |
