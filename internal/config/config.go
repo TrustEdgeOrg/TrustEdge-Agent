@@ -23,14 +23,17 @@ type AgentConfig struct {
 	// Compress enables optional zstd on /v1/events (default true).
 	Compress bool
 	// Batch enables {"events":[...]} envelopes for multi-event flushes (default true).
-	Batch           bool
-	DetailsInterval time.Duration
-	NetworkInterval time.Duration
-	NetworkDebounce time.Duration
-	ActionInterval  time.Duration
-	ProcessInterval time.Duration
-	EventBatchSize  int
-	EventBatchFlush time.Duration
+	Batch              bool
+	DetailsInterval    time.Duration
+	NetworkInterval    time.Duration
+	NetworkDebounce    time.Duration
+	ActionInterval     time.Duration
+	ProcessInterval    time.Duration
+	EventBatchSize     int
+	EventBatchFlush    time.Duration
+	EventQueueCapacity int
+	EventQueuePath     string
+	EventRetryMax      time.Duration
 }
 
 func (c AgentConfig) Validate() error {
@@ -177,22 +180,34 @@ func resolveStatePath(configured string) string {
 	return path
 }
 
+func defaultEventQueuePath(statePath string) string {
+	return filepath.Join(filepath.Dir(statePath), "events.queue.json")
+}
+
 func LoadAgent() AgentConfig {
 	configuredState := env("TRUSTEDGE_AGENT_STATE_PATH", "TRUSTTWIN_STATE_PATH", "")
+	statePath := resolveStatePath(configuredState)
+	queuePath := env("TRUSTEDGE_AGENT_EVENT_QUEUE_PATH", "", "")
+	if queuePath == "" {
+		queuePath = defaultEventQueuePath(statePath)
+	}
 	return AgentConfig{
-		APIURL:            strings.TrimRight(env("TRUSTEDGE_AGENT_API_URL", "TRUSTTWIN_API_URL", "http://44.218.45.174:8080"), "/"),
-		EnrollToken:       env("TRUSTEDGE_AGENT_ENROLL_TOKEN", "TRUSTTWIN_ENROLL_TOKEN", ""),
-		StatePath:         resolveStatePath(configuredState),
-		PublicIPLookupURL: loadPublicIPLookupURL(),
-		Production:        envBool("TRUSTEDGE_AGENT_PRODUCTION", "TRUSTTWIN_PRODUCTION"),
-		Compress:          envBoolDefault("TRUSTEDGE_AGENT_COMPRESS", "TRUSTTWIN_COMPRESS", true),
-		Batch:             envBoolDefault("TRUSTEDGE_AGENT_BATCH", "TRUSTTWIN_BATCH", true),
-		DetailsInterval:   envDuration("TRUSTEDGE_AGENT_DETAILS_INTERVAL", "TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),
-		NetworkInterval:   envDuration("TRUSTEDGE_AGENT_NETWORK_INTERVAL", "TRUSTTWIN_NETWORK_INTERVAL", 60*time.Second),
-		NetworkDebounce:   envDuration("TRUSTEDGE_AGENT_NETWORK_DEBOUNCE", "TRUSTTWIN_NETWORK_DEBOUNCE", 2*time.Second),
-		ActionInterval:    envDuration("TRUSTEDGE_AGENT_ACTION_INTERVAL", "TRUSTTWIN_ACTION_INTERVAL", 60*time.Second),
-		ProcessInterval:   envDuration("TRUSTEDGE_AGENT_PROCESS_INTERVAL", "TRUSTTWIN_PROCESS_INTERVAL", 10*time.Second),
-		EventBatchSize:    envInt("TRUSTEDGE_AGENT_EVENT_BATCH_SIZE", "TRUSTTWIN_EVENT_BATCH_SIZE", 32),
-		EventBatchFlush:   envDuration("TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH", "TRUSTTWIN_EVENT_BATCH_FLUSH", 2*time.Second),
+		APIURL:             strings.TrimRight(env("TRUSTEDGE_AGENT_API_URL", "TRUSTTWIN_API_URL", "http://44.218.45.174:8080"), "/"),
+		EnrollToken:        env("TRUSTEDGE_AGENT_ENROLL_TOKEN", "TRUSTTWIN_ENROLL_TOKEN", ""),
+		StatePath:          statePath,
+		PublicIPLookupURL:  loadPublicIPLookupURL(),
+		Production:         envBool("TRUSTEDGE_AGENT_PRODUCTION", "TRUSTTWIN_PRODUCTION"),
+		Compress:           envBoolDefault("TRUSTEDGE_AGENT_COMPRESS", "TRUSTTWIN_COMPRESS", true),
+		Batch:              envBoolDefault("TRUSTEDGE_AGENT_BATCH", "TRUSTTWIN_BATCH", true),
+		DetailsInterval:    envDuration("TRUSTEDGE_AGENT_DETAILS_INTERVAL", "TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),
+		NetworkInterval:    envDuration("TRUSTEDGE_AGENT_NETWORK_INTERVAL", "TRUSTTWIN_NETWORK_INTERVAL", 60*time.Second),
+		NetworkDebounce:    envDuration("TRUSTEDGE_AGENT_NETWORK_DEBOUNCE", "TRUSTTWIN_NETWORK_DEBOUNCE", 2*time.Second),
+		ActionInterval:     envDuration("TRUSTEDGE_AGENT_ACTION_INTERVAL", "TRUSTTWIN_ACTION_INTERVAL", 60*time.Second),
+		ProcessInterval:    envDuration("TRUSTEDGE_AGENT_PROCESS_INTERVAL", "TRUSTTWIN_PROCESS_INTERVAL", 10*time.Second),
+		EventBatchSize:     envInt("TRUSTEDGE_AGENT_EVENT_BATCH_SIZE", "TRUSTTWIN_EVENT_BATCH_SIZE", 32),
+		EventBatchFlush:    envDuration("TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH", "TRUSTTWIN_EVENT_BATCH_FLUSH", 2*time.Second),
+		EventQueueCapacity: envInt("TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY", "", constants.DefaultEventQueueCapacity),
+		EventQueuePath:     queuePath,
+		EventRetryMax:      envDuration("TRUSTEDGE_AGENT_EVENT_RETRY_MAX", "", 60*time.Second),
 	}
 }

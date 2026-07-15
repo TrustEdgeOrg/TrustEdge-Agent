@@ -45,7 +45,7 @@ flowchart TB
 
 - Collectors only add events to the batch — they never talk to the network directly.
 - Events from different areas (device, network, etc.) can be sent in the same batch.
-- There is **no offline queue**. If an upload fails, those events are dropped (the agent retries once on auth errors only).
+- Failed uploads stay in a durable ring and are retried with backoff (auth errors still get one immediate re-register retry).
 
 ## Runtime startup
 
@@ -196,7 +196,7 @@ Every `ProcessInterval`, `ProcessMonitor.Poll()`:
 
 ## Batching
 
-The `EventBatcher` (`internal/agent/batcher.go`) is a mutex-protected in-memory buffer shared by all collectors.
+The `EventBatcher` (`internal/agent/batcher.go`) shares a durable ring buffer (`EventRing`) across all collectors. Events are appended to the ring on enqueue and only removed after a successful upload.
 
 ### Flush triggers
 
@@ -210,9 +210,17 @@ Any one of these causes a flush:
 
 ### Flush behavior
 
-1. Copy the buffer under lock, then clear it.
+1. `Peek` up to `EventBatchSize` events from the ring (do not remove them yet).
 2. Call `postEvents(batch)` (see [Upload](#upload)).
-3. Log success (`posted batch (N events)`) or failure (`post batch (N events): <err>`).
+3. On success, `Ack` those events (persist the shorter ring). On failure, leave them queued and increase flush backoff up to `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`.
+4. Log success (`posted batch (N events, pending=…)`) or failure (`post batch (N events, pending=…): <err>`).
+
+### Offline ring
+
+| Setting | Default | Behavior |
+|---------|---------|----------|
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Bounded FIFO; overwrite oldest when full |
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH` | `<state-dir>/events.queue.json` | Atomic JSON persistence across restarts |
 
 ### Coalescing
 
@@ -272,7 +280,7 @@ On `401 Unauthorized` (`internal/agent/auth.go`):
 2. Re-register via `POST /v1/register`.
 3. Retry the **same batch** once.
 
-Any other error (network timeout, 5xx, etc.) is logged and the batch is **dropped**. There is no retry queue or exponential backoff.
+Any other error (network timeout, 5xx, etc.) is logged and the batch stays in the durable ring for retry with exponential backoff.
 
 ## Concurrency model
 
@@ -299,6 +307,8 @@ Collectors are independent — a slow public IP lookup in network collection doe
 | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` | `10` | Process poll; `0` = off |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` | `32` | Max events before flush |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` | `2` | Max seconds between flushes |
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Offline ring capacity |
+| `TRUSTEDGE_AGENT_EVENT_RETRY_MAX` | `60` | Max upload retry backoff |
 | `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | ipify | Public IP lookup; `off` disables |
 
 Full reference: [Configuration](configuration.md).
@@ -308,7 +318,8 @@ Full reference: [Configuration](configuration.md).
 | Concern | Package / file |
 |---------|----------------|
 | Agent orchestration | `internal/agent/agent.go` |
-| Batching | `internal/agent/batcher.go` |
+| Batching + flush | `internal/agent/batcher.go` |
+| Durable event ring | `internal/agent/ring.go` |
 | Auth + upload | `internal/agent/auth.go` |
 | HTTP client | `internal/api/client.go` |
 | zstd compression | `internal/codec/zstd.go` |
@@ -320,12 +331,10 @@ Full reference: [Configuration](configuration.md).
 
 | Behavior | Detail |
 |----------|--------|
-| No offline queue | Failed batches are dropped after logging |
-| No upload retry | Except one auth recovery retry on `401` |
+| Bounded offline ring | When capacity is exceeded, oldest pending events are overwritten |
 | Process poll cap | Max 100 `process_start` events per poll cycle |
 | Silent first poll | Process monitor seeds state without emitting |
 | Network dedup | Change events skipped when fingerprint unchanged; heartbeats always post |
-| In-memory only | Events lost if agent crashes before flush |
 
 ## Related docs
 
