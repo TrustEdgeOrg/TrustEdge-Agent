@@ -7,7 +7,11 @@ A focused Go agent that observes device posture on macOS, Linux, and Windows —
 [![Agent CI](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml)
 
 <p align="center">
-  <img src="docs/assets/pipeline.svg" alt="Your device gathers signals, queues them offline, compresses, sends securely, then TrustEdge receives, streams, and detects threats" width="920" />
+  <img src="docs/assets/pipeline.svg" alt="Watch your device → Keep safe even offline → Send to TrustEdge → Detect and alert you" width="880" />
+</p>
+
+<p align="center">
+  <strong>Watch</strong> → <strong>Keep safe offline</strong> → <strong>Send to TrustEdge</strong> → <strong>Detect &amp; alert</strong>
 </p>
 
 ---
@@ -52,16 +56,12 @@ Process command lines are truncated at 4 KiB. Turn process monitoring off with `
 
 ## How it works
 
-Along the path above:
+1. **Watch your device** — the agent quietly notices OS, network, activity, and process changes.  
+2. **Keep safe offline** — if Wi‑Fi drops, events stay on the device until they can be delivered.  
+3. **Send to TrustEdge** — uploads go over a secure connection when the network is back.  
+4. **Detect & alert** — TrustEdge analyzes the stream and raises alerts when something looks wrong.
 
-1. **Gather** — watch the device for posture signals (OS info, network, activity, processes).  
-2. **Offline queue** — keep events safely on disk until upload succeeds (even if the network drops).  
-3. **Batch** — group events for efficient delivery (by count or a short timer).  
-4. **Compress** — shrink payloads when it helps.  
-5. **Send securely** — upload over encrypted HTTPS with device credentials; recover automatically if auth fails.  
-6. **Observe** — structured logs and periodic health status for operators.
-
-Deep dive: [Architecture](docs/architecture.md) · [Collection & batching](docs/collection.md)
+Want the engineering detail? See [Architecture](docs/architecture.md) · [Collection & batching](docs/collection.md).
 
 ---
 
