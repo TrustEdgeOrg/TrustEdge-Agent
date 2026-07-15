@@ -15,7 +15,8 @@ All settings are environment variables. Copy [.env.example](../.env.example) as 
 | `TRUSTEDGE_AGENT_DETAILS_INTERVAL` | `60` | `client_details` interval (seconds or Go duration) |
 | `TRUSTEDGE_AGENT_NETWORK_INTERVAL` | `60` | `network_summary` heartbeat interval |
 | `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE` | `2` | Debounce for network change events |
-| `TRUSTEDGE_AGENT_ACTION_INTERVAL` | `60` | `action_summary` sampling interval |
+| `TRUSTEDGE_AGENT_ACTION_INTERVAL` | `60` | How often to emit `action_summary` |
+| `TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL` | `5` | How often to sample the foreground app inside each action window |
 | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` | `10` | Process poll interval; `0` disables process monitoring |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` | `32` | Max events per batch before flush |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` | `2` | Max seconds between batch flushes |

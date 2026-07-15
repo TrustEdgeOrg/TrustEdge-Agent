@@ -1,6 +1,7 @@
 package collect
 
 import (
+	"sync"
 	"time"
 
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
@@ -9,10 +10,14 @@ import (
 )
 
 // ActionTracker accumulates foreground app focus between action_summary posts.
+// Sample may run on a fast ticker while SnapshotAndReset runs on the slower
+// action interval; methods are safe for concurrent use.
 type ActionTracker struct {
-	clock       clock.Clock
-	probe       PlatformProbe
-	pollEvery   time.Duration
+	clock     clock.Clock
+	probe     PlatformProbe
+	pollEvery time.Duration
+
+	mu          sync.Mutex
 	lastApp     string
 	switches    int
 	focus       map[string]*models.AppFocus
@@ -25,6 +30,9 @@ func NewActionTracker(clk clock.Clock, probe PlatformProbe, pollEvery time.Durat
 	}
 	if probe == nil {
 		probe = DefaultProbe{}
+	}
+	if pollEvery <= 0 {
+		pollEvery = constants.DefaultActionSampleInterval
 	}
 	return &ActionTracker{
 		clock:       clk,
@@ -44,6 +52,9 @@ func (t *ActionTracker) Sample() {
 	if key == "" {
 		key = app.Name
 	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	if t.lastApp != "" && t.lastApp != key {
 		t.switches++
 	}
@@ -61,15 +72,18 @@ func (t *ActionTracker) Sample() {
 
 func (t *ActionTracker) SnapshotAndReset() models.ActionSummary {
 	end := t.clock.Now()
-	start := t.windowStart
-	focus := make([]models.AppFocus, 0, len(t.focus))
-	for _, f := range t.focus {
-		focus = append(focus, *f)
-	}
 	idle := t.probe.IdleSeconds()
 	presence := constants.PresenceActive
 	if idle >= 60 {
 		presence = constants.PresenceIdle
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	start := t.windowStart
+	focus := make([]models.AppFocus, 0, len(t.focus))
+	for _, f := range t.focus {
+		focus = append(focus, *f)
 	}
 	summary := models.ActionSummary{
 		WindowStart: start,

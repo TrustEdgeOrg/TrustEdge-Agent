@@ -82,7 +82,7 @@ Four goroutines produce telemetry. All share the same `enqueue` callback.
 |-----------|---------------|------------------|-----------------|
 | Client details | `client_details` | 60s | `TRUSTEDGE_AGENT_DETAILS_INTERVAL` |
 | Network monitor | `network_summary` | 60s heartbeat + on change | `TRUSTEDGE_AGENT_NETWORK_INTERVAL`, `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE` |
-| Action tracker | `action_summary` | 60s | `TRUSTEDGE_AGENT_ACTION_INTERVAL` |
+| Action tracker | `action_summary` | Sample every 5s; emit every 60s | `TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL` / `TRUSTEDGE_AGENT_ACTION_INTERVAL` |
 | Process monitor | `process_start`, `process_exit` | 10s poll + event-driven | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` (`0` disables) |
 
 ### Client details
@@ -127,18 +127,17 @@ Four goroutines produce telemetry. All share the same `enqueue` callback.
 
 **Purpose:** Short-window user activity — foreground app focus, idle/active presence, app switches.
 
-**Trigger:** Every `ActionInterval`. Each tick:
+**Trigger:** Two loops:
 
-1. `tracker.Sample()` — read foreground app and accumulate focus duration.
-2. `tracker.SnapshotAndReset()` — build summary for the window, reset counters.
-3. Enqueue one `action_summary` event.
+1. Every `ActionSampleInterval` (default 5s): `tracker.Sample()` — read foreground app and accumulate focus.
+2. Every `ActionInterval` (default 60s): `tracker.SnapshotAndReset()` → enqueue one `action_summary`.
 
 **Sampling logic:**
 
-- Foreground app is read via platform probe (`foreground_*.go`).
-- Focus time is accumulated per app (by bundle ID, falling back to name).
+- Foreground app is read via platform probe (`foreground_*.go`) on the fast sample ticker.
+- Focus time is accumulated per app (by bundle ID, falling back to name), adding `ActionSampleInterval` seconds each sample.
 - App switches are counted when the foreground app changes between samples.
-- Presence is `active` if idle seconds &lt; 60, otherwise `idle`.
+- Presence is `active` if idle seconds &lt; 60, otherwise `idle` (checked at summary time).
 
 **Payload includes:** `window_start`, `window_end`, `focus[]`, `presence`, `idle_sec`, `app_switches`.
 
@@ -290,7 +289,8 @@ main goroutine
 ├── batcher.Run()          — flush loop (timer + wake channel + shutdown)
 ├── loop(DetailsInterval)  — client_details
 ├── NetworkMonitor.Run()   — network_summary (watcher + heartbeat)
-├── loop(ActionInterval)   — action_summary
+├── loop(ActionSampleInterval) — Sample() foreground focus
+├── loop(ActionInterval)   — action_summary snapshot
 ├── ProcessWatcher.Run()   — event-driven process events (if available)
 └── loop(ProcessInterval)  — process poll reconciliation
 ```
@@ -305,6 +305,7 @@ Collectors are independent — a slow public IP lookup in network collection doe
 | `TRUSTEDGE_AGENT_NETWORK_INTERVAL` | `60` | Network heartbeat |
 | `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE` | `2` | Network change debounce |
 | `TRUSTEDGE_AGENT_ACTION_INTERVAL` | `60` | Action summary window |
+| `TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL` | `5` | Foreground sample rate inside each window |
 | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` | `10` | Process poll; `0` = off |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` | `32` | Max events before flush |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` | `2` | Max seconds between flushes |

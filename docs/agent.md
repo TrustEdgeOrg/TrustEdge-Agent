@@ -114,7 +114,7 @@ Public IP is fetched from a configurable URL (default: ipify). Set `TRUSTEDGE_AG
 
 ### Action summary
 
-`ActionTracker` samples foreground application and idle state over each interval window, then emits one summary event with focus durations and presence.
+`ActionTracker` samples the foreground app frequently (default every 5s), then emits one `action_summary` each window (default 60s) with focus durations, switches, and presence.
 
 ### Process monitor
 
