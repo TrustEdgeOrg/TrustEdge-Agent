@@ -75,7 +75,8 @@ For collector details, dedup rules, and batch timing, see [Collection and batchi
 7. **Ingest** — the API decompresses if needed, decodes a batch or single event, validates, and calls `store.AddEvent()` per event.
 8. **Response** — `202 Accepted` with `{ "status": "accepted", "accepted": N }`.
 
-Failed batches stay in the durable event ring and are retried with exponential backoff (capped by `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`). When the ring is full, the oldest pending events are overwritten.
+Failed uploads stay in the durable event ring and are retried with exponential backoff (capped by `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`). When the ring is full, the oldest pending events are overwritten. The agent emits structured logs (`text` or `json`) and periodic status metrics (`upload_*`, `pending`, `auth_recover_total`).
+
 
 ## Collectors
 

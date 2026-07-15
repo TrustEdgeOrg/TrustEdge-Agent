@@ -2,7 +2,7 @@ package agent
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
@@ -20,6 +20,7 @@ type BatcherOptions struct {
 	Capacity             int
 	MaxBackoff           time.Duration
 	ShutdownFlushTimeout time.Duration
+	Metrics              *Metrics
 }
 
 // EventBatcher collects telemetry into a durable ring and flushes batches to the API.
@@ -27,7 +28,8 @@ type EventBatcher struct {
 	clock                clock.Clock
 	deviceID             func() string
 	postBatch            func(context.Context, []models.Event) error
-	log                  *log.Logger
+	log                  *slog.Logger
+	metrics              *Metrics
 	maxSize              int
 	flushEvery           time.Duration
 	maxBackoff           time.Duration
@@ -36,7 +38,7 @@ type EventBatcher struct {
 	wake                 chan struct{}
 }
 
-func NewEventBatcher(clk clock.Clock, deviceID func() string, postBatch func(context.Context, []models.Event) error, logger *log.Logger, opts BatcherOptions) (*EventBatcher, error) {
+func NewEventBatcher(clk clock.Clock, deviceID func() string, postBatch func(context.Context, []models.Event) error, logger *slog.Logger, opts BatcherOptions) (*EventBatcher, error) {
 	if opts.MaxSize <= 0 {
 		opts.MaxSize = 32
 	}
@@ -49,6 +51,9 @@ func NewEventBatcher(clk clock.Clock, deviceID func() string, postBatch func(con
 	if opts.ShutdownFlushTimeout <= 0 {
 		opts.ShutdownFlushTimeout = DefaultShutdownFlushTimeout
 	}
+	if logger == nil {
+		logger = slog.Default()
+	}
 	ring, err := OpenEventRing(opts.QueuePath, opts.Capacity)
 	if err != nil {
 		return nil, err
@@ -58,6 +63,7 @@ func NewEventBatcher(clk clock.Clock, deviceID func() string, postBatch func(con
 		deviceID:             deviceID,
 		postBatch:            postBatch,
 		log:                  logger,
+		metrics:              opts.Metrics,
 		maxSize:              opts.MaxSize,
 		flushEvery:           opts.FlushEvery,
 		maxBackoff:           opts.MaxBackoff,
@@ -65,20 +71,32 @@ func NewEventBatcher(clk clock.Clock, deviceID func() string, postBatch func(con
 		queue:                ring,
 		wake:                 make(chan struct{}, 1),
 	}
-	if pending := ring.Len(); pending > 0 && logger != nil {
-		logger.Printf("event queue: restored %d pending event(s)", pending)
+	if pending := ring.Len(); pending > 0 {
+		logger.Info("event queue restored", "pending", pending)
 	}
 	return b, nil
+}
+
+func (b *EventBatcher) Pending() int {
+	return b.queue.Len()
+}
+
+func (b *EventBatcher) Dropped() uint64 {
+	return b.queue.Dropped()
 }
 
 func (b *EventBatcher) Enqueue(typ string, payload map[string]any) {
 	ev := models.NewEvent(b.clock, b.deviceID(), typ, payload)
 	dropped, err := b.queue.Push(ev)
-	if err != nil && b.log != nil {
-		b.log.Printf("event queue persist: %v", err)
+	if err != nil {
+		b.log.Error("event queue persist failed", "err", err)
 	}
-	if dropped && b.log != nil {
-		b.log.Printf("event queue full: dropped oldest (pending=%d dropped_total=%d)", b.queue.Len(), b.queue.Dropped())
+	if dropped {
+		b.metrics.RecordQueueDropped()
+		b.log.Warn("event queue full; dropped oldest",
+			"pending", b.queue.Len(),
+			"dropped_total", b.queue.Dropped(),
+		)
 	}
 	if b.queue.Len() >= b.maxSize {
 		b.signalFlush()
@@ -93,8 +111,6 @@ func (b *EventBatcher) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			// Parent ctx is cancelled; use a short independent deadline for a
-			// best-effort final flush. Unacked events remain in the durable ring.
 			flushCtx, cancel := context.WithTimeout(context.Background(), b.shutdownFlushTimeout)
 			_ = b.Flush(flushCtx)
 			cancel()
@@ -137,21 +153,26 @@ func (b *EventBatcher) Flush(ctx context.Context) error {
 	if len(batch) == 0 {
 		return nil
 	}
+	start := time.Now()
 	if err := b.postBatch(ctx, batch); err != nil {
-		if b.log != nil {
-			b.log.Printf("post batch (%d events, pending=%d): %v", len(batch), b.queue.Len(), err)
-		}
+		b.metrics.RecordUploadFail()
+		b.log.Error("post batch failed",
+			"events", len(batch),
+			"pending", b.queue.Len(),
+			"err", err,
+		)
 		return err
 	}
 	if err := b.queue.Ack(len(batch)); err != nil {
-		if b.log != nil {
-			b.log.Printf("event queue ack: %v", err)
-		}
+		b.log.Error("event queue ack failed", "err", err)
 		return err
 	}
-	if b.log != nil {
-		b.log.Printf("posted batch (%d events, pending=%d)", len(batch), b.queue.Len())
-	}
+	b.metrics.RecordUploadSuccess()
+	b.log.Info("posted batch",
+		"events", len(batch),
+		"pending", b.queue.Len(),
+		"latency_ms", time.Since(start).Milliseconds(),
+	)
 	return nil
 }
 

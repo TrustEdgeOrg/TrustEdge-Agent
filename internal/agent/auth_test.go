@@ -3,8 +3,8 @@ package agent
 import (
 	"context"
 	"errors"
-	"log"
-	"os"
+	"io"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -110,12 +110,17 @@ func (m *mockClient) DeviceToken() string {
 	return m.token
 }
 
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
 func TestPostEventRecoversFromUnauthorized(t *testing.T) {
-	logger := log.New(os.Stderr, "test: ", 0)
+	logger := testLogger()
 	creds := &mockCreds{deviceID: "dev_test", token: "tok_old"}
 	client := &mockClient{failOnce: true, token: "tok_old"}
 	a := &Agent{
 		log:       logger,
+		metrics:   &Metrics{},
 		clock:     clock.Real{},
 		client:    client,
 		creds:     creds,
@@ -139,10 +144,13 @@ func TestPostEventRecoversFromUnauthorized(t *testing.T) {
 	if creds.token != "tok_new" {
 		t.Fatalf("token=%q want tok_new", creds.token)
 	}
+	if a.metrics.AuthRecover.Load() != 1 {
+		t.Fatalf("auth_recover=%d want 1", a.metrics.AuthRecover.Load())
+	}
 }
 
 func TestConcurrentUnauthorizedRecoversOnce(t *testing.T) {
-	logger := log.New(os.Stderr, "test: ", 0)
+	logger := testLogger()
 	creds := &mockCreds{deviceID: "dev_test", token: "tok_old"}
 	block := make(chan struct{}, 1)
 	resume := make(chan struct{})
@@ -151,9 +159,9 @@ func TestConcurrentUnauthorizedRecoversOnce(t *testing.T) {
 		blockRegister:  block,
 		resumeRegister: resume,
 	}
-	// Keep returning 401 while token is still tok_old.
 	a := &Agent{
 		log:       logger,
+		metrics:   &Metrics{},
 		clock:     clock.Real{},
 		client:    client,
 		creds:     creds,
@@ -196,11 +204,12 @@ func TestConcurrentUnauthorizedRecoversOnce(t *testing.T) {
 }
 
 func TestEnsureRegisteredSkipsWhenTokenPresent(t *testing.T) {
-	logger := log.New(os.Stderr, "test: ", 0)
+	logger := testLogger()
 	creds := &mockCreds{deviceID: "dev_test", token: "tok_existing"}
 	client := &mockClient{}
 	a := &Agent{
 		log:      logger,
+		metrics:  &Metrics{},
 		client:   client,
 		creds:    creds,
 		deviceID: "dev_test",
@@ -217,6 +226,8 @@ func TestRegisterFailsPropagates(t *testing.T) {
 	creds := &mockCreds{deviceID: "dev_test"}
 	client := &failingClient{}
 	a := &Agent{
+		log:       testLogger(),
+		metrics:   &Metrics{},
 		creds:     creds,
 		client:    client,
 		deviceID:  "dev_test",

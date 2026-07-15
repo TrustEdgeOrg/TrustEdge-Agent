@@ -23,6 +23,8 @@ All settings are environment variables. Copy [.env.example](../.env.example) as 
 | `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Durable offline ring size; when full, oldest events are overwritten |
 | `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH` | next to state file | Path for persisted pending events (`events.queue.json`) |
 | `TRUSTEDGE_AGENT_EVENT_RETRY_MAX` | `60` | Max backoff between retries after a failed upload |
+| `TRUSTEDGE_AGENT_LOG_FORMAT` | `text` | `text` or `json` structured logs |
+| `TRUSTEDGE_AGENT_METRICS_INTERVAL` | `5m` | Periodic agent status log; `0` disables |
 | `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | ipify default | Public IP lookup URL; set to `off` to disable |
 
 ### Interval format

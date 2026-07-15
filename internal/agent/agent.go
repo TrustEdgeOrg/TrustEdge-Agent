@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -17,21 +18,24 @@ import (
 // Dependencies are injected into the agent at composition root.
 type Dependencies struct {
 	Config    config.AgentConfig
-	Logger    *log.Logger
+	Logger    *slog.Logger
 	Clock     clock.Clock
 	Client    api.EventClient
 	Creds     credentials.Store
 	Collector *collect.Collector
+	Metrics   *Metrics
 }
 
 // Agent reports telemetry to the TrustEdge Agent API.
 type Agent struct {
 	cfg       config.AgentConfig
-	log       *log.Logger
+	log       *slog.Logger
+	stdLog    *log.Logger
 	clock     clock.Clock
 	client    api.EventClient
 	creds     credentials.Store
 	collector *collect.Collector
+	metrics   *Metrics
 
 	authMu   sync.Mutex
 	deviceID string
@@ -42,13 +46,23 @@ func New(deps Dependencies) *Agent {
 	if clk == nil {
 		clk = clock.Real{}
 	}
+	logger := deps.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	metrics := deps.Metrics
+	if metrics == nil {
+		metrics = &Metrics{}
+	}
 	return &Agent{
 		cfg:       deps.Config,
-		log:       deps.Logger,
+		log:       logger,
+		stdLog:    slog.NewLogLogger(logger.Handler(), slog.LevelInfo),
 		clock:     clk,
 		client:    deps.Client,
 		creds:     deps.Creds,
 		collector: deps.Collector,
+		metrics:   metrics,
 	}
 }
 
@@ -69,6 +83,7 @@ func (a *Agent) Run(ctx context.Context) error {
 			QueuePath:  a.cfg.EventQueuePath,
 			Capacity:   a.cfg.EventQueueCapacity,
 			MaxBackoff: a.cfg.EventRetryMax,
+			Metrics:    a.metrics,
 		},
 	)
 	if err != nil {
@@ -89,12 +104,12 @@ func (a *Agent) Run(ctx context.Context) error {
 	monitor := collect.NewNetworkMonitor(collect.NetworkMonitorConfig{
 		Debounce:          a.cfg.NetworkDebounce,
 		HeartbeatInterval: a.cfg.NetworkInterval,
-		Logger:            a.log,
+		Logger:            a.stdLog,
 		SummaryPayload:    a.collector.NetworkSummaryPayload,
 	})
 	go func() {
 		for change := range monitor.Run(ctx) {
-			a.log.Printf("network event: %s", change.Reason)
+			a.log.Info("network event", "reason", change.Reason)
 			enqueue(constants.TypeNetworkSummary, change.Payload)
 		}
 	}()
@@ -113,9 +128,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	})
 
 	if a.cfg.ProcessInterval > 0 {
-		procMon := collect.NewProcessMonitor(a.log)
-		if watcher := collect.NewProcessWatcher(a.log); watcher != nil {
-			a.log.Printf("process watcher: event-driven mode active")
+		procMon := collect.NewProcessMonitor(a.stdLog)
+		if watcher := collect.NewProcessWatcher(a.stdLog); watcher != nil {
+			a.log.Info("process watcher active", "mode", "event-driven")
 			go func() {
 				for change := range watcher.Run(ctx) {
 					if procMon.Observe(change) {
@@ -131,9 +146,15 @@ func (a *Agent) Run(ctx context.Context) error {
 		})
 	}
 
-	a.log.Printf("reporting to %s", a.cfg.APIURL)
+	if a.cfg.MetricsInterval > 0 {
+		go a.loop(ctx, a.cfg.MetricsInterval, func() {
+			a.logStatus(batcher)
+		})
+	}
+
+	a.log.Info("reporting telemetry", "api_url", a.cfg.APIURL, "device_id", a.currentDeviceID())
 	<-ctx.Done()
-	a.log.Printf("shutting down")
+	a.log.Info("shutting down", "device_id", a.currentDeviceID())
 	return ctx.Err()
 }
 
