@@ -6,17 +6,25 @@ All settings are environment variables. Copy [.env.example](../.env.example) as 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TRUSTEDGE_AGENT_API_URL` | `http://127.0.0.1:8080` | Ingest API base URL (no trailing slash) — see [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
+| `TRUSTEDGE_AGENT_API_URL` | _(required)_ | Ingest API base URL (no trailing slash). Example EC2: `http://44.218.45.174:8080`; local: `http://127.0.0.1:8080` — see [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
 | `TRUSTEDGE_AGENT_ENROLL_TOKEN` | _(empty)_ | Bearer token for `POST /v1/register`; required when `TRUSTEDGE_AGENT_PRODUCTION=1` |
 | `TRUSTEDGE_AGENT_PRODUCTION` | `0` | `1` requires HTTPS API URL and enroll token |
+| `TRUSTEDGE_AGENT_COMPRESS` | `1` | `0` disables zstd on `/v1/events` (use `0` against older EC2 `trusttwin-api` images) |
+| `TRUSTEDGE_AGENT_BATCH` | `1` | `0` sends one Event object per POST instead of `{"events":[...]}` (required for older EC2 images) |
 | `TRUSTEDGE_AGENT_STATE_PATH` | Platform default | Device ID state file path (see [Agent](agent.md)) |
 | `TRUSTEDGE_AGENT_DETAILS_INTERVAL` | `60` | `client_details` interval (seconds or Go duration) |
 | `TRUSTEDGE_AGENT_NETWORK_INTERVAL` | `60` | `network_summary` heartbeat interval |
 | `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE` | `2` | Debounce for network change events |
-| `TRUSTEDGE_AGENT_ACTION_INTERVAL` | `60` | `action_summary` sampling interval |
+| `TRUSTEDGE_AGENT_ACTION_INTERVAL` | `60` | How often to emit `action_summary` |
+| `TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL` | `5` | How often to sample the foreground app inside each action window |
 | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` | `10` | Process poll interval; `0` disables process monitoring |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` | `32` | Max events per batch before flush |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` | `2` | Max seconds between batch flushes |
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Durable offline ring size; when full, oldest events are overwritten |
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH` | next to state file | Path for persisted pending events (`events.queue.json`) |
+| `TRUSTEDGE_AGENT_EVENT_RETRY_MAX` | `60` | Max backoff between retries after a failed upload |
+| `TRUSTEDGE_AGENT_LOG_FORMAT` | `text` | `text` or `json` structured logs |
+| `TRUSTEDGE_AGENT_METRICS_INTERVAL` | `5m` | Periodic agent status log; `0` disables |
 | `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | ipify default | Public IP lookup URL; set to `off` to disable |
 
 ### Interval format

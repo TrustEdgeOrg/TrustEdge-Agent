@@ -1,0 +1,30 @@
+[
+  {
+    "event_id": "evt_20260714T120000.000000001",
+    "device_id": "dev_example",
+    "type": "process_start",
+    "ts": "2026-07-14T12:00:00.000000001Z",
+    "payload": {
+      "pid": 4242,
+      "ppid": 1000,
+      "user": "elad",
+      "comm": "curl",
+      "executable": "/usr/bin/curl",
+      "cmdline": "curl https://example.com"
+    }
+  },
+  {
+    "event_id": "evt_20260714T120001.000000002",
+    "device_id": "dev_example",
+    "type": "process_exit",
+    "ts": "2026-07-14T12:00:01.000000002Z",
+    "payload": {
+      "pid": 4242,
+      "ppid": 1000,
+      "user": "elad",
+      "comm": "curl",
+      "executable": "/usr/bin/curl",
+      "cmdline": "curl https://example.com"
+    }
+  }
+]

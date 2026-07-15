@@ -41,15 +41,17 @@ make build-all      # → bin/trustedge-agent-{darwin,linux,windows}-*
 ### Run
 
 ```bash
-export TRUSTEDGE_AGENT_API_URL=http://YOUR_API_HOST:8080
-export TRUSTEDGE_AGENT_ENROLL_TOKEN=<enroll-token>   # required in production
+# API URL is required (no built-in default). EC2 demo host example:
+export TRUSTEDGE_AGENT_API_URL=http://44.218.45.174:8080
+export TRUSTEDGE_AGENT_ENROLL_TOKEN=<from EC2 /etc/trustedge/agent-enroll.token>
 ./bin/trustedge-agent
 ```
 
-Or during development:
+Or against a local ingest API:
 
 ```bash
-TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
+make run-agent-local
+# or: TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080 go run ./cmd/trustedge-agent
 ```
 
 ## Credentials and state
@@ -80,8 +82,8 @@ In production mode (`TRUSTEDGE_AGENT_PRODUCTION=1`), tokens are stored in the ke
 | `client_details` | Device identity, OS, arch, agent version, uptime — online heartbeat |
 | `network_summary` | Coarse network posture: public IP, interface type, socket counts, top remote ports |
 | `action_summary` | Short-window app focus, idle/active presence, app switch count |
-| `process_start` | New process: pid, ppid, user, comm, executable path |
-| `process_exit` | Process exit: pid, comm |
+| `process_start` | New process: pid, ppid, user, comm, executable path, command line |
+| `process_exit` | Process exit: pid, ppid, user, comm, executable path, command line (enriched from start when available) |
 
 See [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) for payload field details. For collection flow, batching, and flush behavior, see [Collection and batching](collection.md).
 
@@ -94,11 +96,9 @@ TrustEdge Agent does **not** collect:
 - Screenshots
 - Raw Wi‑Fi SSIDs
 - Full remote IP connection tables
-- Command lines or file contents
+- File contents
 
-Process monitoring collects **metadata only** (pid, parent pid, user, process name, executable path).
-
-Disable process monitoring with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
+Process monitoring collects process metadata **and command line** (pid, parent pid, user, process name, executable path, cmdline). Command lines are truncated at 4 KiB. Disable with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
 
 ## Collectors in detail
 
@@ -114,7 +114,7 @@ Public IP is fetched from a configurable URL (default: ipify). Set `TRUSTEDGE_AG
 
 ### Action summary
 
-`ActionTracker` samples foreground application and idle state over each interval window, then emits one summary event with focus durations and presence.
+`ActionTracker` samples the foreground app frequently (default every 5s), then emits one `action_summary` each window (default 60s) with focus durations, switches, and presence.
 
 ### Process monitor
 
@@ -132,9 +132,10 @@ Events are buffered and flushed in batches before upload. See [Collection and ba
 
 If the API returns `401 Unauthorized` on a telemetry upload, the agent:
 
-1. Clears the stored device token
-2. Re-registers via `POST /v1/register`
-3. Retries the failed batch once
+1. Serializes recovery so concurrent 401s only re-register once
+2. Clears the stored device token
+3. Re-registers via `POST /v1/register` (unless another caller already refreshed the token)
+4. Retries the failed batch once
 
 ## Local dev with TrustEdge
 

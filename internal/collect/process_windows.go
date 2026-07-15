@@ -13,10 +13,11 @@ type winProcess struct {
 	PPID       int    `json:"ParentProcessId"`
 	Name       string `json:"Name"`
 	Executable string `json:"ExecutablePath"`
+	Cmdline    string `json:"CommandLine"`
 }
 
 var listProcesses = func() ([]processRow, error) {
-	script := `Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,ExecutablePath | ConvertTo-Json -Compress`
+	script := `Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine | ConvertTo-Json -Compress`
 	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
 	if err != nil {
 		return nil, err
@@ -48,6 +49,7 @@ func parseWinProcessJSON(text string) ([]processRow, error) {
 		}
 		comm := strings.TrimSpace(row.Name)
 		exe := strings.TrimSpace(row.Executable)
+		cmdline := truncateCmdline(strings.TrimSpace(row.Cmdline))
 		if comm == "" {
 			comm = exe
 		}
@@ -57,6 +59,7 @@ func parseWinProcessJSON(text string) ([]processRow, error) {
 			User:       "",
 			Comm:       comm,
 			Executable: exe,
+			Cmdline:    cmdline,
 		})
 	}
 	return result, nil

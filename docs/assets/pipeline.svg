@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 145" role="img" aria-labelledby="title desc">
+  <title id="title">TrustEdge Agent pipeline</title>
+  <desc id="desc">Endpoint to Collector to Batch to Compress to Secure upload to Agent API to Stream to Detection Attack to Alert</desc>
+  <defs>
+    <linearGradient id="arrow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+    <style>
+      .lbl { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11.5px; font-weight: 700; }
+      .sub { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 9.5px; fill: #64748B; }
+    </style>
+  </defs>
+
+  <!-- 1 Endpoint -->
+  <g transform="translate(55,48)">
+    <rect x="-18" y="-8" width="36" height="24" rx="2.5" fill="#EFF6FF" stroke="#2563EB" stroke-width="2"/>
+    <rect x="-12" y="-3" width="24" height="14" rx="1" fill="#DBEAFE"/>
+    <path d="M-10 20 H10" stroke="#2563EB" stroke-width="2.2" stroke-linecap="round"/>
+    <text class="lbl" y="42" text-anchor="middle" fill="#1E3A8A">Endpoint</text>
+  </g>
+  <path d="M95 48 H118 L113 43 M118 48 L113 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 2 Collector -->
+  <g transform="translate(175,48)">
+    <circle r="16" fill="#EFF6FF" stroke="#2563EB" stroke-width="2"/>
+    <circle r="4" fill="#2563EB"/>
+    <path d="M-10 -6 A12 12 0 0 1 10 -6" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round"/>
+    <path d="M-14 -11 A17 17 0 0 1 14 -11" fill="none" stroke="#93C5FD" stroke-width="1.8" stroke-linecap="round"/>
+    <text class="lbl" y="42" text-anchor="middle" fill="#1E3A8A">Collector</text>
+  </g>
+  <path d="M218 48 H241 L236 43 M241 48 L236 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 3 Batch -->
+  <g transform="translate(295,48)">
+    <rect x="-16" y="-14" width="32" height="8" rx="1.5" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.6"/>
+    <rect x="-16" y="-3" width="32" height="8" rx="1.5" fill="#BFDBFE" stroke="#2563EB" stroke-width="1.6"/>
+    <rect x="-16" y="8" width="32" height="8" rx="1.5" fill="#93C5FD" stroke="#1D4ED8" stroke-width="1.6"/>
+    <text class="lbl" y="42" text-anchor="middle" fill="#1E3A8A">Batch</text>
+  </g>
+  <path d="M335 48 H358 L353 43 M358 48 L353 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 4 Compress -->
+  <g transform="translate(415,48)">
+    <rect x="-10" y="-14" width="20" height="28" rx="2" fill="#EFF6FF" stroke="#2563EB" stroke-width="2"/>
+    <path d="M-16 0 H-12 M10 0 H14" stroke="#3B82F6" stroke-width="2" stroke-linecap="round"/>
+    <path d="M-12 0 l3 -3.5 M-12 0 l3 3.5 M12 0 l-3 -3.5 M12 0 l-3 3.5" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M-5 -4 H5 M-5 4 H5" stroke="#1D4ED8" stroke-width="1.6" stroke-linecap="round"/>
+    <text class="lbl" y="42" text-anchor="middle" fill="#1E3A8A">Compress</text>
+  </g>
+  <path d="M458 48 H481 L476 43 M481 48 L476 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 5 Secure upload -->
+  <g transform="translate(555,48)">
+    <path d="M0 12 L-14 4 V-2
+             C-14 -10 -8 -14 0 -14
+             C8 -14 14 -10 14 -2 V4 Z"
+          fill="#EFF6FF" stroke="#2563EB" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M0 -2 v8 M0 6 l4 -3.5 M0 6 l-4 -3.5" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="0" cy="-5" r="2.2" fill="#2563EB"/>
+    <text class="lbl" y="38" text-anchor="middle" fill="#1E3A8A">Secure</text>
+    <text class="sub" y="52" text-anchor="middle">upload</text>
+  </g>
+  <path d="M605 48 H628 L623 43 M628 48 L623 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 6 Agent API -->
+  <g transform="translate(695,48)">
+    <rect x="-18" y="-14" width="36" height="28" rx="3" fill="#F5F3FF" stroke="#7C3AED" stroke-width="2"/>
+    <path d="M-8 -4 h-4 v8 h4 M8 -4 h4 v8 h-4" fill="none" stroke="#8B5CF6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="0" cy="0" r="2" fill="#7C3AED"/>
+    <text class="lbl" y="38" text-anchor="middle" fill="#5B21B6">Agent API</text>
+  </g>
+  <path d="M745 48 H768 L763 43 M768 48 L763 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 7 Stream -->
+  <g transform="translate(830,48)">
+    <path d="M-16 0 C-10 -10 -4 10 2 0 S12 -10 16 0" fill="none" stroke="#7C3AED" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M-16 8 C-10 -2 -4 18 2 8 S12 -2 16 8" fill="none" stroke="#C4B5FD" stroke-width="2" stroke-linecap="round"/>
+    <path d="M-16 -8 C-10 -18 -4 2 2 -8 S12 -18 16 -8" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round"/>
+    <text class="lbl" y="42" text-anchor="middle" fill="#5B21B6">Stream</text>
+  </g>
+  <path d="M875 48 H898 L893 43 M898 48 L893 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 8 Detection -->
+  <g transform="translate(960,48)">
+    <circle cx="-3" cy="-3" r="12" fill="#F5F3FF" stroke="#7C3AED" stroke-width="2.2"/>
+    <circle cx="-3" cy="-3" r="5" fill="none" stroke="#8B5CF6" stroke-width="1.8"/>
+    <path d="M6 6 L13 13" stroke="#7C3AED" stroke-width="3" stroke-linecap="round"/>
+    <text class="lbl" y="38" text-anchor="middle" fill="#5B21B6">Detection</text>
+    <text class="sub" y="52" text-anchor="middle">Attack</text>
+  </g>
+  <path d="M1012 48 H1035 L1030 43 M1035 48 L1030 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 9 Alert -->
+  <g transform="translate(1100,48)">
+    <path d="M0 12
+             C-12 12 -14 2 -14 -2
+             C-14 -10 -8 -14 0 -16
+             C8 -14 14 -10 14 -2
+             C14 2 12 12 0 12 Z"
+          fill="#F5F3FF" stroke="#7C3AED" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M-4 14 C-2 17 2 17 4 14" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="0" cy="-18" r="2" fill="#7C3AED"/>
+    <text class="lbl" y="42" text-anchor="middle" fill="#5B21B6">Alert</text>
+  </g>
+</svg>

@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"log"
+	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/api"
@@ -16,22 +18,27 @@ import (
 // Dependencies are injected into the agent at composition root.
 type Dependencies struct {
 	Config    config.AgentConfig
-	Logger    *log.Logger
+	Logger    *slog.Logger
 	Clock     clock.Clock
 	Client    api.EventClient
 	Creds     credentials.Store
 	Collector *collect.Collector
+	Metrics   *Metrics
 }
 
-// Agent reports telemetry to the TrustTwin API.
+// Agent reports telemetry to the TrustEdge Agent API.
 type Agent struct {
 	cfg       config.AgentConfig
-	log       *log.Logger
+	log       *slog.Logger
+	stdLog    *log.Logger
 	clock     clock.Clock
 	client    api.EventClient
 	creds     credentials.Store
 	collector *collect.Collector
-	deviceID  string
+	metrics   *Metrics
+
+	authMu   sync.Mutex
+	deviceID string
 }
 
 func New(deps Dependencies) *Agent {
@@ -39,13 +46,23 @@ func New(deps Dependencies) *Agent {
 	if clk == nil {
 		clk = clock.Real{}
 	}
+	logger := deps.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	metrics := deps.Metrics
+	if metrics == nil {
+		metrics = &Metrics{}
+	}
 	return &Agent{
 		cfg:       deps.Config,
-		log:       deps.Logger,
+		log:       logger,
+		stdLog:    slog.NewLogLogger(logger.Handler(), slog.LevelInfo),
 		clock:     clk,
 		client:    deps.Client,
 		creds:     deps.Creds,
 		collector: deps.Collector,
+		metrics:   metrics,
 	}
 }
 
@@ -55,14 +72,23 @@ func (a *Agent) EnsureRegistered(ctx context.Context) error {
 }
 
 func (a *Agent) Run(ctx context.Context) error {
-	batcher := NewEventBatcher(
+	batcher, err := NewEventBatcher(
 		a.clock,
-		func() string { return a.deviceID },
+		a.currentDeviceID,
 		a.postEvents,
 		a.log,
-		a.cfg.EventBatchSize,
-		a.cfg.EventBatchFlush,
+		BatcherOptions{
+			MaxSize:    a.cfg.EventBatchSize,
+			FlushEvery: a.cfg.EventBatchFlush,
+			QueuePath:  a.cfg.EventQueuePath,
+			Capacity:   a.cfg.EventQueueCapacity,
+			MaxBackoff: a.cfg.EventRetryMax,
+			Metrics:    a.metrics,
+		},
 	)
+	if err != nil {
+		return err
+	}
 	go batcher.Run(ctx)
 
 	enqueue := func(typ string, payload map[string]any) {
@@ -78,26 +104,33 @@ func (a *Agent) Run(ctx context.Context) error {
 	monitor := collect.NewNetworkMonitor(collect.NetworkMonitorConfig{
 		Debounce:          a.cfg.NetworkDebounce,
 		HeartbeatInterval: a.cfg.NetworkInterval,
-		Logger:            a.log,
+		Logger:            a.stdLog,
 		SummaryPayload:    a.collector.NetworkSummaryPayload,
 	})
 	go func() {
 		for change := range monitor.Run(ctx) {
-			a.log.Printf("network event: %s", change.Reason)
-			enqueue(constants.TypeNetworkSummary, a.collector.NetworkSummaryPayload())
+			a.log.Info("network event", "reason", change.Reason)
+			enqueue(constants.TypeNetworkSummary, change.Payload)
 		}
 	}()
 
-	tracker := a.collector.NewActionTracker(a.cfg.ActionInterval)
+	sampleEvery := a.cfg.ActionSampleInterval
+	if sampleEvery <= 0 {
+		sampleEvery = constants.DefaultActionSampleInterval
+	}
+	if a.cfg.ActionInterval > 0 && sampleEvery > a.cfg.ActionInterval {
+		sampleEvery = a.cfg.ActionInterval
+	}
+	tracker := a.collector.NewActionTracker(sampleEvery)
+	go a.loop(ctx, sampleEvery, tracker.Sample)
 	go a.loop(ctx, a.cfg.ActionInterval, func() {
-		tracker.Sample()
 		enqueue(constants.TypeActionSummary, collect.ActionSummaryPayload(tracker.SnapshotAndReset()))
 	})
 
 	if a.cfg.ProcessInterval > 0 {
-		procMon := collect.NewProcessMonitor(a.log)
-		if watcher := collect.NewProcessWatcher(a.log); watcher != nil {
-			a.log.Printf("process watcher: event-driven mode active")
+		procMon := collect.NewProcessMonitor(a.stdLog)
+		if watcher := collect.NewProcessWatcher(a.stdLog); watcher != nil {
+			a.log.Info("process watcher active", "mode", "event-driven")
 			go func() {
 				for change := range watcher.Run(ctx) {
 					if procMon.Observe(change) {
@@ -113,13 +146,22 @@ func (a *Agent) Run(ctx context.Context) error {
 		})
 	}
 
-	a.log.Printf("reporting to %s", a.cfg.APIURL)
+	if a.cfg.MetricsInterval > 0 {
+		go a.loop(ctx, a.cfg.MetricsInterval, func() {
+			a.logStatus(batcher)
+		})
+	}
+
+	a.log.Info("reporting telemetry", "api_url", a.cfg.APIURL, "device_id", a.currentDeviceID())
 	<-ctx.Done()
-	a.log.Printf("shutting down")
+	a.log.Info("shutting down", "device_id", a.currentDeviceID())
 	return ctx.Err()
 }
 
 func (a *Agent) loop(ctx context.Context, every time.Duration, fn func()) {
+	if every <= 0 {
+		return
+	}
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {

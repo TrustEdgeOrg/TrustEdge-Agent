@@ -1,7 +1,9 @@
 package collect
 
 import (
+	"bytes"
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
@@ -13,9 +15,40 @@ type processRow struct {
 	User       string
 	Comm       string
 	Executable string
+	Cmdline    string
 }
 
-const maxProcessEventsPerPoll = 100
+const (
+	maxProcessEventsPerPoll = 100
+	maxCmdlineBytes         = 4096
+)
+
+// truncateCmdline caps oversized command lines to keep event payloads bounded.
+func truncateCmdline(s string) string {
+	if len(s) <= maxCmdlineBytes {
+		return s
+	}
+	return s[:maxCmdlineBytes] + "..."
+}
+
+// joinNullSeparatedCmdline turns /proc-style NUL-separated argv bytes into a space-joined string.
+func joinNullSeparatedCmdline(data []byte) string {
+	if len(data) == 0 {
+		return ""
+	}
+	parts := bytes.Split(data, []byte{0})
+	args := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if len(p) == 0 {
+			continue
+		}
+		args = append(args, string(p))
+	}
+	if len(args) == 0 {
+		return ""
+	}
+	return truncateCmdline(strings.Join(args, " "))
+}
 
 // ProcessChange is a process_start or process_exit delta.
 type ProcessChange struct {
@@ -68,7 +101,13 @@ func (m *ProcessMonitor) Observe(c ProcessChange) bool {
 			row = mergeExitRow(row, prev)
 		}
 		delete(m.seen, pid)
-		_ = row
+		// Payload is a map reference; write back so the caller enqueues enriched fields.
+		c.Payload["pid"] = row.PID
+		c.Payload["ppid"] = row.PPID
+		c.Payload["user"] = row.User
+		c.Payload["comm"] = row.Comm
+		c.Payload["executable"] = row.Executable
+		c.Payload["cmdline"] = row.Cmdline
 		return true
 	default:
 		return true
@@ -117,14 +156,8 @@ func (m *ProcessMonitor) Poll() []ProcessChange {
 			continue
 		}
 		changes = append(changes, ProcessChange{
-			Type: constants.TypeProcessExit,
-			Payload: map[string]any{
-				"pid":        row.PID,
-				"ppid":       row.PPID,
-				"user":       row.User,
-				"comm":       row.Comm,
-				"executable": row.Executable,
-			},
+			Type:    constants.TypeProcessExit,
+			Payload: processPayload(row),
 		})
 	}
 
@@ -164,6 +197,7 @@ func processPayload(row processRow) map[string]any {
 		"user":       row.User,
 		"comm":       row.Comm,
 		"executable": row.Executable,
+		"cmdline":    row.Cmdline,
 	}
 }
 
@@ -174,6 +208,7 @@ func rowFromPayload(p map[string]any) processRow {
 		User:       stringFromAny(p["user"]),
 		Comm:       stringFromAny(p["comm"]),
 		Executable: stringFromAny(p["executable"]),
+		Cmdline:    stringFromAny(p["cmdline"]),
 	}
 }
 
@@ -213,6 +248,9 @@ func mergeExitRow(event, seen processRow) processRow {
 	}
 	if event.Executable == "" {
 		event.Executable = seen.Executable
+	}
+	if event.Cmdline == "" {
+		event.Cmdline = seen.Cmdline
 	}
 	if event.PPID == 0 {
 		event.PPID = seen.PPID

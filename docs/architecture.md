@@ -68,14 +68,15 @@ For collector details, dedup rules, and batch timing, see [Collection and batchi
 
 1. **Collect** — four concurrent sources produce typed payloads.
 2. **Enqueue** — each source calls `batcher.Enqueue(type, payload)`.
-3. **Buffer** — `EventBatcher` appends `models.Event` records (timestamp, device ID, type, payload).
-4. **Flush** — when the buffer reaches `EventBatchSize` (default 32), `EventBatchFlush` elapses (default 2s), or the agent shuts down.
-5. **Post** — `postEvents()` calls `client.PostEvents()`.
+3. **Buffer** — `EventBatcher` pushes `models.Event` records into a durable ring (timestamp, device ID, type, payload).
+4. **Flush** — when the ring has at least `EventBatchSize` (default 32) pending, `EventBatchFlush` elapses (default 2s), or the agent shuts down.
+5. **Post** — `postEvents()` calls `client.PostEvents()`; events are acked from the ring only after success.
 6. **Compress** — JSON is marshaled, then passed through `codec.MaybeCompress()`. If zstd shrinks the payload, the client sets `Content-Encoding: zstd`.
 7. **Ingest** — the API decompresses if needed, decodes a batch or single event, validates, and calls `store.AddEvent()` per event.
 8. **Response** — `202 Accepted` with `{ "status": "accepted", "accepted": N }`.
 
-Failed batches are logged and dropped. There is no offline retry queue yet.
+Failed uploads stay in the durable event ring and are retried with exponential backoff (capped by `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`). When the ring is full, the oldest pending events are overwritten. The agent emits structured logs (`text` or `json`) and periodic status metrics (`upload_*`, `pending`, `auth_recover_total`).
+
 
 ## Collectors
 
@@ -85,7 +86,7 @@ Four goroutines run concurrently inside `Agent.Run()`:
 |-----------|------------|---------|
 | Client details | `client_details` | Once on startup, then every `DetailsInterval` (default 60s) |
 | Network monitor | `network_summary` | On interface/IP change (debounced) + heartbeat every `NetworkInterval` |
-| Action tracker | `action_summary` | Every `ActionInterval` (default 60s) |
+| Action tracker | `action_summary` | Sample every `ActionSampleInterval` (default 5s); emit every `ActionInterval` (default 60s) |
 | Process monitor | `process_start` / `process_exit` | Event-driven + poll every `ProcessInterval` (default 10s) |
 
 ### Process monitoring (hybrid)
@@ -120,13 +121,15 @@ Disable process monitoring entirely with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
 
 ## Batching
 
-The `EventBatcher` (`internal/agent/batcher.go`) coalesces events before upload:
+The `EventBatcher` (`internal/agent/batcher.go`) coalesces events in a durable ring before upload:
 
 | Flush trigger | Default |
 |---------------|---------|
-| Buffer size | 32 events (`TRUSTEDGE_AGENT_EVENT_BATCH_SIZE`) |
+| Pending size | 32 events (`TRUSTEDGE_AGENT_EVENT_BATCH_SIZE`) |
 | Time interval | 2 seconds (`TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH`) |
 | Shutdown | Final flush on context cancel |
+
+Failed uploads remain queued and are retried with exponential backoff (max `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`). Queue file defaults to `events.queue.json` beside the device state file.
 
 A single-event flush sends a plain `Event` JSON object. Multi-event flushes send `{"events":[...]}`.
 
@@ -155,7 +158,7 @@ sequenceDiagram
 
 1. **Register** — `POST /v1/register` with optional enroll bearer token.
 2. **Telemetry** — `POST /v1/events` with device bearer token.
-3. **Recovery** — on `401 Unauthorized`, the agent clears the stored token, re-registers, and retries the batch once.
+3. **Recovery** — on `401 Unauthorized`, the agent clears the stored token, re-registers (serialized so concurrent failures share one register), and retries the batch once.
 
 ## API persistence
 
@@ -165,7 +168,7 @@ Ingest persistence is documented in [TrustEdge-Agent-API](https://github.com/Tru
 
 ```text
 cmd/trustedge-agent/          Agent entrypoint
-internal/agent/         Agent runtime, batcher, auth
+internal/agent/         Agent runtime, batcher, durable ring, auth
 internal/api/           HTTP client (register, post events)
 internal/codec/         zstd compress/decompress
 internal/collect/       Platform telemetry collectors

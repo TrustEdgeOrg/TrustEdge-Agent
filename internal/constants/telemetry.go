@@ -1,5 +1,7 @@
 package constants
 
+import "time"
+
 // Event envelope types (POST /v1/events).
 const (
 	TypeClientDetails  = "client_details"
@@ -19,6 +21,14 @@ const (
 const (
 	StatusOnline = "online"
 )
+
+// DefaultActionSampleInterval is how often ActionTracker samples the
+// foreground app between action_summary posts.
+const DefaultActionSampleInterval = 5 * time.Second
+
+// DefaultEventQueueCapacity is the bounded offline ring size when
+// TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY is unset or invalid.
+const DefaultEventQueueCapacity = 4096
 
 // network_summary.network_type values.
 const (

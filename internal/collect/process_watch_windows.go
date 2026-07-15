@@ -115,9 +115,15 @@ func processStartFromETW(e *etw.Event) (ProcessChange, bool) {
 		return ProcessChange{}, false
 	}
 	ppid := intProp(props, "ParentProcessID", "ParentProcessId")
-	image := stringProp(props, "ImageName", "ImageFileName", "CommandLine")
+	image := stringProp(props, "ImageName", "ImageFileName")
+	cmdline := truncateCmdline(stringProp(props, "CommandLine"))
+	if image == "" && cmdline != "" {
+		if fields := strings.Fields(cmdline); len(fields) > 0 {
+			image = fields[0]
+		}
+	}
 	comm := filepath.Base(image)
-	row := processRow{PID: pid, PPID: ppid, Comm: comm, Executable: image}
+	row := processRow{PID: pid, PPID: ppid, Comm: comm, Executable: image, Cmdline: cmdline}
 	return ProcessChange{Type: constants.TypeProcessStart, Payload: processPayload(row)}, true
 }
 
@@ -132,18 +138,10 @@ func processStopFromETW(e *etw.Event) (ProcessChange, bool) {
 	}
 	ppid := intProp(props, "ParentProcessID", "ParentProcessId")
 	image := stringProp(props, "ImageName", "ImageFileName")
+	cmdline := truncateCmdline(stringProp(props, "CommandLine"))
 	comm := filepath.Base(image)
-	row := processRow{PID: pid, PPID: ppid, Comm: comm, Executable: image}
-	return ProcessChange{
-		Type: constants.TypeProcessExit,
-		Payload: map[string]any{
-			"pid":        row.PID,
-			"ppid":       row.PPID,
-			"user":       row.User,
-			"comm":       row.Comm,
-			"executable": row.Executable,
-		},
-	}, true
+	row := processRow{PID: pid, PPID: ppid, Comm: comm, Executable: image, Cmdline: cmdline}
+	return ProcessChange{Type: constants.TypeProcessExit, Payload: processPayload(row)}, true
 }
 
 func intProp(props map[string]any, keys ...string) int {

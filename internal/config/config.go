@@ -20,16 +20,31 @@ type AgentConfig struct {
 	StatePath         string
 	PublicIPLookupURL string
 	Production        bool
-	DetailsInterval   time.Duration
-	NetworkInterval   time.Duration
-	NetworkDebounce   time.Duration
-	ActionInterval    time.Duration
-	ProcessInterval   time.Duration
-	EventBatchSize    int
-	EventBatchFlush   time.Duration
+	// Compress enables optional zstd on /v1/events (default true).
+	Compress bool
+	// Batch enables {"events":[...]} envelopes for multi-event flushes (default true).
+	Batch                bool
+	DetailsInterval      time.Duration
+	NetworkInterval      time.Duration
+	NetworkDebounce      time.Duration
+	ActionInterval       time.Duration
+	ActionSampleInterval time.Duration
+	ProcessInterval      time.Duration
+	EventBatchSize       int
+	EventBatchFlush      time.Duration
+	EventQueueCapacity   int
+	EventQueuePath       string
+	EventRetryMax        time.Duration
+	// LogFormat is "text" (default) or "json".
+	LogFormat string
+	// MetricsInterval controls periodic agent status logs; 0 disables.
+	MetricsInterval time.Duration
 }
 
 func (c AgentConfig) Validate() error {
+	if strings.TrimSpace(c.APIURL) == "" {
+		return errors.New("TRUSTEDGE_AGENT_API_URL is required (or pass -api-url)")
+	}
 	if !c.Production {
 		return nil
 	}
@@ -71,10 +86,12 @@ func envDuration(primary, legacy string, fallback time.Duration) time.Duration {
 	if v == "" {
 		return fallback
 	}
-	if secs, err := strconv.ParseFloat(v, 64); err == nil && secs > 0 {
+	// Accept explicit 0 / 0s (e.g. TRUSTEDGE_AGENT_PROCESS_INTERVAL=0 disables
+	// process monitoring). Reject negatives and unparseable values.
+	if secs, err := strconv.ParseFloat(v, 64); err == nil && secs >= 0 {
 		return time.Duration(secs * float64(time.Second))
 	}
-	if d, err := time.ParseDuration(v); err == nil && d > 0 {
+	if d, err := time.ParseDuration(v); err == nil && d >= 0 {
 		return d
 	}
 	return fallback
@@ -88,6 +105,14 @@ func envBool(primary, legacy string) bool {
 	default:
 		return false
 	}
+}
+
+// envBoolDefault reads a bool env with an explicit default when unset.
+func envBoolDefault(primary, legacy string, fallback bool) bool {
+	if _, ok := lookupEnv(primary, legacy); !ok {
+		return fallback
+	}
+	return envBool(primary, legacy)
 }
 
 func envInt(primary, legacy string, fallback int) int {
@@ -165,20 +190,37 @@ func resolveStatePath(configured string) string {
 	return path
 }
 
+func defaultEventQueuePath(statePath string) string {
+	return filepath.Join(filepath.Dir(statePath), "events.queue.json")
+}
+
 func LoadAgent() AgentConfig {
 	configuredState := env("TRUSTEDGE_AGENT_STATE_PATH", "TRUSTTWIN_STATE_PATH", "")
+	statePath := resolveStatePath(configuredState)
+	queuePath := env("TRUSTEDGE_AGENT_EVENT_QUEUE_PATH", "", "")
+	if queuePath == "" {
+		queuePath = defaultEventQueuePath(statePath)
+	}
 	return AgentConfig{
-		APIURL:            strings.TrimRight(env("TRUSTEDGE_AGENT_API_URL", "TRUSTTWIN_API_URL", "http://127.0.0.1:8080"), "/"),
-		EnrollToken:       env("TRUSTEDGE_AGENT_ENROLL_TOKEN", "TRUSTTWIN_ENROLL_TOKEN", ""),
-		StatePath:         resolveStatePath(configuredState),
-		PublicIPLookupURL: loadPublicIPLookupURL(),
-		Production:        envBool("TRUSTEDGE_AGENT_PRODUCTION", "TRUSTTWIN_PRODUCTION"),
-		DetailsInterval:   envDuration("TRUSTEDGE_AGENT_DETAILS_INTERVAL", "TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),
-		NetworkInterval:   envDuration("TRUSTEDGE_AGENT_NETWORK_INTERVAL", "TRUSTTWIN_NETWORK_INTERVAL", 60*time.Second),
-		NetworkDebounce:   envDuration("TRUSTEDGE_AGENT_NETWORK_DEBOUNCE", "TRUSTTWIN_NETWORK_DEBOUNCE", 2*time.Second),
-		ActionInterval:    envDuration("TRUSTEDGE_AGENT_ACTION_INTERVAL", "TRUSTTWIN_ACTION_INTERVAL", 60*time.Second),
-		ProcessInterval:   envDuration("TRUSTEDGE_AGENT_PROCESS_INTERVAL", "TRUSTTWIN_PROCESS_INTERVAL", 10*time.Second),
-		EventBatchSize:    envInt("TRUSTEDGE_AGENT_EVENT_BATCH_SIZE", "TRUSTTWIN_EVENT_BATCH_SIZE", 32),
-		EventBatchFlush:   envDuration("TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH", "TRUSTTWIN_EVENT_BATCH_FLUSH", 2*time.Second),
+		APIURL:               strings.TrimRight(env("TRUSTEDGE_AGENT_API_URL", "TRUSTTWIN_API_URL", ""), "/"),
+		EnrollToken:          env("TRUSTEDGE_AGENT_ENROLL_TOKEN", "TRUSTTWIN_ENROLL_TOKEN", ""),
+		StatePath:            statePath,
+		PublicIPLookupURL:    loadPublicIPLookupURL(),
+		Production:           envBool("TRUSTEDGE_AGENT_PRODUCTION", "TRUSTTWIN_PRODUCTION"),
+		Compress:             envBoolDefault("TRUSTEDGE_AGENT_COMPRESS", "TRUSTTWIN_COMPRESS", true),
+		Batch:                envBoolDefault("TRUSTEDGE_AGENT_BATCH", "TRUSTTWIN_BATCH", true),
+		DetailsInterval:      envDuration("TRUSTEDGE_AGENT_DETAILS_INTERVAL", "TRUSTTWIN_DETAILS_INTERVAL", 60*time.Second),
+		NetworkInterval:      envDuration("TRUSTEDGE_AGENT_NETWORK_INTERVAL", "TRUSTTWIN_NETWORK_INTERVAL", 60*time.Second),
+		NetworkDebounce:      envDuration("TRUSTEDGE_AGENT_NETWORK_DEBOUNCE", "TRUSTTWIN_NETWORK_DEBOUNCE", 2*time.Second),
+		ActionInterval:       envDuration("TRUSTEDGE_AGENT_ACTION_INTERVAL", "TRUSTTWIN_ACTION_INTERVAL", 60*time.Second),
+		ActionSampleInterval: envDuration("TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL", "", constants.DefaultActionSampleInterval),
+		ProcessInterval:      envDuration("TRUSTEDGE_AGENT_PROCESS_INTERVAL", "TRUSTTWIN_PROCESS_INTERVAL", 10*time.Second),
+		EventBatchSize:       envInt("TRUSTEDGE_AGENT_EVENT_BATCH_SIZE", "TRUSTTWIN_EVENT_BATCH_SIZE", 32),
+		EventBatchFlush:      envDuration("TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH", "TRUSTTWIN_EVENT_BATCH_FLUSH", 2*time.Second),
+		EventQueueCapacity:   envInt("TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY", "", constants.DefaultEventQueueCapacity),
+		EventQueuePath:       queuePath,
+		EventRetryMax:        envDuration("TRUSTEDGE_AGENT_EVENT_RETRY_MAX", "", 60*time.Second),
+		LogFormat:            strings.ToLower(env("TRUSTEDGE_AGENT_LOG_FORMAT", "", "text")),
+		MetricsInterval:      envDuration("TRUSTEDGE_AGENT_METRICS_INTERVAL", "", 5*time.Minute),
 	}
 }

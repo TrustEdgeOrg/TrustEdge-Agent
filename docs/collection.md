@@ -45,7 +45,7 @@ flowchart TB
 
 - Collectors only add events to the batch — they never talk to the network directly.
 - Events from different areas (device, network, etc.) can be sent in the same batch.
-- There is **no offline queue**. If an upload fails, those events are dropped (the agent retries once on auth errors only).
+- Failed uploads stay in a durable ring and are retried with backoff (auth errors still get one immediate re-register retry).
 
 ## Runtime startup
 
@@ -56,7 +56,7 @@ flowchart TB
 3. Emit one `client_details` event immediately.
 4. Start the four collector loops (details below).
 5. Block until the context is cancelled (SIGINT/SIGTERM).
-6. On shutdown, the batcher performs a final flush.
+6. On shutdown, the batcher performs a final flush with a short independent timeout (default 3s); remaining events stay in the durable ring.
 
 Registration (`EnsureRegistered`) happens before `Run()` and is independent of collection.
 
@@ -82,7 +82,7 @@ Four goroutines produce telemetry. All share the same `enqueue` callback.
 |-----------|---------------|------------------|-----------------|
 | Client details | `client_details` | 60s | `TRUSTEDGE_AGENT_DETAILS_INTERVAL` |
 | Network monitor | `network_summary` | 60s heartbeat + on change | `TRUSTEDGE_AGENT_NETWORK_INTERVAL`, `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE` |
-| Action tracker | `action_summary` | 60s | `TRUSTEDGE_AGENT_ACTION_INTERVAL` |
+| Action tracker | `action_summary` | Sample every 5s; emit every 60s | `TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL` / `TRUSTEDGE_AGENT_ACTION_INTERVAL` |
 | Process monitor | `process_start`, `process_exit` | 10s poll + event-driven | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` (`0` disables) |
 
 ### Client details
@@ -112,7 +112,7 @@ Four goroutines produce telemetry. All share the same `enqueue` callback.
 
 **Debounce:** Rapid link changes are coalesced. The monitor waits `NetworkDebounce` (default 2s) after the last signal before emitting.
 
-**Dedup:** For `initial` and `link_change`, the monitor compares a **summary fingerprint** (public IP, network type, listening/established counts, top ports). If unchanged since the last post, the event is skipped. **Heartbeats always post** so liveness continues even when posture is stable.
+**Dedup:** For `initial` and `link_change`, the monitor compares a **summary fingerprint** (public IP, network type, listening/established counts, top ports). If unchanged since the last post, the event is skipped. **Heartbeats always post** so liveness continues even when posture is stable. The same payload used for fingerprinting is attached to `NetworkChange` and enqueued — the agent does not collect the summary a second time.
 
 **Data collection** (`NetworkSummaryPayload`):
 
@@ -127,18 +127,17 @@ Four goroutines produce telemetry. All share the same `enqueue` callback.
 
 **Purpose:** Short-window user activity — foreground app focus, idle/active presence, app switches.
 
-**Trigger:** Every `ActionInterval`. Each tick:
+**Trigger:** Two loops:
 
-1. `tracker.Sample()` — read foreground app and accumulate focus duration.
-2. `tracker.SnapshotAndReset()` — build summary for the window, reset counters.
-3. Enqueue one `action_summary` event.
+1. Every `ActionSampleInterval` (default 5s): `tracker.Sample()` — read foreground app and accumulate focus.
+2. Every `ActionInterval` (default 60s): `tracker.SnapshotAndReset()` → enqueue one `action_summary`.
 
 **Sampling logic:**
 
-- Foreground app is read via platform probe (`foreground_*.go`).
-- Focus time is accumulated per app (by bundle ID, falling back to name).
+- Foreground app is read via platform probe (`foreground_*.go`) on the fast sample ticker.
+- Focus time is accumulated per app (by bundle ID, falling back to name), adding `ActionSampleInterval` seconds each sample.
 - App switches are counted when the foreground app changes between samples.
-- Presence is `active` if idle seconds &lt; 60, otherwise `idle`.
+- Presence is `active` if idle seconds &lt; 60, otherwise `idle` (checked at summary time).
 
 **Payload includes:** `window_start`, `window_end`, `focus[]`, `presence`, `idle_sec`, `app_switches`.
 
@@ -146,7 +145,7 @@ Four goroutines produce telemetry. All share the same `enqueue` callback.
 
 ### Process monitor
 
-**Purpose:** Process lifecycle visibility — new and exited processes with metadata only (no command lines).
+**Purpose:** Process lifecycle visibility — new and exited processes with metadata and command line.
 
 **Two layers run in parallel:**
 
@@ -196,7 +195,7 @@ Every `ProcessInterval`, `ProcessMonitor.Poll()`:
 
 ## Batching
 
-The `EventBatcher` (`internal/agent/batcher.go`) is a mutex-protected in-memory buffer shared by all collectors.
+The `EventBatcher` (`internal/agent/batcher.go`) shares a durable ring buffer (`EventRing`) across all collectors. Events are appended to the ring on enqueue and only removed after a successful upload.
 
 ### Flush triggers
 
@@ -210,9 +209,17 @@ Any one of these causes a flush:
 
 ### Flush behavior
 
-1. Copy the buffer under lock, then clear it.
-2. Call `postEvents(batch)` (see [Upload](#upload)).
-3. Log success (`posted batch (N events)`) or failure (`post batch (N events): <err>`).
+1. `Peek` up to `EventBatchSize` events from the ring (do not remove them yet).
+2. Call `postEvents(ctx, batch)` (see [Upload](#upload)). HTTP uses the request context so cancel/shutdown can abort in-flight uploads.
+3. On success, `Ack` those events (persist the shorter ring). On failure, leave them queued and increase flush backoff up to `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`.
+4. Log success (`posted batch`) or failure (`post batch failed`) with structured fields (`events`, `pending`, `latency_ms` / `err`). Periodic `agent status` lines report upload counters and queue depth.
+
+### Offline ring
+
+| Setting | Default | Behavior |
+|---------|---------|----------|
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Bounded FIFO; overwrite oldest when full |
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH` | `<state-dir>/events.queue.json` | Atomic JSON persistence across restarts |
 
 ### Coalescing
 
@@ -268,11 +275,12 @@ The API responds with `202 Accepted` and `{ "status": "accepted", "accepted": N 
 
 On `401 Unauthorized` (`internal/agent/auth.go`):
 
-1. Clear stored device token.
-2. Re-register via `POST /v1/register`.
-3. Retry the **same batch** once.
+1. Serialize recovery under a mutex (concurrent 401s share one re-register).
+2. Clear stored device token.
+3. Re-register via `POST /v1/register` unless another goroutine already refreshed the token.
+4. Retry the **same batch** once.
 
-Any other error (network timeout, 5xx, etc.) is logged and the batch is **dropped**. There is no retry queue or exponential backoff.
+Any other error (network timeout, 5xx, etc.) is logged and the batch stays in the durable ring for retry with exponential backoff.
 
 ## Concurrency model
 
@@ -281,7 +289,8 @@ main goroutine
 ├── batcher.Run()          — flush loop (timer + wake channel + shutdown)
 ├── loop(DetailsInterval)  — client_details
 ├── NetworkMonitor.Run()   — network_summary (watcher + heartbeat)
-├── loop(ActionInterval)   — action_summary
+├── loop(ActionSampleInterval) — Sample() foreground focus
+├── loop(ActionInterval)   — action_summary snapshot
 ├── ProcessWatcher.Run()   — event-driven process events (if available)
 └── loop(ProcessInterval)  — process poll reconciliation
 ```
@@ -296,9 +305,12 @@ Collectors are independent — a slow public IP lookup in network collection doe
 | `TRUSTEDGE_AGENT_NETWORK_INTERVAL` | `60` | Network heartbeat |
 | `TRUSTEDGE_AGENT_NETWORK_DEBOUNCE` | `2` | Network change debounce |
 | `TRUSTEDGE_AGENT_ACTION_INTERVAL` | `60` | Action summary window |
+| `TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL` | `5` | Foreground sample rate inside each window |
 | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` | `10` | Process poll; `0` = off |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` | `32` | Max events before flush |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` | `2` | Max seconds between flushes |
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Offline ring capacity |
+| `TRUSTEDGE_AGENT_EVENT_RETRY_MAX` | `60` | Max upload retry backoff |
 | `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | ipify | Public IP lookup; `off` disables |
 
 Full reference: [Configuration](configuration.md).
@@ -308,7 +320,8 @@ Full reference: [Configuration](configuration.md).
 | Concern | Package / file |
 |---------|----------------|
 | Agent orchestration | `internal/agent/agent.go` |
-| Batching | `internal/agent/batcher.go` |
+| Batching + flush | `internal/agent/batcher.go` |
+| Durable event ring | `internal/agent/ring.go` |
 | Auth + upload | `internal/agent/auth.go` |
 | HTTP client | `internal/api/client.go` |
 | zstd compression | `internal/codec/zstd.go` |
@@ -320,12 +333,10 @@ Full reference: [Configuration](configuration.md).
 
 | Behavior | Detail |
 |----------|--------|
-| No offline queue | Failed batches are dropped after logging |
-| No upload retry | Except one auth recovery retry on `401` |
+| Bounded offline ring | When capacity is exceeded, oldest pending events are overwritten |
 | Process poll cap | Max 100 `process_start` events per poll cycle |
 | Silent first poll | Process monitor seeds state without emitting |
 | Network dedup | Change events skipped when fingerprint unchanged; heartbeats always post |
-| In-memory only | Events lost if agent crashes before flush |
 
 ## Related docs
 

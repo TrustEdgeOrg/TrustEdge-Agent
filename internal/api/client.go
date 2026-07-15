@@ -2,11 +2,13 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/codec"
@@ -18,29 +20,47 @@ var ErrUnauthorized = errors.New("unauthorized")
 type Client struct {
 	BaseURL     string
 	EnrollToken string
-	DeviceToken string
-	HTTP        *http.Client
+	// Compress enables zstd when it shrinks the body. Disable for older
+	// ingest APIs that ignore Content-Encoding and treat the body as JSON.
+	Compress bool
+	// Batch sends multiple events as {"events":[...]}. Disable for older
+	// ingest APIs that only accept a single Event object per request.
+	Batch bool
+	HTTP  *http.Client
+
+	mu          sync.Mutex
+	deviceToken string
 }
 
 func New(baseURL, enrollToken, deviceToken string) *Client {
 	return &Client{
 		BaseURL:     baseURL,
 		EnrollToken: enrollToken,
-		DeviceToken: deviceToken,
+		deviceToken: deviceToken,
+		Compress:    true,
+		Batch:       true,
 		HTTP:        &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
 func (c *Client) SetDeviceToken(token string) {
-	c.DeviceToken = token
+	c.mu.Lock()
+	c.deviceToken = token
+	c.mu.Unlock()
 }
 
-func (c *Client) Register(req models.RegisterRequest) (*models.RegisterResponse, error) {
+func (c *Client) DeviceToken() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.deviceToken
+}
+
+func (c *Client) Register(ctx context.Context, req models.RegisterRequest) (*models.RegisterResponse, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
-	httpReq, err := http.NewRequest(http.MethodPost, c.BaseURL+"/v1/register", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/v1/register", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -64,38 +84,48 @@ func (c *Client) Register(req models.RegisterRequest) (*models.RegisterResponse,
 	if err := json.Unmarshal(data, &out); err != nil {
 		return nil, err
 	}
-	c.DeviceToken = out.DeviceToken
+	c.SetDeviceToken(out.DeviceToken)
 	return &out, nil
 }
 
-func (c *Client) PostEvent(ev models.Event) error {
-	return c.PostEvents([]models.Event{ev})
+func (c *Client) PostEvent(ctx context.Context, ev models.Event) error {
+	return c.PostEvents(ctx, []models.Event{ev})
 }
 
-func (c *Client) PostEvents(events []models.Event) error {
+func (c *Client) PostEvents(ctx context.Context, events []models.Event) error {
 	if len(events) == 0 {
 		return nil
 	}
-	if len(events) == 1 {
-		body, err := json.Marshal(events[0])
-		if err != nil {
-			return err
+	if len(events) == 1 || !c.Batch {
+		for i := range events {
+			body, err := json.Marshal(events[i])
+			if err != nil {
+				return err
+			}
+			if err := c.postEventsBody(ctx, body); err != nil {
+				return err
+			}
 		}
-		return c.postEventsBody(body)
+		return nil
 	}
 	body, err := json.Marshal(models.EventBatch{Events: events})
 	if err != nil {
 		return err
 	}
-	return c.postEventsBody(body)
+	return c.postEventsBody(ctx, body)
 }
 
-func (c *Client) postEventsBody(body []byte) error {
-	payload, compressed, err := codec.MaybeCompress(body)
-	if err != nil {
-		return err
+func (c *Client) postEventsBody(ctx context.Context, body []byte) error {
+	payload := body
+	compressed := false
+	if c.Compress {
+		var err error
+		payload, compressed, err = codec.MaybeCompress(body)
+		if err != nil {
+			return err
+		}
 	}
-	httpReq, err := http.NewRequest(http.MethodPost, c.BaseURL+"/v1/events", bytes.NewReader(payload))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/v1/events", bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -103,8 +133,8 @@ func (c *Client) postEventsBody(body []byte) error {
 	if compressed {
 		httpReq.Header.Set("Content-Encoding", codec.ContentEncoding)
 	}
-	if c.DeviceToken != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.DeviceToken)
+	if tok := c.DeviceToken(); tok != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+tok)
 	}
 	resp, err := c.HTTP.Do(httpReq)
 	if err != nil {
