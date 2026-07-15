@@ -7,11 +7,7 @@ A focused Go agent that observes device posture on macOS, Linux, and Windows —
 [![Agent CI](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml)
 
 <p align="center">
-  <img src="docs/assets/pipeline.svg" alt="Endpoint → Collector → Batch → Compress → Secure upload → Agent API → Stream → Detection → Alert" width="1000" />
-</p>
-
-<p align="center">
-  <strong>Endpoint</strong> → <strong>Collector</strong> → <strong>Batch</strong> → <strong>Compress</strong> → <strong>Secure upload</strong> → <strong>Agent API</strong> → <strong>Stream</strong> → <strong>Detection</strong> → <strong>Alert</strong>
+  <img src="docs/assets/pipeline.svg" alt="Endpoint → Collector → Batch → Compress → Secure upload → Agent API → Stream → Detection Attack → Alert" width="1000" />
 </p>
 
 ---
@@ -63,7 +59,7 @@ Process command lines are truncated at 4 KiB. Turn process monitoring off with `
 5. **Secure upload** — sends over HTTPS with the device token.  
 6. **Agent API** — receives and authenticates ingest traffic.  
 7. **Stream** — forwards events into the TrustEdge pipeline.  
-8. **Detection** — rules analyze the stream for risk.  
+8. **Detection Attack** — rules analyze the stream for attack risk.  
 9. **Alert** — operators get notified in TrustEdge.
 
 Want the engineering detail? See [Architecture](docs/architecture.md) · [Collection & batching](docs/collection.md).
