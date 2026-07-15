@@ -35,6 +35,10 @@ type AgentConfig struct {
 	EventQueueCapacity   int
 	EventQueuePath       string
 	EventRetryMax        time.Duration
+	// LogFormat is "text" (default) or "json".
+	LogFormat string
+	// MetricsInterval controls periodic agent status logs; 0 disables.
+	MetricsInterval time.Duration
 }
 
 func (c AgentConfig) Validate() error {
@@ -216,5 +220,7 @@ func LoadAgent() AgentConfig {
 		EventQueueCapacity:   envInt("TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY", "", constants.DefaultEventQueueCapacity),
 		EventQueuePath:       queuePath,
 		EventRetryMax:        envDuration("TRUSTEDGE_AGENT_EVENT_RETRY_MAX", "", 60*time.Second),
+		LogFormat:            strings.ToLower(env("TRUSTEDGE_AGENT_LOG_FORMAT", "", "text")),
+		MetricsInterval:      envDuration("TRUSTEDGE_AGENT_METRICS_INTERVAL", "", 5*time.Minute),
 	}
 }

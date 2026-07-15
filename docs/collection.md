@@ -212,7 +212,7 @@ Any one of these causes a flush:
 1. `Peek` up to `EventBatchSize` events from the ring (do not remove them yet).
 2. Call `postEvents(ctx, batch)` (see [Upload](#upload)). HTTP uses the request context so cancel/shutdown can abort in-flight uploads.
 3. On success, `Ack` those events (persist the shorter ring). On failure, leave them queued and increase flush backoff up to `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`.
-4. Log success (`posted batch (N events, pending=…)`) or failure (`post batch (N events, pending=…): <err>`).
+4. Log success (`posted batch`) or failure (`post batch failed`) with structured fields (`events`, `pending`, `latency_ms` / `err`). Periodic `agent status` lines report upload counters and queue depth.
 
 ### Offline ring
 

@@ -19,7 +19,7 @@ func (a *Agent) ensureRegistered(ctx context.Context) error {
 	a.deviceID = deviceID
 	if token != "" {
 		a.client.SetDeviceToken(token)
-		a.log.Printf("using device %s", a.deviceID)
+		a.log.Info("using stored device credentials", "device_id", a.deviceID)
 		return nil
 	}
 	return a.registerLocked(ctx)
@@ -50,7 +50,7 @@ func (a *Agent) registerLocked(ctx context.Context) error {
 		return err
 	}
 	a.client.SetDeviceToken(reg.DeviceToken)
-	a.log.Printf("registered device %s", a.deviceID)
+	a.log.Info("registered device", "device_id", a.deviceID)
 	return nil
 }
 
@@ -67,13 +67,19 @@ func (a *Agent) recoverAuthAfterUnauthorized(ctx context.Context, failedToken st
 	defer a.authMu.Unlock()
 
 	if tok := a.client.DeviceToken(); tok != "" && tok != failedToken {
+		a.log.Info("auth already recovered by another caller", "device_id", a.deviceID)
 		return nil
 	}
+	a.log.Warn("unauthorized; recovering device credentials", "device_id", a.deviceID)
 	if err := a.creds.ClearToken(); err != nil {
 		return err
 	}
 	a.client.SetDeviceToken("")
-	return a.registerLocked(ctx)
+	if err := a.registerLocked(ctx); err != nil {
+		return err
+	}
+	a.metrics.RecordAuthRecover()
+	return nil
 }
 
 func (a *Agent) postEvent(ctx context.Context, ev models.Event) error {
@@ -96,4 +102,24 @@ func (a *Agent) postEvents(ctx context.Context, events []models.Event) error {
 		return recErr
 	}
 	return a.client.PostEvents(ctx, events)
+}
+
+func (a *Agent) logStatus(batcher *EventBatcher) {
+	if a.log == nil || a.metrics == nil || batcher == nil {
+		return
+	}
+	attrs := []any{
+		"device_id", a.currentDeviceID(),
+		"pending", batcher.Pending(),
+		"queue_dropped_total", batcher.Dropped(),
+		"upload_success_total", a.metrics.UploadSuccess.Load(),
+		"upload_fail_total", a.metrics.UploadFail.Load(),
+		"auth_recover_total", a.metrics.AuthRecover.Load(),
+	}
+	if age, ok := a.metrics.LastUploadAge(a.clock.Now()); ok {
+		attrs = append(attrs, "last_upload_age_sec", int(age))
+	} else {
+		attrs = append(attrs, "last_upload_age_sec", -1)
+	}
+	a.log.Info("agent status", attrs...)
 }
