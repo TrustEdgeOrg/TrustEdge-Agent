@@ -55,14 +55,22 @@ func (a *Agent) EnsureRegistered(ctx context.Context) error {
 }
 
 func (a *Agent) Run(ctx context.Context) error {
-	batcher := NewEventBatcher(
+	batcher, err := NewEventBatcher(
 		a.clock,
 		func() string { return a.deviceID },
 		a.postEvents,
 		a.log,
-		a.cfg.EventBatchSize,
-		a.cfg.EventBatchFlush,
+		BatcherOptions{
+			MaxSize:    a.cfg.EventBatchSize,
+			FlushEvery: a.cfg.EventBatchFlush,
+			QueuePath:  a.cfg.EventQueuePath,
+			Capacity:   a.cfg.EventQueueCapacity,
+			MaxBackoff: a.cfg.EventRetryMax,
+		},
 	)
+	if err != nil {
+		return err
+	}
 	go batcher.Run(ctx)
 
 	enqueue := func(typ string, payload map[string]any) {

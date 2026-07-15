@@ -3,14 +3,22 @@ package agent
 import (
 	"context"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 )
 
-// EventBatcher collects telemetry and flushes batches to the API.
+// BatcherOptions configure flush sizing and the durable offline queue.
+type BatcherOptions struct {
+	MaxSize    int
+	FlushEvery time.Duration
+	QueuePath  string
+	Capacity   int
+	MaxBackoff time.Duration
+}
+
+// EventBatcher collects telemetry into a durable ring and flushes batches to the API.
 type EventBatcher struct {
 	clock      clock.Clock
 	deviceID   func() string
@@ -18,77 +26,120 @@ type EventBatcher struct {
 	log        *log.Logger
 	maxSize    int
 	flushEvery time.Duration
-
-	mu   sync.Mutex
-	buf  []models.Event
-	wake chan struct{}
+	maxBackoff time.Duration
+	queue      *EventRing
+	wake       chan struct{}
 }
 
-func NewEventBatcher(clk clock.Clock, deviceID func() string, postBatch func([]models.Event) error, logger *log.Logger, maxSize int, flushEvery time.Duration) *EventBatcher {
-	if maxSize <= 0 {
-		maxSize = 32
+func NewEventBatcher(clk clock.Clock, deviceID func() string, postBatch func([]models.Event) error, logger *log.Logger, opts BatcherOptions) (*EventBatcher, error) {
+	if opts.MaxSize <= 0 {
+		opts.MaxSize = 32
 	}
-	if flushEvery <= 0 {
-		flushEvery = 2 * time.Second
+	if opts.FlushEvery <= 0 {
+		opts.FlushEvery = 2 * time.Second
 	}
-	return &EventBatcher{
+	if opts.MaxBackoff <= 0 {
+		opts.MaxBackoff = 60 * time.Second
+	}
+	ring, err := OpenEventRing(opts.QueuePath, opts.Capacity)
+	if err != nil {
+		return nil, err
+	}
+	b := &EventBatcher{
 		clock:      clk,
 		deviceID:   deviceID,
 		postBatch:  postBatch,
 		log:        logger,
-		maxSize:    maxSize,
-		flushEvery: flushEvery,
+		maxSize:    opts.MaxSize,
+		flushEvery: opts.FlushEvery,
+		maxBackoff: opts.MaxBackoff,
+		queue:      ring,
 		wake:       make(chan struct{}, 1),
 	}
+	if pending := ring.Len(); pending > 0 && logger != nil {
+		logger.Printf("event queue: restored %d pending event(s)", pending)
+	}
+	return b, nil
 }
 
 func (b *EventBatcher) Enqueue(typ string, payload map[string]any) {
-	b.mu.Lock()
-	b.buf = append(b.buf, models.NewEvent(b.clock, b.deviceID(), typ, payload))
-	full := len(b.buf) >= b.maxSize
-	b.mu.Unlock()
-	if full {
+	ev := models.NewEvent(b.clock, b.deviceID(), typ, payload)
+	dropped, err := b.queue.Push(ev)
+	if err != nil && b.log != nil {
+		b.log.Printf("event queue persist: %v", err)
+	}
+	if dropped && b.log != nil {
+		b.log.Printf("event queue full: dropped oldest (pending=%d dropped_total=%d)", b.queue.Len(), b.queue.Dropped())
+	}
+	if b.queue.Len() >= b.maxSize {
 		b.signalFlush()
 	}
 }
 
 func (b *EventBatcher) Run(ctx context.Context) {
-	ticker := time.NewTicker(b.flushEvery)
-	defer ticker.Stop()
+	backoff := b.flushEvery
+	timer := time.NewTimer(backoff)
+	defer timer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			b.Flush()
+			_ = b.Flush()
 			return
-		case <-ticker.C:
-			b.Flush()
+		case <-timer.C:
+			err := b.Flush()
+			if err != nil {
+				backoff = nextBackoff(backoff, b.flushEvery, b.maxBackoff)
+			} else {
+				backoff = b.flushEvery
+				if b.queue.Len() > 0 {
+					b.signalFlush()
+				}
+			}
+			timer.Reset(backoff)
 		case <-b.wake:
-			b.Flush()
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			err := b.Flush()
+			if err != nil {
+				backoff = nextBackoff(backoff, b.flushEvery, b.maxBackoff)
+			} else {
+				backoff = b.flushEvery
+				if b.queue.Len() > 0 {
+					b.signalFlush()
+				}
+			}
+			timer.Reset(backoff)
 		}
 	}
 }
 
-func (b *EventBatcher) Flush() {
-	b.mu.Lock()
-	if len(b.buf) == 0 {
-		b.mu.Unlock()
-		return
+// Flush peeks a batch, posts it, and only acks on success so failures stay queued.
+func (b *EventBatcher) Flush() error {
+	batch := b.queue.Peek(b.maxSize)
+	if len(batch) == 0 {
+		return nil
 	}
-	batch := make([]models.Event, len(b.buf))
-	copy(batch, b.buf)
-	b.buf = b.buf[:0]
-	b.mu.Unlock()
-
 	if err := b.postBatch(batch); err != nil {
 		if b.log != nil {
-			b.log.Printf("post batch (%d events): %v", len(batch), err)
+			b.log.Printf("post batch (%d events, pending=%d): %v", len(batch), b.queue.Len(), err)
 		}
-		return
+		return err
+	}
+	if err := b.queue.Ack(len(batch)); err != nil {
+		if b.log != nil {
+			b.log.Printf("event queue ack: %v", err)
+		}
+		return err
 	}
 	if b.log != nil {
-		b.log.Printf("posted batch (%d events)", len(batch))
+		b.log.Printf("posted batch (%d events, pending=%d)", len(batch), b.queue.Len())
 	}
+	return nil
 }
 
 func (b *EventBatcher) signalFlush() {
@@ -96,4 +147,15 @@ func (b *EventBatcher) signalFlush() {
 	case b.wake <- struct{}{}:
 	default:
 	}
+}
+
+func nextBackoff(current, min, max time.Duration) time.Duration {
+	next := current * 2
+	if next < min {
+		next = min
+	}
+	if next > max {
+		return max
+	}
+	return next
 }

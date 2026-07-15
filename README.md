@@ -68,7 +68,7 @@ flowchart LR
 | Stage | Description |
 |-------|-------------|
 | **Collect** | Gather device, network, activity, and process telemetry from the OS |
-| **Batch** | Buffer events in memory (up to 32 events or every 2 seconds) |
+| **Batch** | Buffer events in a durable ring (up to 32 per upload, or every 2 seconds) |
 | **Compress** | JSON batches are optionally compressed with zstd when smaller than raw JSON |
 | **Send** | Upload the batch to the ingest API over HTTPS |
 | **Ingest** | API decompresses if needed, validates, and accepts events |

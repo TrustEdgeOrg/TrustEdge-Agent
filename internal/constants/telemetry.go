@@ -20,6 +20,10 @@ const (
 	StatusOnline = "online"
 )
 
+// DefaultEventQueueCapacity is the bounded offline ring size when
+// TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY is unset or invalid.
+const DefaultEventQueueCapacity = 4096
+
 // network_summary.network_type values.
 const (
 	NetworkTypeWiFi     = "wifi"

@@ -68,14 +68,14 @@ For collector details, dedup rules, and batch timing, see [Collection and batchi
 
 1. **Collect** — four concurrent sources produce typed payloads.
 2. **Enqueue** — each source calls `batcher.Enqueue(type, payload)`.
-3. **Buffer** — `EventBatcher` appends `models.Event` records (timestamp, device ID, type, payload).
-4. **Flush** — when the buffer reaches `EventBatchSize` (default 32), `EventBatchFlush` elapses (default 2s), or the agent shuts down.
-5. **Post** — `postEvents()` calls `client.PostEvents()`.
+3. **Buffer** — `EventBatcher` pushes `models.Event` records into a durable ring (timestamp, device ID, type, payload).
+4. **Flush** — when the ring has at least `EventBatchSize` (default 32) pending, `EventBatchFlush` elapses (default 2s), or the agent shuts down.
+5. **Post** — `postEvents()` calls `client.PostEvents()`; events are acked from the ring only after success.
 6. **Compress** — JSON is marshaled, then passed through `codec.MaybeCompress()`. If zstd shrinks the payload, the client sets `Content-Encoding: zstd`.
 7. **Ingest** — the API decompresses if needed, decodes a batch or single event, validates, and calls `store.AddEvent()` per event.
 8. **Response** — `202 Accepted` with `{ "status": "accepted", "accepted": N }`.
 
-Failed batches are logged and dropped. There is no offline retry queue yet.
+Failed batches stay in the durable event ring and are retried with exponential backoff (capped by `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`). When the ring is full, the oldest pending events are overwritten.
 
 ## Collectors
 
@@ -120,13 +120,15 @@ Disable process monitoring entirely with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
 
 ## Batching
 
-The `EventBatcher` (`internal/agent/batcher.go`) coalesces events before upload:
+The `EventBatcher` (`internal/agent/batcher.go`) coalesces events in a durable ring before upload:
 
 | Flush trigger | Default |
 |---------------|---------|
-| Buffer size | 32 events (`TRUSTEDGE_AGENT_EVENT_BATCH_SIZE`) |
+| Pending size | 32 events (`TRUSTEDGE_AGENT_EVENT_BATCH_SIZE`) |
 | Time interval | 2 seconds (`TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH`) |
 | Shutdown | Final flush on context cancel |
+
+Failed uploads remain queued and are retried with exponential backoff (max `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`). Queue file defaults to `events.queue.json` beside the device state file.
 
 A single-event flush sends a plain `Event` JSON object. Multi-event flushes send `{"events":[...]}`.
 
@@ -165,7 +167,7 @@ Ingest persistence is documented in [TrustEdge-Agent-API](https://github.com/Tru
 
 ```text
 cmd/trustedge-agent/          Agent entrypoint
-internal/agent/         Agent runtime, batcher, auth
+internal/agent/         Agent runtime, batcher, durable ring, auth
 internal/api/           HTTP client (register, post events)
 internal/codec/         zstd compress/decompress
 internal/collect/       Platform telemetry collectors

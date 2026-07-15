@@ -19,6 +19,9 @@ All settings are environment variables. Copy [.env.example](../.env.example) as 
 | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` | `10` | Process poll interval; `0` disables process monitoring |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` | `32` | Max events per batch before flush |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` | `2` | Max seconds between batch flushes |
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Durable offline ring size; when full, oldest events are overwritten |
+| `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH` | next to state file | Path for persisted pending events (`events.queue.json`) |
+| `TRUSTEDGE_AGENT_EVENT_RETRY_MAX` | `60` | Max backoff between retries after a failed upload |
 | `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | ipify default | Public IP lookup URL; set to `off` to disable |
 
 ### Interval format
