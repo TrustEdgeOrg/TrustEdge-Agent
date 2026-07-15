@@ -276,9 +276,10 @@ The API responds with `202 Accepted` and `{ "status": "accepted", "accepted": N 
 
 On `401 Unauthorized` (`internal/agent/auth.go`):
 
-1. Clear stored device token.
-2. Re-register via `POST /v1/register`.
-3. Retry the **same batch** once.
+1. Serialize recovery under a mutex (concurrent 401s share one re-register).
+2. Clear stored device token.
+3. Re-register via `POST /v1/register` unless another goroutine already refreshed the token.
+4. Retry the **same batch** once.
 
 Any other error (network timeout, 5xx, etc.) is logged and the batch stays in the durable ring for retry with exponential backoff.
 

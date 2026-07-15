@@ -157,7 +157,7 @@ sequenceDiagram
 
 1. **Register** — `POST /v1/register` with optional enroll bearer token.
 2. **Telemetry** — `POST /v1/events` with device bearer token.
-3. **Recovery** — on `401 Unauthorized`, the agent clears the stored token, re-registers, and retries the batch once.
+3. **Recovery** — on `401 Unauthorized`, the agent clears the stored token, re-registers (serialized so concurrent failures share one register), and retries the batch once.
 
 ## API persistence
 

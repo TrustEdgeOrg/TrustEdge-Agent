@@ -42,7 +42,7 @@ func TestPostEventsHonorsContextCancel(t *testing.T) {
 func TestSetDeviceToken(t *testing.T) {
 	c := New("http://example.com", "", "")
 	c.SetDeviceToken("tok_new")
-	if c.DeviceToken != "tok_new" {
-		t.Fatalf("DeviceToken=%q", c.DeviceToken)
+	if c.DeviceToken() != "tok_new" {
+		t.Fatalf("DeviceToken=%q", c.DeviceToken())
 	}
 }

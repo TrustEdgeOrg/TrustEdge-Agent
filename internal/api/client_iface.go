@@ -12,4 +12,5 @@ type EventClient interface {
 	PostEvent(ctx context.Context, ev models.Event) error
 	PostEvents(ctx context.Context, events []models.Event) error
 	SetDeviceToken(token string)
+	DeviceToken() string
 }

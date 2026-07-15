@@ -132,9 +132,10 @@ Events are buffered and flushed in batches before upload. See [Collection and ba
 
 If the API returns `401 Unauthorized` on a telemetry upload, the agent:
 
-1. Clears the stored device token
-2. Re-registers via `POST /v1/register`
-3. Retries the failed batch once
+1. Serializes recovery so concurrent 401s only re-register once
+2. Clears the stored device token
+3. Re-registers via `POST /v1/register` (unless another caller already refreshed the token)
+4. Retries the failed batch once
 
 ## Local dev with TrustEdge
 
