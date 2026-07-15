@@ -2,20 +2,6 @@
 
 Capture live agent telemetry into `events.json` so you can verify the `cmdline` field on process events.
 
-<p align="center">
-  <img src="assets/icons/install.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#1-build-the-agent">Build</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#2-start-the-capture-server-terminal-1">Capture</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#3-run-the-agent-terminal-2">Run agent</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#5-inspect-eventsjson">Inspect</a>
-</p>
-
 ---
 
 ## <img src="assets/icons/platforms.svg" width="22" height="22" align="absmiddle" alt="" /> What you need
