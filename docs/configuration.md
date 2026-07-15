@@ -2,25 +2,6 @@
 
 All settings are environment variables. Copy [.env.example](../.env.example) as a starting point.
 
-<p align="center">
-  <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#agent-trustedge-agent">Agent vars</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#interval-format">Intervals</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/lock.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#production-checklist">Production</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#api-server-configuration">API server</a>
-</p>
-
-> **Also see**
-> <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Architecture](architecture.md)
-> · <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" /> [Agent guide](agent.md)
-> · <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection & batching](collection.md)
-
 ---
 
 ## <img src="assets/icons/agent.svg" width="22" height="22" align="absmiddle" alt="" /> Agent (`trustedge-agent`)
