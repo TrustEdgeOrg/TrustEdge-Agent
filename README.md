@@ -6,38 +6,9 @@ A focused Go agent that observes device posture on macOS, Linux, and Windows —
 
 [![Agent CI](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml)
 
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'ui-sans-serif, system-ui, sans-serif', 'fontSize': '14px'}}}%%
-flowchart LR
-  subgraph EP["💻 Endpoint"]
-    direction LR
-    COL["📡 Collect"]
-    RING[("💾 Durable ring")]
-    ZIP["🗜️ zstd"]
-    TLS["🔒 HTTPS"]
-    COL --> RING --> ZIP --> TLS
-  end
-
-  subgraph CL["☁️ TrustEdge Cloud"]
-    direction LR
-    API["📥 Ingest API"]
-    KFK[("📨 Kafka")]
-    DET["🔎 Detection"]
-    API --> KFK --> DET
-  end
-
-  TLS ==> API
-
-  classDef endpoint fill:#EFF6FF,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
-  classDef cloud fill:#F5F3FF,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
-  classDef step fill:#FFFFFF,stroke:#94A3B8,stroke-width:1.5px,color:#0F172A
-  classDef store fill:#FEF9C3,stroke:#CA8A04,stroke-width:1.5px,color:#713F12
-
-  class EP endpoint
-  class CL cloud
-  class COL,ZIP,TLS,API,DET step
-  class RING,KFK store
-```
+<p align="center">
+  <img src="docs/assets/pipeline.svg" alt="Endpoint to Collect to Durable ring to zstd to HTTPS to Ingest API to Kafka to Detection" width="920" />
+</p>
 
 ---
 
@@ -81,7 +52,7 @@ Process command lines are truncated at 4 KiB. Turn process monitoring off with `
 
 ## How it works
 
-The diagram above is the full path. On the agent, that breaks down to:
+Along the path above:
 
 1. **Collect** — concurrent OS collectors (details, network, activity, processes).  
 2. **Queue** — events land in a **bounded, on-disk ring**; only removed after a successful upload.  
