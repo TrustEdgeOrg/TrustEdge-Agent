@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,12 +44,12 @@ func (c *Client) SetDeviceToken(token string) {
 	c.DeviceToken = token
 }
 
-func (c *Client) Register(req models.RegisterRequest) (*models.RegisterResponse, error) {
+func (c *Client) Register(ctx context.Context, req models.RegisterRequest) (*models.RegisterResponse, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
-	httpReq, err := http.NewRequest(http.MethodPost, c.BaseURL+"/v1/register", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/v1/register", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -76,11 +77,11 @@ func (c *Client) Register(req models.RegisterRequest) (*models.RegisterResponse,
 	return &out, nil
 }
 
-func (c *Client) PostEvent(ev models.Event) error {
-	return c.PostEvents([]models.Event{ev})
+func (c *Client) PostEvent(ctx context.Context, ev models.Event) error {
+	return c.PostEvents(ctx, []models.Event{ev})
 }
 
-func (c *Client) PostEvents(events []models.Event) error {
+func (c *Client) PostEvents(ctx context.Context, events []models.Event) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -90,7 +91,7 @@ func (c *Client) PostEvents(events []models.Event) error {
 			if err != nil {
 				return err
 			}
-			if err := c.postEventsBody(body); err != nil {
+			if err := c.postEventsBody(ctx, body); err != nil {
 				return err
 			}
 		}
@@ -100,10 +101,10 @@ func (c *Client) PostEvents(events []models.Event) error {
 	if err != nil {
 		return err
 	}
-	return c.postEventsBody(body)
+	return c.postEventsBody(ctx, body)
 }
 
-func (c *Client) postEventsBody(body []byte) error {
+func (c *Client) postEventsBody(ctx context.Context, body []byte) error {
 	payload := body
 	compressed := false
 	if c.Compress {
@@ -113,7 +114,7 @@ func (c *Client) postEventsBody(body []byte) error {
 			return err
 		}
 	}
-	httpReq, err := http.NewRequest(http.MethodPost, c.BaseURL+"/v1/events", bytes.NewReader(payload))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/v1/events", bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}

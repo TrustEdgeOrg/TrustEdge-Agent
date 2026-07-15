@@ -40,18 +40,18 @@ type mockClient struct {
 	token     string
 }
 
-func (m *mockClient) Register(req models.RegisterRequest) (*models.RegisterResponse, error) {
+func (m *mockClient) Register(ctx context.Context, req models.RegisterRequest) (*models.RegisterResponse, error) {
 	return &models.RegisterResponse{
 		DeviceID:    req.DeviceID,
 		DeviceToken: "tok_new",
 	}, nil
 }
 
-func (m *mockClient) PostEvent(ev models.Event) error {
-	return m.PostEvents([]models.Event{ev})
+func (m *mockClient) PostEvent(ctx context.Context, ev models.Event) error {
+	return m.PostEvents(ctx, []models.Event{ev})
 }
 
-func (m *mockClient) PostEvents(events []models.Event) error {
+func (m *mockClient) PostEvents(ctx context.Context, events []models.Event) error {
 	m.postCalls++
 	if m.failOnce {
 		m.failOnce = false
@@ -77,7 +77,7 @@ func TestPostEventRecoversFromUnauthorized(t *testing.T) {
 		deviceID:  "dev_test",
 	}
 	ev := models.NewEvent(clock.Real{}, "dev_test", "client_details", map[string]any{})
-	if err := a.postEvent(ev); err != nil {
+	if err := a.postEvent(context.Background(), ev); err != nil {
 		t.Fatalf("postEvent: %v", err)
 	}
 	if client.postCalls != 2 {
@@ -110,24 +110,24 @@ func TestRegisterFailsPropagates(t *testing.T) {
 	creds := &mockCreds{deviceID: "dev_test"}
 	client := &failingClient{}
 	a := &Agent{
-		creds:    creds,
-		client:   client,
-		deviceID: "dev_test",
+		creds:     creds,
+		client:    client,
+		deviceID:  "dev_test",
 		collector: collect.NewCollector(clock.Real{}, collect.DefaultProbe{}, config.AgentVersion, ""),
 	}
-	if err := a.register(); err == nil {
+	if err := a.register(context.Background()); err == nil {
 		t.Fatal("expected error")
 	}
 }
 
 type failingClient struct{}
 
-func (failingClient) Register(models.RegisterRequest) (*models.RegisterResponse, error) {
+func (failingClient) Register(context.Context, models.RegisterRequest) (*models.RegisterResponse, error) {
 	return nil, errors.New("register failed")
 }
 
-func (failingClient) PostEvent(models.Event) error { return nil }
+func (failingClient) PostEvent(context.Context, models.Event) error { return nil }
 
-func (failingClient) PostEvents([]models.Event) error { return nil }
+func (failingClient) PostEvents(context.Context, []models.Event) error { return nil }
 
 func (failingClient) SetDeviceToken(string) {}
