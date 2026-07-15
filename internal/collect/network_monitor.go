@@ -16,7 +16,8 @@ const (
 )
 
 type NetworkChange struct {
-	Reason NetworkChangeReason
+	Reason  NetworkChangeReason
+	Payload map[string]any
 }
 
 type NetworkMonitorConfig struct {
@@ -82,7 +83,7 @@ func (m *NetworkMonitor) Run(ctx context.Context) <-chan NetworkChange {
 			lastPosted = fp
 			lastLink = linkFingerprint()
 			select {
-			case out <- NetworkChange{Reason: reason}:
+			case out <- NetworkChange{Reason: reason, Payload: payload}:
 				m.logf("network %s", reason)
 			case <-ctx.Done():
 			}

@@ -112,7 +112,7 @@ Four goroutines produce telemetry. All share the same `enqueue` callback.
 
 **Debounce:** Rapid link changes are coalesced. The monitor waits `NetworkDebounce` (default 2s) after the last signal before emitting.
 
-**Dedup:** For `initial` and `link_change`, the monitor compares a **summary fingerprint** (public IP, network type, listening/established counts, top ports). If unchanged since the last post, the event is skipped. **Heartbeats always post** so liveness continues even when posture is stable.
+**Dedup:** For `initial` and `link_change`, the monitor compares a **summary fingerprint** (public IP, network type, listening/established counts, top ports). If unchanged since the last post, the event is skipped. **Heartbeats always post** so liveness continues even when posture is stable. The same payload used for fingerprinting is attached to `NetworkChange` and enqueued — the agent does not collect the summary a second time.
 
 **Data collection** (`NetworkSummaryPayload`):
 
