@@ -1,4 +1,4 @@
-# TrustEdge Agent
+# <img src="docs/assets/agent-icon.svg" alt="" width="36" height="36" align="absmiddle" /> TrustEdge Agent
 
 **Cross-platform endpoint telemetry for modern detection.**
 
