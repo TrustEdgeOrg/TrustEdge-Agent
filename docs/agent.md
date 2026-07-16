@@ -98,6 +98,9 @@ With `TRUSTEDGE_AGENT_PRODUCTION=1`, tokens stay in the **keyring only** — not
 | `action_summary` | Foreground focus, idle vs active, app switches |
 | `process_start` | New process: pid, ppid, user, name, path, cmdline |
 | `process_exit` | Exit lifecycle (enriched from start when available) |
+| `driver_load` | Newly observed loaded driver/kext |
+| `service_install` | Newly observed Windows service or macOS LaunchDaemon |
+| `registry_persistence` | New/changed Windows Run key or macOS LaunchAgent |
 
 Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md).  
 Timers, flush rules, concurrency: [Collection & batching](collection.md).
@@ -110,6 +113,7 @@ Timers, flush rules, concurrency: [Collection & batching](collection.md).
 | **Network** | On interface/address change (debounced) + periodic heartbeat |
 | **Actions** | Sample foreground every ~5s; emit one summary per ~60s window |
 | **Processes** | Watcher (when available) + poll reconcile + dedup |
+| **Security lifecycle** | Windows + macOS driver/service/persistence polling with silent baseline |
 
 Public IP comes from a configurable lookup URL (default: ipify). Disable with `TRUSTEDGE_AGENT_PUBLIC_IP_URL=off`.
 

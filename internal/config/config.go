@@ -30,6 +30,7 @@ type AgentConfig struct {
 	ActionInterval       time.Duration
 	ActionSampleInterval time.Duration
 	ProcessInterval      time.Duration
+	SecurityInterval     time.Duration
 	EventBatchSize       int
 	EventBatchFlush      time.Duration
 	EventQueueCapacity   int
@@ -215,6 +216,7 @@ func LoadAgent() AgentConfig {
 		ActionInterval:       envDuration("TRUSTEDGE_AGENT_ACTION_INTERVAL", "TRUSTTWIN_ACTION_INTERVAL", 60*time.Second),
 		ActionSampleInterval: envDuration("TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL", "", constants.DefaultActionSampleInterval),
 		ProcessInterval:      envDuration("TRUSTEDGE_AGENT_PROCESS_INTERVAL", "TRUSTTWIN_PROCESS_INTERVAL", 10*time.Second),
+		SecurityInterval:     envDuration("TRUSTEDGE_AGENT_SECURITY_INTERVAL", "", 30*time.Second),
 		EventBatchSize:       envInt("TRUSTEDGE_AGENT_EVENT_BATCH_SIZE", "TRUSTTWIN_EVENT_BATCH_SIZE", 32),
 		EventBatchFlush:      envDuration("TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH", "TRUSTTWIN_EVENT_BATCH_FLUSH", 2*time.Second),
 		EventQueueCapacity:   envInt("TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY", "", constants.DefaultEventQueueCapacity),

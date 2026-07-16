@@ -6,7 +6,7 @@ How `trustedge-agent` collects telemetry, buffers it in a durable ring, and uplo
 
 ## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Mental model
 
-Four collectors enqueue into one batcher. The batcher persists pending events, optionally compresses, and uploads over HTTPS.
+Five collectors enqueue into one batcher. The batcher persists pending events, optionally compresses, and uploads over HTTPS.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
@@ -17,6 +17,7 @@ flowchart TB
         D2["Network"]
         D3["Activity"]
         D4["Processes"]
+        D5["Security"]
     end
 
     RING["Durable ring"]
@@ -28,6 +29,7 @@ flowchart TB
     D2 --> RING
     D3 --> RING
     D4 --> RING
+    D5 --> RING
     RING --> BAT --> ZIP -->|HTTPS| API
 
     classDef source fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
@@ -35,7 +37,7 @@ flowchart TB
     classDef compress fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
     classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
 
-    class D1,D2,D3,D4 source
+    class D1,D2,D3,D4,D5 source
     class RING,BAT ring
     class ZIP compress
     class API api
@@ -59,7 +61,7 @@ End-to-end stages: [High-level flow](architecture.md#high-level-flow).
 1. Open `EventBatcher` (restores pending events from disk if present) and start `batcher.Run(ctx)`.  
 2. Bind `enqueue(typ, payload)` → `batcher.Enqueue`.  
 3. Emit one `client_details` immediately.  
-4. Start the four collector loops.  
+4. Start the five collector loops.  
 5. Block until cancel (SIGINT / SIGTERM).  
 6. Best-effort final flush (default **3s**); leftovers remain in the durable ring.
 
@@ -91,6 +93,7 @@ Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent
 | Network monitor | `network_summary` | 60s heartbeat + on change | `NETWORK_INTERVAL`, `NETWORK_DEBOUNCE` |
 | Action tracker | `action_summary` | Sample 5s / emit 60s | `ACTION_SAMPLE_INTERVAL`, `ACTION_INTERVAL` |
 | Process monitor | `process_start`, `process_exit` | 10s poll + watcher | `PROCESS_INTERVAL` (`0` = off) |
+| Security monitor | `driver_load`, `service_install`, `registry_persistence` | 30s poll on Windows | `SECURITY_INTERVAL` (`0` = off) |
 
 *(Config names above are abbreviated; full names use the `TRUSTEDGE_AGENT_` prefix.)*
 
@@ -194,6 +197,26 @@ Disable: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
 **Code:** `ProcessMonitor` in `internal/collect/process_monitor.go`; watchers in `process_watch_*.go`.  
 Platform privileges: [Agent guide](agent.md#platforms).
 
+### Security monitor
+
+**Purpose:** Host security lifecycle changes that commonly indicate persistence or privileged modification.
+
+Every `SecurityInterval`, `SecurityMonitor.Poll()`:
+
+1. Snapshot platform security artifacts (see below).
+2. **First poll** seeds `seen` silently — **no events**.
+3. Later polls emit new or changed artifacts.
+
+| Event | Windows | macOS |
+|-------|---------|-------|
+| `driver_load` | Running `Win32_SystemDriver` | Loaded kexts (`kextstat -l`) |
+| `service_install` | Non-driver `Win32_Service` | New `/Library/LaunchDaemons/*.plist` |
+| `registry_persistence` | Run / RunOnce registry values | New/changed LaunchAgents under `~/Library/LaunchAgents` and `/Library/LaunchAgents` |
+
+Disable: `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.
+
+**Code:** `SecurityMonitor` in `internal/collect/security_monitor.go`; platform collectors in `security_windows.go` / `security_darwin.go`.
+
 ---
 
 ## <img src="assets/icons/queue.svg" width="22" height="22" align="absmiddle" alt="" /> Batching
@@ -296,7 +319,8 @@ main goroutine
 ├── loop(ActionSampleInterval)    — Sample() foreground
 ├── loop(ActionInterval)          — action_summary snapshot
 ├── ProcessWatcher.Run()          — event-driven processes (if available)
-└── loop(ProcessInterval)         — process poll reconcile
+├── loop(ProcessInterval)         — process poll reconcile
+└── loop(SecurityInterval)        — Windows security lifecycle reconcile
 ```
 
 Collectors are independent — a slow public-IP lookup does not block process enqueues (it only delays that collector’s next emit).
@@ -313,6 +337,7 @@ Collectors are independent — a slow public-IP lookup does not block process en
 | `TRUSTEDGE_AGENT_ACTION_INTERVAL` | `60` | Action summary window |
 | `TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL` | `5` | Foreground sample rate |
 | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` | `10` | Process poll; `0` = off |
+| `TRUSTEDGE_AGENT_SECURITY_INTERVAL` | `30` | Security lifecycle poll; `0` = off |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` | `32` | Max events before flush |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` | `2` | Max seconds between flushes |
 | `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Offline ring capacity |

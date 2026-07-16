@@ -148,6 +148,15 @@ func (a *Agent) Run(ctx context.Context) error {
 		})
 	}
 
+	if a.cfg.SecurityInterval > 0 {
+		secMon := collect.NewSecurityMonitor(a.stdLog)
+		go a.loop(ctx, a.cfg.SecurityInterval, func() {
+			for _, change := range secMon.Poll() {
+				enqueue(change.Type, change.Payload)
+			}
+		})
+	}
+
 	if a.cfg.MetricsInterval > 0 {
 		go a.loop(ctx, a.cfg.MetricsInterval, func() {
 			a.logStatus(batcher)

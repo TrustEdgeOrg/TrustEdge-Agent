@@ -33,6 +33,7 @@ Built for laptops and workstations first: lightweight, privacy-aware, and engine
 | **Network** | `network_summary` | Public IP / posture changes, connection load |
 | **Activity** | `action_summary` | Foreground focus, idle vs active, app switches |
 | **Processes** | `process_start` / `process_exit` | Lifecycle + cmdline (optional; can be disabled) |
+| **Security lifecycle** | `driver_load` / `service_install` / `registry_persistence` | Drivers/kexts, services/LaunchDaemons, Run keys/LaunchAgents |
 
 <details>
 <summary><strong>Privacy boundaries</strong> — what we deliberately do not collect</summary>
@@ -44,7 +45,7 @@ Built for laptops and workstations first: lightweight, privacy-aware, and engine
 - Full remote IP connection tables  
 - File contents  
 
-Process command lines are truncated at 4 KiB. Turn process monitoring off with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
+Process command lines are truncated at 4 KiB. Turn process monitoring off with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`; turn security lifecycle monitoring off with `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.
 
 </details>
 
