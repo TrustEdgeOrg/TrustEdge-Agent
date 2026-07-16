@@ -203,22 +203,26 @@ func TestConcurrentUnauthorizedRecoversOnce(t *testing.T) {
 	}
 }
 
-func TestEnsureRegisteredSkipsWhenTokenPresent(t *testing.T) {
+func TestEnsureRegisteredReregistersWhenTokenPresent(t *testing.T) {
 	logger := testLogger()
 	creds := &mockCreds{deviceID: "dev_test", token: "tok_existing"}
 	client := &mockClient{}
 	a := &Agent{
-		log:      logger,
-		metrics:  &Metrics{},
-		client:   client,
-		creds:    creds,
-		deviceID: "dev_test",
+		log:       logger,
+		metrics:   &Metrics{},
+		client:    client,
+		creds:     creds,
+		deviceID:  "dev_test",
+		collector: collect.NewCollector(clock.Real{}, collect.DefaultProbe{}, config.AgentVersion, ""),
 	}
 	if err := a.ensureRegistered(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if client.DeviceToken() != "tok_existing" {
-		t.Fatalf("token=%q", client.DeviceToken())
+	if client.registerCalls != 1 {
+		t.Fatalf("registerCalls=%d want 1", client.registerCalls)
+	}
+	if client.DeviceToken() != "tok_new" {
+		t.Fatalf("token=%q want tok_new", client.DeviceToken())
 	}
 }
 

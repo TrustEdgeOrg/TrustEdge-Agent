@@ -66,7 +66,9 @@ func New(deps Dependencies) *Agent {
 	}
 }
 
-// EnsureRegistered registers the device when no credential token is stored.
+// EnsureRegistered loads stored credentials (if any) and always calls
+// /v1/register so Agent-API can upsert the agent into TrustEdge Postgres.
+// When a token already exists, a re-register failure is non-fatal.
 func (a *Agent) EnsureRegistered(ctx context.Context) error {
 	return a.ensureRegistered(ctx)
 }
