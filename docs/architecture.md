@@ -120,7 +120,7 @@ Five collectors run inside `Agent.Run()`:
 | Network monitor | `network_summary` | Interface/IP change (debounced) + `NetworkInterval` heartbeat |
 | Action tracker | `action_summary` | Sample every `ActionSampleInterval` (5s); emit every `ActionInterval` (60s) |
 | Process monitor | `process_start` / `process_exit` | OS watcher (when available) + poll every `ProcessInterval` (10s) |
-| Security monitor | `driver_load` / `service_install` / `registry_persistence` | Windows + macOS poll every `SecurityInterval` (30s) |
+| Security monitor | `driver_load` / `service_install` / `registry_persistence` | Watcher wake (kqueue / registry notify) + poll every `SecurityInterval` (30s) |
 
 ### Process monitoring (hybrid)
 

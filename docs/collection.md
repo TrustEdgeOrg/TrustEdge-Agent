@@ -93,7 +93,7 @@ Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent
 | Network monitor | `network_summary` | 60s heartbeat + on change | `NETWORK_INTERVAL`, `NETWORK_DEBOUNCE` |
 | Action tracker | `action_summary` | Sample 5s / emit 60s | `ACTION_SAMPLE_INTERVAL`, `ACTION_INTERVAL` |
 | Process monitor | `process_start`, `process_exit` | 10s poll + watcher | `PROCESS_INTERVAL` (`0` = off) |
-| Security monitor | `driver_load`, `service_install`, `registry_persistence` | 30s poll on Windows | `SECURITY_INTERVAL` (`0` = off) |
+| Security monitor | `driver_load`, `service_install`, `registry_persistence` | watcher wake + 30s poll | `SECURITY_INTERVAL` (`0` = off) |
 
 *(Config names above are abbreviated; full names use the `TRUSTEDGE_AGENT_` prefix.)*
 
@@ -207,6 +207,16 @@ Every `SecurityInterval`, `SecurityMonitor.Poll()`:
 2. **First poll** seeds `seen` silently — **no events**.
 3. Later polls emit new or changed artifacts.
 
+When available, a **security watcher** also wakes `Poll()` on host changes (same silent baseline + diff):
+
+| Platform | Event-driven wake |
+|----------|-------------------|
+| **macOS** | `kqueue` `EVFILT_VNODE` on LaunchAgents / LaunchDaemons directories |
+| **Windows** | `RegNotifyChangeKeyValue` on Run/RunOnce keys + `Services` |
+| **Other** | Poll-only |
+
+Loaded kexts / full service inventory still rely on periodic poll (no reliable stream API). Unavailable watcher → poll-only.
+
 | Event | Windows | macOS |
 |-------|---------|-------|
 | `driver_load` | Running `Win32_SystemDriver` | Loaded kexts (`kextstat -l`) |
@@ -215,7 +225,7 @@ Every `SecurityInterval`, `SecurityMonitor.Poll()`:
 
 Disable: `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.
 
-**Code:** `SecurityMonitor` in `internal/collect/security_monitor.go`; platform collectors in `security_windows.go` / `security_darwin.go`.
+**Code:** `SecurityMonitor` in `internal/collect/security_monitor.go`; watchers in `security_watch_*.go`; platform collectors in `security_windows.go` / `security_darwin.go`.
 
 ---
 
@@ -320,7 +330,8 @@ main goroutine
 ├── loop(ActionInterval)          — action_summary snapshot
 ├── ProcessWatcher.Run()          — event-driven processes (if available)
 ├── loop(ProcessInterval)         — process poll reconcile
-└── loop(SecurityInterval)        — Windows security lifecycle reconcile
+├── SecurityWatcher.Run()         — event-driven security wakes (if available)
+└── loop(SecurityInterval)        — security lifecycle poll reconcile
 ```
 
 Collectors are independent — a slow public-IP lookup does not block process enqueues (it only delays that collector’s next emit).

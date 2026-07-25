@@ -150,6 +150,16 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	if a.cfg.SecurityInterval > 0 {
 		secMon := collect.NewSecurityMonitor(a.stdLog)
+		if watcher := collect.NewSecurityWatcher(a.stdLog); watcher != nil {
+			a.log.Info("security watcher active", "mode", "event-driven")
+			go func() {
+				for range watcher.Run(ctx) {
+					for _, change := range secMon.Poll() {
+						enqueue(change.Type, change.Payload)
+					}
+				}
+			}()
+		}
 		go a.loop(ctx, a.cfg.SecurityInterval, func() {
 			for _, change := range secMon.Poll() {
 				enqueue(change.Type, change.Payload)

@@ -37,6 +37,9 @@ func TestProcessMonitorBaselineThenStart(t *testing.T) {
 	if changes[0].Payload["comm"] != "curl" {
 		t.Fatalf("payload=%v", changes[0].Payload)
 	}
+	if changes[0].Payload["parent_comm"] != "launchd" {
+		t.Fatalf("parent_comm=%v want launchd", changes[0].Payload["parent_comm"])
+	}
 }
 
 func TestProcessMonitorObserveDedup(t *testing.T) {

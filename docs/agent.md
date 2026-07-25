@@ -113,7 +113,7 @@ Timers, flush rules, concurrency: [Collection & batching](collection.md).
 | **Network** | On interface/address change (debounced) + periodic heartbeat |
 | **Actions** | Sample foreground every ~5s; emit one summary per ~60s window |
 | **Processes** | Watcher (when available) + poll reconcile + dedup |
-| **Security lifecycle** | Windows + macOS driver/service/persistence polling with silent baseline |
+| **Security lifecycle** | Watcher (kqueue / registry notify when available) + poll reconcile with silent baseline |
 
 Public IP comes from a configurable lookup URL (default: ipify). Disable with `TRUSTEDGE_AGENT_PUBLIC_IP_URL=off`.
 
