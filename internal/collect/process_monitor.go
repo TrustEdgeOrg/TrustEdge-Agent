@@ -91,6 +91,7 @@ func (m *ProcessMonitor) Observe(c ProcessChange) bool {
 		if row.PID == 0 {
 			row.PID = pid
 		}
+		enrichParentComm(c.Payload, row.PPID, m.seen)
 		m.seen[pid] = row
 		return true
 	case constants.TypeProcessExit:
@@ -143,7 +144,7 @@ func (m *ProcessMonitor) Poll() []ProcessChange {
 		}
 		changes = append(changes, ProcessChange{
 			Type:    constants.TypeProcessStart,
-			Payload: processPayload(row),
+			Payload: processPayloadWithParent(row, current),
 		})
 		if len(changes) >= maxProcessEventsPerPoll {
 			m.logf("process poll: capped at %d starts", maxProcessEventsPerPoll)
@@ -199,6 +200,26 @@ func processPayload(row processRow) map[string]any {
 		"executable": row.Executable,
 		"cmdline":    row.Cmdline,
 	}
+}
+
+func processPayloadWithParent(row processRow, byPID map[int]processRow) map[string]any {
+	payload := processPayload(row)
+	enrichParentComm(payload, row.PPID, byPID)
+	return payload
+}
+
+func enrichParentComm(payload map[string]any, ppid int, byPID map[int]processRow) {
+	if ppid <= 0 || payload == nil {
+		return
+	}
+	if existing := stringFromAny(payload["parent_comm"]); existing != "" {
+		return
+	}
+	parent, ok := byPID[ppid]
+	if !ok || parent.Comm == "" {
+		return
+	}
+	payload["parent_comm"] = parent.Comm
 }
 
 func rowFromPayload(p map[string]any) processRow {
