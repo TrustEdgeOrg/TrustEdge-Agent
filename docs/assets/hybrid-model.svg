@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 210" role="img" aria-labelledby="title desc">
+ <title id="title">Hybrid watcher plus poll model</title>
+ <desc id="desc">Event-driven watcher and periodic poll both feed a monitor that enqueues into the durable ring</desc>
+ <defs>
+ <linearGradient id="arr" x1="0%" y1="0%" x2="100%" y2="0%">
+ <stop offset="0%" stop-color="#60A5FA"/>
+ <stop offset="100%" stop-color="#A78BFA"/>
+ </linearGradient>
+ <filter id="soft" x="-8%" y="-8%" width="116%" height="116%">
+ <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#0F172A" flood-opacity="0.08"/>
+ </filter>
+ <style>
+ .t { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 700; }
+ .s { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 10.5px; fill: #64748B; }
+ </style>
+ </defs>
+
+ <text class="t" x="450" y="24" text-anchor="middle" fill="#0F172A" style="font-size:14px">One design everywhere - watchers for latency, polls for correctness</text>
+
+ <g filter="url(#soft)">
+ <rect x="40" y="48" width="200" height="56" rx="12" fill="#F8FAFC" stroke="#64748B" stroke-width="1.8"/>
+ <text class="t" x="140" y="74" text-anchor="middle" fill="#0F172A">OS watcher</text>
+ <text class="s" x="140" y="90" text-anchor="middle">Near real-time - optional</text>
+ </g>
+
+ <g filter="url(#soft)">
+ <rect x="40" y="124" width="200" height="56" rx="12" fill="#FFEDD5" stroke="#EA580C" stroke-width="1.8"/>
+ <text class="t" x="140" y="150" text-anchor="middle" fill="#7C2D12">Periodic poll</text>
+ <text class="s" x="140" y="166" text-anchor="middle">Source of truth - always on</text>
+ </g>
+
+ <path d="M240 76 H300" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+ <path d="M240 152 H300" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+ <path d="M300 76 V152" fill="none" stroke="#94A3B8" stroke-width="2"/>
+ <path d="M300 114 H340 L334 108 M340 114 L334 120" fill="none" stroke="url(#arr)" stroke-width="2.6" stroke-linecap="round"/>
+
+ <g filter="url(#soft)">
+ <rect x="350" y="76" width="220" height="76" rx="14" fill="#DBEAFE" stroke="#2563EB" stroke-width="2"/>
+ <text class="t" x="460" y="108" text-anchor="middle" fill="#1E3A8A">Monitor</text>
+ <text class="s" x="460" y="128" text-anchor="middle">Dedupe - baseline - enrich</text>
+ </g>
+
+ <path d="M570 114 H610 L604 108 M610 114 L604 120" fill="none" stroke="url(#arr)" stroke-width="2.6" stroke-linecap="round"/>
+
+ <g filter="url(#soft)">
+ <rect x="620" y="76" width="240" height="76" rx="14" fill="#EDE9FE" stroke="#7C3AED" stroke-width="2"/>
+ <text class="t" x="740" y="108" text-anchor="middle" fill="#5B21B6">Durable ring</text>
+ <text class="s" x="740" y="128" text-anchor="middle">Then batch - compress - upload</text>
+ </g>
+
+ <text class="s" x="450" y="200" text-anchor="middle">If the watcher cannot start, poll continues alone - degrade, don-t fail.</text>
+</svg>

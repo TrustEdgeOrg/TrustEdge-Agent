@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 320" role="img" aria-labelledby="title desc">
+ <title id="title">How network detection works per OS</title>
+ <desc id="desc">Linux netlink route, Windows fingerprint poll, and macOS AF_ROUTE feed a debounced network summary</desc>
+ <defs>
+ <linearGradient id="arr" x1="0%" y1="0%" x2="100%" y2="0%">
+ <stop offset="0%" stop-color="#60A5FA"/>
+ <stop offset="100%" stop-color="#A78BFA"/>
+ </linearGradient>
+ <filter id="soft" x="-8%" y="-8%" width="116%" height="116%">
+ <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#0F172A" flood-opacity="0.08"/>
+ </filter>
+ <style>
+ .t { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 700; }
+ .s { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 10.5px; fill: #64748B; }
+ .b { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 600; fill: #334155; }
+ </style>
+ </defs>
+
+ <text class="t" x="490" y="24" text-anchor="middle" fill="#0F172A" style="font-size:14px">Network posture - how each OS signals change</text>
+
+ <g filter="url(#soft)">
+ <rect x="24" y="44" width="280" height="150" rx="16" fill="#ECFDF5" stroke="#059669" stroke-width="1.8"/>
+ <circle cx="56" cy="74" r="14" fill="#D1FAE5" stroke="#059669" stroke-width="1.6"/>
+ <text class="t" x="56" y="78" text-anchor="middle" fill="#065F46" style="font-size:11px">Lx</text>
+ <text class="t" x="84" y="79" fill="#065F46">Linux</text>
+ <text class="b" x="44" y="110">Netlink route socket</text>
+ <text class="s" x="44" y="128">NEW/DEL LINK - NEW/DEL ADDR</text>
+ <text class="s" x="44" y="146">Wakes on interface / IP change</text>
+ <text class="s" x="44" y="172" style="fill:#047857">Event-driven when available</text>
+ </g>
+
+ <g filter="url(#soft)">
+ <rect x="350" y="44" width="280" height="150" rx="16" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.8"/>
+ <circle cx="382" cy="74" r="14" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.6"/>
+ <text class="t" x="382" y="78" text-anchor="middle" fill="#1E3A8A" style="font-size:11px">Win</text>
+ <text class="t" x="410" y="79" fill="#1E3A8A">Windows</text>
+ <text class="b" x="370" y="110">Interface fingerprint poll</text>
+ <text class="s" x="370" y="128">Compare adapters every ~2s</text>
+ <text class="s" x="370" y="146">Same link_change path as Unix</text>
+ <text class="s" x="370" y="172" style="fill:#1D4ED8">No native route-socket watcher</text>
+ </g>
+
+ <g filter="url(#soft)">
+ <rect x="676" y="44" width="280" height="150" rx="16" fill="#FAF5FF" stroke="#7C3AED" stroke-width="1.8"/>
+ <circle cx="708" cy="74" r="14" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.6"/>
+ <text class="t" x="708" y="78" text-anchor="middle" fill="#5B21B6" style="font-size:10px">mac</text>
+ <text class="t" x="736" y="79" fill="#5B21B6">macOS</text>
+ <text class="b" x="696" y="110">AF_ROUTE socket</text>
+ <text class="s" x="696" y="128">add / delete / addr / ifinfo</text>
+ <text class="s" x="696" y="146">Kernel route messages</text>
+ <text class="s" x="696" y="172" style="fill:#6D28D9">Event-driven when available</text>
+ </g>
+
+ <path d="M164 194 V218" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+ <path d="M490 194 V218" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+ <path d="M816 194 V218" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+ <path d="M164 218 H816" fill="none" stroke="#94A3B8" stroke-width="2"/>
+ <path d="M490 218 V236" fill="none" stroke="url(#arr)" stroke-width="2.6" stroke-linecap="round"/>
+
+ <g filter="url(#soft)">
+ <rect x="210" y="236" width="560" height="68" rx="14" fill="#FFEDD5" stroke="#EA580C" stroke-width="2"/>
+ <text class="t" x="490" y="262" text-anchor="middle" fill="#7C2D12">Debounce 2s, fingerprint, emit network_summary</text>
+ <text class="s" x="490" y="282" text-anchor="middle">Unchanged posture skipped; heartbeat every 60s always posts for liveness</text>
+ </g>
+</svg>

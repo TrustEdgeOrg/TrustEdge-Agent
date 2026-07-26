@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 340" role="img" aria-labelledby="title desc">
+ <title id="title">How security lifecycle detection works per OS</title>
+ <desc id="desc">Windows registry notify, macOS kqueue, and Linux poll-only wake SecurityMonitor to diff persistence artifacts</desc>
+ <defs>
+ <linearGradient id="arr" x1="0%" y1="0%" x2="100%" y2="0%">
+ <stop offset="0%" stop-color="#60A5FA"/>
+ <stop offset="100%" stop-color="#A78BFA"/>
+ </linearGradient>
+ <filter id="soft" x="-8%" y="-8%" width="116%" height="116%">
+ <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#0F172A" flood-opacity="0.08"/>
+ </filter>
+ <style>
+ .t { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 700; }
+ .s { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 10.5px; fill: #64748B; }
+ .b { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 600; fill: #334155; }
+ </style>
+ </defs>
+
+ <text class="t" x="490" y="24" text-anchor="middle" fill="#0F172A" style="font-size:14px">Security lifecycle - persistence &amp; privileged change</text>
+
+ <g filter="url(#soft)">
+ <rect x="24" y="44" width="280" height="168" rx="16" fill="#ECFDF5" stroke="#059669" stroke-width="1.8"/>
+ <circle cx="56" cy="74" r="14" fill="#D1FAE5" stroke="#059669" stroke-width="1.6"/>
+ <text class="t" x="56" y="78" text-anchor="middle" fill="#065F46" style="font-size:11px">Lx</text>
+ <text class="t" x="84" y="79" fill="#065F46">Linux</text>
+ <text class="b" x="44" y="110">Poll only</text>
+ <text class="s" x="44" y="128">No event-driven security watcher</text>
+ <text class="s" x="44" y="146">Periodic artifact snapshot</text>
+ <text class="s" x="44" y="164">Same silent baseline + diff</text>
+ <text class="s" x="44" y="188" style="fill:#047857">Correctness over latency</text>
+ </g>
+
+ <g filter="url(#soft)">
+ <rect x="350" y="44" width="280" height="168" rx="16" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.8"/>
+ <circle cx="382" cy="74" r="14" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.6"/>
+ <text class="t" x="382" y="78" text-anchor="middle" fill="#1E3A8A" style="font-size:11px">Win</text>
+ <text class="t" x="410" y="79" fill="#1E3A8A">Windows</text>
+ <text class="b" x="370" y="110">Registry notify</text>
+ <text class="s" x="370" y="128">Run / RunOnce (HKCU + HKLM)</text>
+ <text class="s" x="370" y="146">Services key (subtree)</text>
+ <text class="s" x="370" y="164">Wake - Poll() decides events</text>
+ <text class="s" x="370" y="188" style="fill:#1D4ED8">Drivers &amp; services via WMI poll</text>
+ </g>
+
+ <g filter="url(#soft)">
+ <rect x="676" y="44" width="280" height="168" rx="16" fill="#FAF5FF" stroke="#7C3AED" stroke-width="1.8"/>
+ <circle cx="708" cy="74" r="14" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.6"/>
+ <text class="t" x="708" y="78" text-anchor="middle" fill="#5B21B6" style="font-size:10px">mac</text>
+ <text class="t" x="736" y="79" fill="#5B21B6">macOS</text>
+ <text class="b" x="696" y="110">kqueue on launch dirs</text>
+ <text class="s" x="696" y="128">~/Library/LaunchAgents</text>
+ <text class="s" x="696" y="146">/Library/LaunchAgents - Daemons</text>
+ <text class="s" x="696" y="164">Wake - Poll() diffs plists</text>
+ <text class="s" x="696" y="188" style="fill:#6D28D9">kexts still via poll (kextstat)</text>
+ </g>
+
+ <path d="M164 212 V232" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+ <path d="M490 212 V232" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+ <path d="M816 212 V232" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+ <path d="M164 232 H816" fill="none" stroke="#94A3B8" stroke-width="2"/>
+ <path d="M490 232 V250" fill="none" stroke="url(#arr)" stroke-width="2.6" stroke-linecap="round"/>
+
+ <g filter="url(#soft)">
+ <rect x="180" y="250" width="620" height="72" rx="14" fill="#EDE9FE" stroke="#7C3AED" stroke-width="2"/>
+ <text class="t" x="490" y="276" text-anchor="middle" fill="#5B21B6">SecurityMonitor.Poll() - fingerprint diff</text>
+ <text class="s" x="490" y="296" text-anchor="middle">Emits driver_load, service_install, registry_persistence; first poll is silent baseline</text>
+ </g>
+</svg>

@@ -23,7 +23,7 @@ Interview-ready map of how the endpoint agent collects, buffers, and uploads tel
 |---|-----|----------|
 | <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Architecture](architecture.md) | System design walkthrough |
 | <img src="assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" /> | [Platform watchers](watchers-overview.md) | Linux · Windows · macOS signal paths |
-| <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" /> | [Collection & batching](collection.md) | Collectors → ring → upload |
+| <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" /> | [Collection & batching](collection.md) | Visual per-OS detection + batch story |
 | <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | [Agent guide](agent.md) | Run locally · credentials · privacy |
 | <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [Configuration](configuration.md) | Every env var |
 | <img src="assets/icons/test.svg" width="18" height="18" align="absmiddle" alt="" /> | [Test process cmdline](testing-process-cmdline.md) | Local capture of `cmdline` |

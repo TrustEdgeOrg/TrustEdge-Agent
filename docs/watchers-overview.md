@@ -19,7 +19,7 @@ How `trustedge-agent` gets low-latency change signals on Linux, Windows, and mac
 </p>
 
 > **Also see**
-> <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection](collection.md)
+> <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection](collection.md) — visual per-OS detection diagrams
 > · <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" /> [Agent guide](agent.md#platforms)
 > · <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Docs hub](README.md)
 

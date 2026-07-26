@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 320" role="img" aria-labelledby="title desc">
+ <title id="title">How process detection works per OS</title>
+ <desc id="desc">Linux netlink, Windows ETW, and macOS Endpoint Security feed a shared ProcessMonitor with poll fallback</desc>
+ <defs>
+ <linearGradient id="arr" x1="0%" y1="0%" x2="100%" y2="0%">
+ <stop offset="0%" stop-color="#60A5FA"/>
+ <stop offset="100%" stop-color="#A78BFA"/>
+ </linearGradient>
+ <filter id="soft" x="-8%" y="-8%" width="116%" height="116%">
+ <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#0F172A" flood-opacity="0.08"/>
+ </filter>
+ <style>
+ .t { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 700; }
+ .s { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 10.5px; fill: #64748B; }
+ .b { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 600; fill: #334155; }
+ </style>
+ </defs>
+
+ <text class="t" x="490" y="24" text-anchor="middle" fill="#0F172A" style="font-size:14px">Process start / exit - how each OS tells us</text>
+
+ <!-- Linux -->
+ <g filter="url(#soft)">
+ <rect x="24" y="44" width="280" height="150" rx="16" fill="#ECFDF5" stroke="#059669" stroke-width="1.8"/>
+ <circle cx="56" cy="74" r="14" fill="#D1FAE5" stroke="#059669" stroke-width="1.6"/>
+ <text class="t" x="56" y="78" text-anchor="middle" fill="#065F46" style="font-size:11px">Lx</text>
+ <text class="t" x="84" y="79" fill="#065F46">Linux</text>
+ <text class="b" x="44" y="110">Netlink connector</text>
+ <text class="s" x="44" y="128">PROC_EVENT_EXEC / EXIT</text>
+ <text class="s" x="44" y="146">Enrich from /proc (name, cmdline)</text>
+ <text class="s" x="44" y="172" style="fill:#047857">Needs CAP_NET_ADMIN or root</text>
+ </g>
+
+ <!-- Windows -->
+ <g filter="url(#soft)">
+ <rect x="350" y="44" width="280" height="150" rx="16" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.8"/>
+ <circle cx="382" cy="74" r="14" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.6"/>
+ <text class="t" x="382" y="78" text-anchor="middle" fill="#1E3A8A" style="font-size:11px">Win</text>
+ <text class="t" x="410" y="79" fill="#1E3A8A">Windows</text>
+ <text class="b" x="370" y="110">ETW kernel-process</text>
+ <text class="s" x="370" y="128">Event ID 1 = start / 2 = stop</text>
+ <text class="s" x="370" y="146">Image, cmdline, parent PID</text>
+ <text class="s" x="370" y="172" style="fill:#1D4ED8">Administrator recommended</text>
+ </g>
+
+ <!-- macOS -->
+ <g filter="url(#soft)">
+ <rect x="676" y="44" width="280" height="150" rx="16" fill="#FAF5FF" stroke="#7C3AED" stroke-width="1.8"/>
+ <circle cx="708" cy="74" r="14" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.6"/>
+ <text class="t" x="708" y="78" text-anchor="middle" fill="#5B21B6" style="font-size:10px">mac</text>
+ <text class="t" x="736" y="79" fill="#5B21B6">macOS</text>
+ <text class="b" x="696" y="110">Endpoint Security</text>
+ <text class="s" x="696" y="128">NOTIFY_EXEC / NOTIFY_EXIT</text>
+ <text class="s" x="696" y="146">Path + argv (CGO build)</text>
+ <text class="s" x="696" y="172" style="fill:#6D28D9">Entitlement + user approval</text>
+ </g>
+
+ <!-- Fan-in arrows -->
+ <path d="M164 194 V218" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+ <path d="M490 194 V218" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+ <path d="M816 194 V218" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+ <path d="M164 218 H816" fill="none" stroke="#94A3B8" stroke-width="2"/>
+ <path d="M490 218 V236" fill="none" stroke="url(#arr)" stroke-width="2.6" stroke-linecap="round"/>
+
+ <!-- Shared monitor -->
+ <g filter="url(#soft)">
+ <rect x="250" y="236" width="480" height="68" rx="14" fill="#DBEAFE" stroke="#2563EB" stroke-width="2"/>
+ <text class="t" x="490" y="262" text-anchor="middle" fill="#1E3A8A">ProcessMonitor: dedupe, enrich, silent baseline</text>
+ <text class="s" x="490" y="282" text-anchor="middle">Watcher for speed + poll every 10s for correctness; poll-only if watcher unavailable</text>
+ </g>
+</svg>
