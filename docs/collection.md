@@ -35,36 +35,38 @@ How `trustedge-agent` collects telemetry, buffers it in a durable ring, and uplo
 ## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Mental model
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
-flowchart TB
-    subgraph SRC ["Collectors"]
-        direction LR
-        D1["Device"]
-        D2["Network"]
-        D3["Activity"]
-        D4["Processes"]
-        D5["Security"]
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial', 'primaryBorderColor': '#94A3B8', 'lineColor': '#64748B'}}}%%
+flowchart LR
+    subgraph COL ["Five collectors"]
+        direction TB
+        D1(["Device"])
+        D2(["Network"])
+        D3(["Activity"])
+        D4(["Processes"])
+        D5(["Security"])
     end
 
-    RING["Durable ring"]
-    BAT["Batch flush"]
-    ZIP["zstd"]
-    API["Agent API"]
+    subgraph AGENT ["On device"]
+        direction LR
+        RING[("Durable ring")]
+        BAT["Batch flush"]
+        ZIP["Maybe zstd"]
+    end
 
-    D1 --> RING
-    D2 --> RING
-    D3 --> RING
-    D4 --> RING
-    D5 --> RING
+    API(["Agent API"])
+
+    D1 & D2 & D3 & D4 & D5 -->|enqueue only| RING
     RING --> BAT --> ZIP -->|HTTPS| API
 
-    classDef source fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
+    classDef source fill:#F8FAFC,stroke:#64748B,stroke-width:2px,color:#0F172A
     classDef ring fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef flush fill:#BFDBFE,stroke:#1D4ED8,stroke-width:2px,color:#1E3A8A
     classDef compress fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
     classDef api fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
 
     class D1,D2,D3,D4,D5 source
-    class RING,BAT ring
+    class RING ring
+    class BAT flush
     class ZIP compress
     class API api
 ```
@@ -135,23 +137,33 @@ Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent
 **Purpose:** Coarse posture — public IP, interface type, socket counts, top remote ports.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'fontFamily': 'arial'}}}%%
-flowchart LR
-    W["OS link / addr change"] --> D["Debounce 2s"]
-    H["Heartbeat timer"] --> E["Emit"]
-    D --> F{"Fingerprint<br/>changed?"}
-    F -->|yes| E
-    F -->|no · change only| S["Skip"]
-    E --> R["Ring"]
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'fontFamily': 'arial', 'lineColor': '#64748B'}}}%%
+flowchart TB
+    subgraph TRIG ["Triggers"]
+        direction LR
+        W(["OS link / addr change"])
+        H(["Heartbeat timer"])
+    end
 
-    classDef w fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
-    classDef d fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
-    classDef e fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    W --> D["Debounce 2s"]
+    D --> F{"Fingerprint<br/>changed?"}
+    F -->|yes| E["Build summary · emit"]
+    F -->|no| S(["Skip"])
+    H -->|always| E
+    E --> R[("Durable ring")]
+
+    classDef trig fill:#F8FAFC,stroke:#64748B,stroke-width:2px,color:#0F172A
+    classDef wait fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
+    classDef decide fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#78350F
+    classDef emit fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef skip fill:#F1F5F9,stroke:#94A3B8,stroke-width:2px,color:#64748B
     classDef out fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
 
-    class W,H w
-    class D,F,S d
-    class E e
+    class W,H trig
+    class D wait
+    class F decide
+    class E emit
+    class S skip
     class R out
 ```
 
@@ -182,22 +194,27 @@ Focus accumulates per app (bundle ID, else name). Presence is `active` if idle &
 **Purpose:** Process lifecycle with metadata and command line (truncated at 4 KiB).
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
-flowchart TB
-    RT["Real-time OS notifications"]
-    POLL["Periodic scan"]
-    DEDUP["Deduplication"]
-    OUT["Durable ring"]
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial', 'lineColor': '#64748B'}}}%%
+flowchart LR
+    subgraph IN ["Inputs"]
+        direction TB
+        RT(["Watcher<br/>start / exit"])
+        POLL(["Poll<br/>reconcile table"])
+    end
 
-    RT --> DEDUP --> OUT
-    POLL --> DEDUP
+    MON["ProcessMonitor<br/>dedupe · enrich · baseline"]
+    OUT[("Durable ring")]
 
-    classDef rt fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
-    classDef dedup fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    RT -->|Observe| MON
+    POLL -->|Poll| MON
+    MON --> OUT
+
+    classDef in fill:#F8FAFC,stroke:#64748B,stroke-width:2px,color:#0F172A
+    classDef mon fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
     classDef out fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
 
-    class RT,POLL rt
-    class DEDUP dedup
+    class RT,POLL in
+    class MON mon
     class OUT out
 ```
 
@@ -215,19 +232,31 @@ Disable: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
 **Purpose:** Persistence / privileged lifecycle changes.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'fontFamily': 'arial'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'fontFamily': 'arial', 'lineColor': '#64748B'}}}%%
 flowchart LR
-    W["Registry / plist wake"] --> D["Debounce ~250ms"]
-    P["SecurityInterval poll"] --> POLL["Poll()"]
-    D --> POLL
-    POLL --> DIFF["Diff fingerprints"] --> R["Enqueue changes"]
+    subgraph IN ["Inputs"]
+        direction TB
+        W(["Watcher wake<br/>registry / plist"])
+        P(["Interval poll"])
+    end
 
-    classDef w fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
-    classDef p fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    D["Debounce ~250ms"]
+    POLL["SecurityMonitor.Poll()"]
+    DIFF["Diff fingerprints"]
+    R[("Durable ring")]
+
+    W --> D --> POLL
+    P --> POLL
+    POLL --> DIFF --> R
+
+    classDef in fill:#F8FAFC,stroke:#64748B,stroke-width:2px,color:#0F172A
+    classDef wait fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
+    classDef mon fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
     classDef out fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
 
-    class W,D w
-    class P,POLL,DIFF p
+    class W,P in
+    class D wait
+    class POLL,DIFF mon
     class R out
 ```
 
