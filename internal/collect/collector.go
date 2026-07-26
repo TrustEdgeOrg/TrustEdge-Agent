@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/action"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/network"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/platform"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/models"
 )
@@ -14,19 +17,19 @@ import (
 // Collector gathers client, network, and action telemetry.
 type Collector struct {
 	Clock             clock.Clock
-	Probe             PlatformProbe
+	Probe             platform.PlatformProbe
 	HTTP              *http.Client
 	PublicIPLookupURL string
 	AgentVersion      string
 	ProcessStart      time.Time
 }
 
-func NewCollector(clk clock.Clock, probe PlatformProbe, agentVersion, publicIPLookupURL string) *Collector {
+func NewCollector(clk clock.Clock, probe platform.PlatformProbe, agentVersion, publicIPLookupURL string) *Collector {
 	if clk == nil {
 		clk = clock.Real{}
 	}
 	if probe == nil {
-		probe = DefaultProbe{}
+		probe = platform.DefaultProbe{}
 	}
 	return &Collector{
 		Clock:             clk,
@@ -68,35 +71,13 @@ func (c *Collector) ClientDetailsPayload() map[string]any {
 }
 
 func (c *Collector) NetworkSummary() models.NetworkSummary {
-	summary := models.NetworkSummary{
-		PublicIP:       fetchPublicIP(c.HTTP, c.PublicIPLookupURL),
-		NetworkType:    networkType(),
-		TopRemotePorts: []models.PortCount{},
-	}
-	listening, established, topPorts := portStats()
-	summary.ListeningCount = listening
-	summary.EstablishedCount = established
-	summary.TopRemotePorts = topPorts
-	summary.ForegroundAppConnections = 0
-	return summary
+	return network.Summary(c.HTTP, c.PublicIPLookupURL)
 }
 
 func (c *Collector) NetworkSummaryPayload() map[string]any {
-	n := c.NetworkSummary()
-	ports := make([]map[string]any, 0, len(n.TopRemotePorts))
-	for _, p := range n.TopRemotePorts {
-		ports = append(ports, map[string]any{"port": p.Port, "count": p.Count})
-	}
-	return map[string]any{
-		"public_ip":                  n.PublicIP,
-		"network_type":               n.NetworkType,
-		"listening_count":            n.ListeningCount,
-		"established_count":          n.EstablishedCount,
-		"top_remote_ports":           ports,
-		"foreground_app_connections": n.ForegroundAppConnections,
-	}
+	return network.SummaryPayload(c.HTTP, c.PublicIPLookupURL)
 }
 
-func (c *Collector) NewActionTracker(pollEvery time.Duration) *ActionTracker {
-	return NewActionTracker(c.Clock, c.Probe, pollEvery)
+func (c *Collector) NewActionTracker(pollEvery time.Duration) *action.ActionTracker {
+	return action.NewActionTracker(c.Clock, c.Probe, pollEvery)
 }
