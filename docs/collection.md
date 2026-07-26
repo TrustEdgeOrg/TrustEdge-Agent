@@ -2,11 +2,37 @@
 
 How `trustedge-agent` collects telemetry, buffers it in a durable ring, and uploads to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
+> **In one breath:** Five collectors enqueue into one durable ring. Collectors never call the network — the batcher owns flush, compress, retry, and auth recovery.
+
+<p align="center">
+  <img src="assets/icons/flow.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#mental-model">Model</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#collectors">Collectors</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/queue.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#batching">Batching</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/upload.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#upload">Upload</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/concurrency.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#concurrency-model">Concurrency</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#related-docs">Related</a>
+</p>
+
+> **Also see**
+> <img src="assets/icons/platforms.svg" width="16" height="16" align="absmiddle" alt="" /> [Platform watchers](watchers-overview.md)
+> · <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Architecture](architecture.md)
+> · <img src="assets/icons/config.svg" width="16" height="16" align="absmiddle" alt="" /> [Configuration](configuration.md)
+> · <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Docs hub](README.md)
+
 ---
 
 ## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Mental model
-
-Five collectors enqueue into one batcher. The batcher persists pending events, optionally compresses, and uploads over HTTPS.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px', 'fontFamily': 'arial'}}}%%
@@ -43,14 +69,12 @@ flowchart TB
     class API api
 ```
 
-**Rules of the road:**
-
-- Collectors only **enqueue** — they never talk to the network.
-- Mixed event types can share one batch.
-- Failed uploads stay in the ring and retry with backoff.
-- `401` still gets one immediate re-register + retry (serialized).
-
-End-to-end stages: [High-level flow](architecture.md#high-level-flow).
+| Rule | Why it matters |
+|------|----------------|
+| Collectors only **enqueue** | Isolation — no collector talks to the network |
+| Mixed types share one batch | Efficient uploads under quiet and busy load |
+| Failed uploads stay in the ring | Offline / flaky networks do not drop history (until capacity) |
+| `401` → one re-register + retry | Serialized recovery under concurrent flush |
 
 ---
 
@@ -58,12 +82,12 @@ End-to-end stages: [High-level flow](architecture.md#high-level-flow).
 
 `Agent.Run()` (`internal/agent/agent.go`):
 
-1. Open `EventBatcher` (restores pending events from disk if present) and start `batcher.Run(ctx)`.  
+1. Open `EventBatcher` (restore pending events from disk) and start `batcher.Run(ctx)`.  
 2. Bind `enqueue(typ, payload)` → `batcher.Enqueue`.  
 3. Emit one `client_details` immediately.  
 4. Start the five collector loops.  
 5. Block until cancel (SIGINT / SIGTERM).  
-6. Best-effort final flush (default **3s**); leftovers remain in the durable ring.
+6. Best-effort final flush (**3s**); leftovers remain in the durable ring.
 
 `EnsureRegistered()` runs **before** `Run()` and is independent of collection.
 
@@ -89,65 +113,68 @@ Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent
 
 | Collector | Event type(s) | Default timing | Config |
 |-----------|---------------|----------------|--------|
-| Client details | `client_details` | 60s (+ once at start) | `TRUSTEDGE_AGENT_DETAILS_INTERVAL` |
+| Client details | `client_details` | 60s (+ once at start) | `DETAILS_INTERVAL` |
 | Network monitor | `network_summary` | 60s heartbeat + on change | `NETWORK_INTERVAL`, `NETWORK_DEBOUNCE` |
 | Action tracker | `action_summary` | Sample 5s / emit 60s | `ACTION_SAMPLE_INTERVAL`, `ACTION_INTERVAL` |
 | Process monitor | `process_start`, `process_exit` | 10s poll + watcher | `PROCESS_INTERVAL` (`0` = off) |
 | Security monitor | `driver_load`, `service_install`, `registry_persistence` | watcher wake + 30s poll | `SECURITY_INTERVAL` (`0` = off) |
 
-*(Config names above are abbreviated; full names use the `TRUSTEDGE_AGENT_` prefix.)*
+*(Abbreviated names; full names use the `TRUSTEDGE_AGENT_` prefix.)*
 
 ### Client details
 
-**Purpose:** Device identity and online heartbeat.
-
-**Trigger:** Once when `Run()` starts, then every `DetailsInterval`.
-
-**Payload includes:** hostname, OS, OS version, arch, agent version, timezone, status (`online`), uptime since agent start.
-
-**Code:** `Collector.ClientDetailsPayload()` in `internal/collect/collector.go`.
+| | |
+|-|-|
+| **Purpose** | Device identity and online heartbeat |
+| **Trigger** | Once when `Run()` starts, then every `DetailsInterval` |
+| **Payload** | hostname, OS, OS version, arch, agent version, timezone, status (`online`), uptime |
+| **Code** | `Collector.ClientDetailsPayload()` in `internal/collect/collector.go` |
 
 ### Network summary
 
 **Purpose:** Coarse posture — public IP, interface type, socket counts, top remote ports.
 
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'fontFamily': 'arial'}}}%%
+flowchart LR
+    W["OS link / addr change"] --> D["Debounce 2s"]
+    H["Heartbeat timer"] --> E["Emit"]
+    D --> F{"Fingerprint<br/>changed?"}
+    F -->|yes| E
+    F -->|no · change only| S["Skip"]
+    E --> R["Ring"]
+
+    classDef w fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
+    classDef d fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
+    classDef e fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef out fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+
+    class W,H w
+    class D,F,S d
+    class E e
+    class R out
+```
+
 | Reason | When |
 |--------|------|
 | `initial` | Once when the monitor starts |
 | `link_change` | OS link change, after debounce |
-| `heartbeat` | Every `NetworkInterval` (always emitted) |
+| `heartbeat` | Every `NetworkInterval` (**always** emitted) |
 
-**Debounce:** Wait `NetworkDebounce` (default 2s) after the last signal before emitting.
-
-**Dedup:** For `initial` / `link_change`, compare a **summary fingerprint**. Unchanged → skip. Heartbeats **always** post. The fingerprint payload is reused on enqueue (no second collection pass).
-
-**Collection** (`NetworkSummaryPayload`):
-
-- Public IP via `TRUSTEDGE_AGENT_PUBLIC_IP_URL` (`off` disables)  
-- Network type from active interfaces  
-- Listening / established counts via `netstat -an`  
-- Top 5 remote ports by connection count  
-
-**Code:** `NetworkMonitor` in `internal/collect/network_monitor.go`; watchers in `network_watch_*.go`.
+**Collection** (`NetworkSummaryPayload`): public IP (or `off`) · interface type · listen/established counts · top 5 remote ports.  
+**Code:** `NetworkMonitor` + `network_watch_*.go`. Platform matrix: [Platform watchers](watchers-overview.md).
 
 ### Action summary
 
 **Purpose:** Short-window activity — focus, idle/active presence, app switches.
 
-Two loops:
+| Loop | Interval | Action |
+|------|----------|--------|
+| Sample | 5s | `tracker.Sample()` — foreground via platform probe |
+| Emit | 60s | `SnapshotAndReset()` → one `action_summary` |
 
-1. Every `ActionSampleInterval` (5s) → `tracker.Sample()`  
-2. Every `ActionInterval` (60s) → `SnapshotAndReset()` → enqueue one `action_summary`
-
-**Sampling:**
-
-- Foreground via platform probe (`foreground_*.go`)  
-- Focus accumulated per app (bundle ID, else name), +sample interval each tick  
-- Switches counted when foreground key changes  
-- Presence `active` if idle &lt; 60s, else `idle` (at snapshot time)
-
-**Payload:** `window_start`, `window_end`, `focus[]`, `presence`, `idle_sec`, `app_switches`.
-
+Focus accumulates per app (bundle ID, else name). Presence is `active` if idle &lt; 60s at snapshot.  
+**Payload:** `window_start`, `window_end`, `focus[]`, `presence`, `idle_sec`, `app_switches`.  
 **Code:** `ActionTracker` in `internal/collect/actions.go`.
 
 ### Process monitor
@@ -174,64 +201,56 @@ flowchart TB
     class OUT out
 ```
 
-#### Event-driven path
+| Path | Behavior |
+|------|----------|
+| **Event-driven** | `ProcessWatcher` → `Observe()` — skip duplicate starts; enrich exits from `seen` |
+| **Poll** | Diff process table; **first poll silent**; later polls emit start/exit; cap **100 starts / poll** |
+| **Fallback** | Unavailable watcher → poll-only |
 
-When `NewProcessWatcher` is available, starts/exits stream through `ProcessMonitor.Observe()`:
-
-- **Start:** skip if PID already in `seen`  
-- **Exit:** always accepted; enrich from `seen`, then remove PID  
-
-Unavailable watcher (permissions, CGO off on macOS, …) → poll-only.
-
-#### Poll path
-
-Every `ProcessInterval`, `ProcessMonitor.Poll()`:
-
-1. List the process table.  
-2. **First poll** seeds `seen` silently — **no events**.  
-3. Later polls diff: new PIDs → `process_start`, missing → `process_exit`.  
-4. Cap **100 `process_start` events per poll**.
-
-Disable: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
-
-**Code:** `ProcessMonitor` in `internal/collect/process_monitor.go`; watchers in `process_watch_*.go`.  
-Platform privileges: [Agent guide](agent.md#platforms).
+Disable: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.  
+**Code:** `process_monitor.go` + `process_watch_*.go`. Matrix: [Platform watchers](watchers-overview.md).
 
 ### Security monitor
 
-**Purpose:** Host security lifecycle changes that commonly indicate persistence or privileged modification.
+**Purpose:** Persistence / privileged lifecycle changes.
 
-Every `SecurityInterval`, `SecurityMonitor.Poll()`:
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'fontFamily': 'arial'}}}%%
+flowchart LR
+    W["Registry / plist wake"] --> D["Debounce ~250ms"]
+    P["SecurityInterval poll"] --> POLL["Poll()"]
+    D --> POLL
+    POLL --> DIFF["Diff fingerprints"] --> R["Enqueue changes"]
 
-1. Snapshot platform security artifacts (see below).
-2. **First poll** seeds `seen` silently — **no events**.
-3. Later polls emit new or changed artifacts.
+    classDef w fill:#F1F5F9,stroke:#64748B,stroke-width:2px,color:#0F172A
+    classDef p fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef out fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
 
-When available, a **security watcher** also wakes `Poll()` on host changes (same silent baseline + diff):
+    class W,D w
+    class P,POLL,DIFF p
+    class R out
+```
 
 | Platform | Event-driven wake |
 |----------|-------------------|
-| **macOS** | `kqueue` `EVFILT_VNODE` on LaunchAgents / LaunchDaemons directories |
-| **Windows** | `RegNotifyChangeKeyValue` on Run/RunOnce keys + `Services` |
-| **Other** | Poll-only |
-
-Loaded kexts / full service inventory still rely on periodic poll (no reliable stream API). Unavailable watcher → poll-only.
+| **macOS** | `kqueue` on LaunchAgents / LaunchDaemons dirs |
+| **Windows** | `RegNotifyChangeKeyValue` on Run/RunOnce + Services |
+| **Linux / other** | Poll-only |
 
 | Event | Windows | macOS |
 |-------|---------|-------|
 | `driver_load` | Running `Win32_SystemDriver` | Loaded kexts (`kextstat -l`) |
 | `service_install` | Non-driver `Win32_Service` | New `/Library/LaunchDaemons/*.plist` |
-| `registry_persistence` | Run / RunOnce registry values | New/changed LaunchAgents under `~/Library/LaunchAgents` and `/Library/LaunchAgents` |
+| `registry_persistence` | Run / RunOnce values | LaunchAgents under `~/Library` and `/Library` |
 
-Disable: `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.
-
-**Code:** `SecurityMonitor` in `internal/collect/security_monitor.go`; watchers in `security_watch_*.go`; platform collectors in `security_windows.go` / `security_darwin.go`.
+First poll seeds silently. Disable: `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.  
+**Code:** `security_monitor.go` + `security_watch_*.go` + `security_windows.go` / `security_darwin.go`.
 
 ---
 
 ## <img src="assets/icons/queue.svg" width="22" height="22" align="absmiddle" alt="" /> Batching
 
-`EventBatcher` (`internal/agent/batcher.go`) + `EventRing` (`internal/agent/ring.go`): append on enqueue; remove only after a successful upload.
+`EventBatcher` + `EventRing`: append on enqueue; remove only after a successful upload.
 
 ### Flush triggers
 
@@ -239,29 +258,25 @@ Disable: `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.
 |---------|---------|--------|
 | Size | 32 events | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` |
 | Timer | 2s | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` |
-| Shutdown | Context cancelled | ~3s best-effort bound |
+| Shutdown | Context cancelled | ~3s best-effort |
 
 ### Flush steps
 
 1. `Peek` up to batch size (do not remove yet).  
-2. `postEvents(ctx, batch)` — HTTP uses request context so cancel can abort in-flight uploads.  
-3. Success → `Ack` (persist shorter ring). Failure → leave queued; increase backoff up to `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`.  
-4. Structured logs (`posted batch` / `post batch failed`) plus periodic `agent status` metrics.
+2. `postEvents(ctx, batch)` — request context so cancel can abort in-flight uploads.  
+3. Success → `Ack`. Failure → leave queued; increase backoff up to `EVENT_RETRY_MAX`.  
+4. Structured logs + periodic `agent status` metrics.
 
 ### Offline ring
 
 | Setting | Default | Behavior |
 |---------|---------|----------|
-| `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Bounded FIFO; overwrite oldest when full |
-| `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH` | `<state-dir>/events.queue.json` | Atomic JSON across restarts |
+| `EVENT_QUEUE_CAPACITY` | `4096` | Bounded FIFO; overwrite oldest when full |
+| `EVENT_QUEUE_PATH` | `<state-dir>/events.queue.json` | Atomic JSON across restarts |
 
-### Coalescing
-
-Size-triggered `signalFlush()` uses a buffered channel of size 1 — multiple signals coalesce into one wake.
+Size-triggered `signalFlush()` uses a buffered channel of size 1 — multiple signals coalesce.
 
 ### Timing example
-
-Defaults (size 32, flush 2s), collectors active:
 
 ```text
 t=0s     client_details + network initial enqueued
@@ -272,30 +287,18 @@ t=12s    timer flush → POST accumulated
 t=60s    client_details + action_summary + network heartbeat may share a batch
 ```
 
-Busy hosts hit the **size** trigger more; quiet hosts lean on the **2s** timer.
+Busy hosts hit the **size** trigger; quiet hosts lean on the **2s** timer.
 
 ---
 
 ## <img src="assets/icons/upload.svg" width="22" height="22" align="absmiddle" alt="" /> Upload
-
-### Serialization
-
-`client.PostEvents()` (`internal/api/client.go`):
 
 | Batch size | JSON shape |
 |------------|------------|
 | 1 | Plain `Event` |
 | 2+ | `{"events":[...]}` |
 
-### Compression
-
-`codec.MaybeCompress()` (zstd):
-
-- Compress only when smaller than raw JSON  
-- Then set `Content-Encoding: zstd`  
-- Tiny single-event payloads often stay plain
-
-### HTTP
+**Compression:** `codec.MaybeCompress()` — zstd only when smaller; then `Content-Encoding: zstd`.
 
 ```http
 POST /v1/events
@@ -315,7 +318,7 @@ On `401` (`internal/agent/auth.go`):
 3. `POST /v1/register` unless another caller already refreshed.  
 4. Retry the **same batch** once.
 
-Other errors (timeout, 5xx, …): leave the batch in the ring; exponential backoff on the flush loop.
+Other errors: leave queued; exponential backoff on the flush loop.
 
 ---
 
@@ -334,7 +337,7 @@ main goroutine
 └── loop(SecurityInterval)        — security lifecycle poll reconcile
 ```
 
-Collectors are independent — a slow public-IP lookup does not block process enqueues (it only delays that collector’s next emit).
+Collectors are independent — a slow public-IP lookup does not block process enqueues.
 
 ---
 
@@ -348,11 +351,10 @@ Collectors are independent — a slow public-IP lookup does not block process en
 | `TRUSTEDGE_AGENT_ACTION_INTERVAL` | `60` | Action summary window |
 | `TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL` | `5` | Foreground sample rate |
 | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` | `10` | Process poll; `0` = off |
-| `TRUSTEDGE_AGENT_SECURITY_INTERVAL` | `30` | Security lifecycle poll; `0` = off |
+| `TRUSTEDGE_AGENT_SECURITY_INTERVAL` | `30` | Security poll; `0` = off |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` | `32` | Max events before flush |
 | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` | `2` | Max seconds between flushes |
 | `TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY` | `4096` | Offline ring capacity |
-| `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH` | beside state file | Queue persistence path |
 | `TRUSTEDGE_AGENT_EVENT_RETRY_MAX` | `60` | Max upload retry backoff |
 | `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | ipify | Public IP lookup; `off` disables |
 
@@ -393,6 +395,8 @@ Full list: [Configuration](configuration.md).
 | | Doc | Purpose |
 |---|-----|---------|
 | <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Architecture](architecture.md) | End-to-end stages, auth sequence, layout |
+| <img src="assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" /> | [Platform watchers](watchers-overview.md) | Hybrid watch + poll per OS |
 | <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | [Agent guide](agent.md) | Install, platforms, privacy, credentials |
 | <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [Configuration](configuration.md) | Every environment variable |
 | <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" /> | [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | Payload fields |
+| <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Docs hub](README.md) | Interview start path |

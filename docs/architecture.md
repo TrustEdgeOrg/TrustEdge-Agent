@@ -2,36 +2,47 @@
 
 The `trustedge-agent` binary collects endpoint telemetry and POSTs it to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API). The API can publish to a stream for TrustEdge detection.
 
+> **In one breath:** Collect on the device → durable batch → optional zstd → HTTPS upload → ingest → stream → detect → alert.
+
+<p align="center">
+  <img src="assets/icons/flow.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#high-level-flow">Flow</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#agent-lifecycle">Lifecycle</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#collectors">Collectors</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/queue.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#batching">Batching</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/compress.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#compression">Compression</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/lock.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#authentication">Auth</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/layout.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#project-layout">Layout</a>
+</p>
+
+> **Also see**
+> <img src="assets/icons/platforms.svg" width="16" height="16" align="absmiddle" alt="" /> [Platform watchers](watchers-overview.md)
+> · <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection](collection.md)
+> · <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" /> [Agent guide](agent.md)
+> · <img src="assets/icons/config.svg" width="16" height="16" align="absmiddle" alt="" /> [Configuration](configuration.md)
+> · <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Docs hub](README.md)
+
+---
+
+## Ecosystem
+
 | | Component | Repo | Role |
 |---|-----------|------|------|
 | <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | `trustedge-agent` | [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) | Collect · batch · compress · secure upload |
 | <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" /> | `trustedge-agent-api` | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Register · ingest · optional Kafka publish |
 | <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" /> | TrustEdge | [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) | Detection · alerts · UI |
-
-<p align="center">
-  <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#high-level-flow">Flow</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#agent-lifecycle">Lifecycle</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#collectors">Collectors</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/queue.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#batching">Batching</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/compress.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#compression">Compression</a>
-  &nbsp;·&nbsp;
-  <img src="assets/icons/lock.svg" width="18" height="18" align="absmiddle" alt="" />
-  &nbsp;<a href="#authentication">Auth</a>
-</p>
-
-> **Also see**
-> <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" /> [Agent guide](agent.md)
-> · <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection & batching](collection.md)
-> · <img src="assets/icons/config.svg" width="16" height="16" align="absmiddle" alt="" /> [Configuration](configuration.md)
 
 ---
 
@@ -70,9 +81,9 @@ flowchart LR
     class STR stream
 ```
 
-| Stage | Description |
-|-------|-------------|
-| **Collect** | Four concurrent sources: device, network, activity, processes |
+| Stage | What happens |
+|-------|--------------|
+| **Collect** | Five concurrent sources: device, network, activity, processes, security |
 | **Batch** | Events land in a **durable ring**; flushed by size, timer, or shutdown |
 | **Compress** | Optional **zstd** when smaller than raw JSON |
 | **Secure upload** | HTTPS `POST /v1/events` with the device bearer token |
@@ -80,7 +91,7 @@ flowchart LR
 | **Stream** | Optional publish (e.g. Kafka `trustedge.agent.events`) |
 | **Detection → Alert** | TrustEdge rules raise alerts |
 
-Collector timers and flush edge cases: [Collection & batching](collection.md).
+Timers and flush edge cases: [Collection & batching](collection.md).
 
 ---
 
@@ -94,19 +105,40 @@ Collector timers and flush edge cases: [Collection & batching](collection.md).
 
 ### Telemetry path
 
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'fontFamily': 'arial'}}}%%
+flowchart LR
+    C["Collect"] --> E["Enqueue"] --> R["Durable ring"]
+    R --> F["Flush"] --> Z["Maybe zstd"] --> P["POST /v1/events"]
+    P -->|202| A["Ack from ring"]
+    P -->|fail| B["Backoff · keep queued"]
+
+    classDef a fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A8A
+    classDef b fill:#FFEDD5,stroke:#EA580C,stroke-width:2px,color:#7C2D12
+    classDef c fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#4C1D95
+    classDef d fill:#FEE2E2,stroke:#DC2626,stroke-width:2px,color:#7F1D1D
+
+    class C,E,R a
+    class F,Z b
+    class P,A c
+    class B d
+```
+
 1. **Collect** — sources emit typed payloads.  
 2. **Enqueue** — `batcher.Enqueue(type, payload)`.  
-3. **Buffer** — `EventBatcher` appends `models.Event` records to the durable ring.  
-4. **Flush** — pending ≥ `EventBatchSize` (default 32), `EventBatchFlush` elapses (default 2s), or shutdown.  
-5. **Compress** — marshal JSON → `codec.MaybeCompress()`; set `Content-Encoding: zstd` when used.  
-6. **Post** — `client.PostEvents()`; **Ack** from the ring only after success.  
+3. **Buffer** — append `models.Event` records to the durable ring.  
+4. **Flush** — pending ≥ `EventBatchSize` (32), `EventBatchFlush` (2s), or shutdown.  
+5. **Compress** — marshal JSON → `codec.MaybeCompress()`.  
+6. **Post** — `client.PostEvents()`; **Ack** only after success.  
 7. **Ingest** — API decompresses if needed, validates, stores / publishes.  
 8. **Response** — `202 Accepted` with `{ "status": "accepted", "accepted": N }`.
 
-Failed uploads stay in the ring and retry with exponential backoff (capped by `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`). When the ring is full, the **oldest** pending events are overwritten. Shutdown does a short best-effort flush (default **3s**); anything not uploaded remains on disk for the next start.
+Failed uploads stay queued and retry with exponential backoff (capped by `TRUSTEDGE_AGENT_EVENT_RETRY_MAX`). When the ring is full, the **oldest** pending events are overwritten. Shutdown does a short best-effort flush (default **3s**); leftovers remain on disk for the next start.
 
-Structured logs: `TRUSTEDGE_AGENT_LOG_FORMAT=text|json`.  
-Status metrics (interval `TRUSTEDGE_AGENT_METRICS_INTERVAL`): upload counters, pending depth, `auth_recover_total`.
+| Operability | Knob |
+|-------------|------|
+| Log format | `TRUSTEDGE_AGENT_LOG_FORMAT=text\|json` |
+| Status metrics | `TRUSTEDGE_AGENT_METRICS_INTERVAL` — upload counters, pending depth, `auth_recover_total` |
 
 ---
 
@@ -116,11 +148,11 @@ Five collectors run inside `Agent.Run()`:
 
 | Collector | Event type | Trigger |
 |-----------|------------|---------|
-| Client details | `client_details` | Once at startup, then every `DetailsInterval` (default 60s) |
-| Network monitor | `network_summary` | Interface/IP change (debounced) + `NetworkInterval` heartbeat |
-| Action tracker | `action_summary` | Sample every `ActionSampleInterval` (5s); emit every `ActionInterval` (60s) |
-| Process monitor | `process_start` / `process_exit` | OS watcher (when available) + poll every `ProcessInterval` (10s) |
-| Security monitor | `driver_load` / `service_install` / `registry_persistence` | Watcher wake (kqueue / registry notify) + poll every `SecurityInterval` (30s) |
+| Client details | `client_details` | Once at startup, then every `DetailsInterval` (60s) |
+| Network monitor | `network_summary` | Link/IP change (debounced) + `NetworkInterval` heartbeat |
+| Action tracker | `action_summary` | Sample every 5s; emit every 60s |
+| Process monitor | `process_start` / `process_exit` | OS watcher + poll every 10s |
+| Security monitor | `driver_load` / `service_install` / `registry_persistence` | Watcher wake + poll every 30s |
 
 ### Process monitoring (hybrid)
 
@@ -144,23 +176,26 @@ flowchart TB
     class OUT out
 ```
 
-- **Real-time** — OS notifies on start/exit when the platform watcher is available.  
-- **Periodic scan** — reconciles the process table and catches misses.  
-- **Dedup** — same PID transition is not emitted twice.
+| Path | Role |
+|------|------|
+| **Real-time** | OS notifies on start/exit when the platform watcher is available |
+| **Periodic scan** | Reconciles the process table and catches misses |
+| **Dedup** | Same PID transition is not emitted twice |
 
-Disable processes: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`. Platform / CGO notes: [Agent guide](agent.md#platforms).
+Disable processes: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.  
+Platform matrix: [Platform watchers](watchers-overview.md) · CGO notes: [Agent guide](agent.md#platforms).
 
 ---
 
 ## <img src="assets/icons/queue.svg" width="22" height="22" align="absmiddle" alt="" /> Batching
 
-`EventBatcher` (`internal/agent/batcher.go`) writes through a durable ring (`internal/agent/ring.go`) before upload:
+`EventBatcher` (`internal/agent/batcher.go`) writes through a durable ring (`internal/agent/ring.go`) before upload.
 
-| Flush trigger | Default |
-|---------------|---------|
-| Pending size | 32 (`TRUSTEDGE_AGENT_EVENT_BATCH_SIZE`) |
-| Time interval | 2s (`TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH`) |
-| Shutdown | Best-effort flush (3s bound) |
+| Flush trigger | Default | Config |
+|---------------|---------|--------|
+| Pending size | 32 | `TRUSTEDGE_AGENT_EVENT_BATCH_SIZE` |
+| Time interval | 2s | `TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH` |
+| Shutdown | ~3s best-effort | — |
 
 | Queue knob | Default |
 |------------|---------|
@@ -168,10 +203,7 @@ Disable processes: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`. Platform / CGO notes: [
 | Path | `events.queue.json` beside the state file |
 | Max backoff | 60s (`TRUSTEDGE_AGENT_EVENT_RETRY_MAX`) |
 
-Wire shapes:
-
-- One event → plain `Event` JSON  
-- Several events → `{"events":[...]}`
+Wire shapes: one event → plain `Event` JSON · several → `{"events":[...]}`.
 
 ---
 
@@ -179,9 +211,11 @@ Wire shapes:
 
 `internal/codec` applies **zstd** only when it wins:
 
-- Smaller than raw JSON → send compressed + `Content-Encoding: zstd`  
-- Otherwise → send plain JSON  
-- API accepts both (backward compatible)
+| Outcome | Behavior |
+|---------|----------|
+| Smaller than raw JSON | Send compressed + `Content-Encoding: zstd` |
+| Otherwise | Send plain JSON |
+| API | Accepts both (backward compatible) |
 
 ---
 
@@ -199,9 +233,11 @@ sequenceDiagram
     Note over A,API: On 401: clear token, re-register once (serialized), retry batch
 ```
 
-1. **Register** — `POST /v1/register` (optional enroll bearer).  
-2. **Telemetry** — `POST /v1/events` with device bearer.  
-3. **Recovery** — on `401`, clear token, re-register (mutex so concurrent 401s share one register), retry the batch once.
+| Step | Behavior |
+|------|----------|
+| **Register** | `POST /v1/register` (optional enroll bearer) |
+| **Telemetry** | `POST /v1/events` with device bearer |
+| **Recovery** | On `401`, clear token, re-register (mutex), retry the batch once |
 
 Device ID lives on disk; the token lives in the OS keyring. Details: [Agent guide](agent.md#credentials-and-state).
 
@@ -224,5 +260,14 @@ internal/credentials/    Device ID file + keyring tokens
 internal/codec/          Optional zstd
 internal/config/         Env-based configuration
 internal/models/         Event envelopes and payloads
-docs/                    Architecture, collection, agent, configuration
+docs/                    Architecture · watchers · collection · agent · config
 ```
+
+---
+
+## Interview talking points
+
+1. **Thin edge, thick pipeline** — agent stays small; detection lives in TrustEdge.  
+2. **Durability before cleverness** — ring + Ack-after-success beats “fire and forget”.  
+3. **Auth that survives concurrency** — one serialized re-register for many `401`s.  
+4. **Hybrid collection** — see [Platform watchers](watchers-overview.md) for the OS story.

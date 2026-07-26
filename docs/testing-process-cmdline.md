@@ -1,20 +1,45 @@
 # <img src="assets/icons/test.svg" width="28" height="28" align="absmiddle" alt="" /> Test process command lines locally
 
-Capture live agent telemetry into `events.json` so you can verify the `cmdline` field on process events.
+Capture live agent telemetry into `events.json` and verify the `cmdline` field on process events.
+
+> **Goal:** Prove process events include a real command line — without needing Endpoint Security / CGO.
+
+<p align="center">
+  <img src="assets/icons/install.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#1-build-the-agent">Build</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/upload.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#2-start-the-capture-server-terminal-1">Capture</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#3-run-the-agent-terminal-2">Agent</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#5-inspect-eventsjson">Inspect</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/privacy.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#troubleshooting">Troubleshoot</a>
+</p>
+
+> **Also see**
+> <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection](collection.md)
+> · <img src="assets/icons/platforms.svg" width="16" height="16" align="absmiddle" alt="" /> [Platform watchers](watchers-overview.md)
+> · <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Docs hub](README.md)
 
 ---
 
 ## <img src="assets/icons/platforms.svg" width="22" height="22" align="absmiddle" alt="" /> What you need
 
-- Go **1.22+**
-- Two terminals (three if you generate traffic separately)
+| | |
+|-|-|
+| Go | **1.22+** |
+| Terminals | Two (three if you generate traffic separately) |
 
 ---
 
 ## <img src="assets/icons/install.svg" width="22" height="22" align="absmiddle" alt="" /> 1. Build the agent
 
-Default `make build` uses **`CGO_ENABLED=0`** (poll-only). That avoids the
-`EndpointSecurity` linker error on machines without the full macOS SDK.
+Default `make build` uses **`CGO_ENABLED=0`** (poll-only). That avoids the `EndpointSecurity` linker error on machines without the full macOS SDK.
 
 ```bash
 cd TrustEdge-Agent
@@ -74,7 +99,7 @@ export TRUSTEDGE_AGENT_ACTION_INTERVAL=30
 ./bin/trustedge-agent
 ```
 
-Look for log lines like:
+Look for:
 
 ```text
 trustedge-agent: registered device ...
@@ -111,21 +136,19 @@ for e in procs[-10:]:
 PY
 ```
 
-Or with `jq` if installed:
+Or with `jq`:
 
 ```bash
 jq '[.[] | select(.type|startswith("process_"))] | .[-5:] | .[] | {type, pid: .payload.pid, cmdline: .payload.cmdline}' events.json
 ```
 
-**Success looks like:** a `process_start` whose `payload.cmdline` contains your command (e.g. `curl https://example.com`).
+**Success:** a `process_start` whose `payload.cmdline` contains your command (e.g. `curl https://example.com`).
 
 ---
 
 ## <img src="assets/icons/queue.svg" width="22" height="22" align="absmiddle" alt="" /> 6. Reset and re-run
 
 Stop the capture server (Ctrl+C) and start it again — it recreates an empty `events.json`.
-
-Or:
 
 ```bash
 echo '[]' > events.json
