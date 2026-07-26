@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 148" role="img" aria-labelledby="title desc">
   <title id="title">Collection pipeline</title>
-  <desc id="desc">Endpoint signals enqueue into a durable ring, then batch, compress, and upload over HTTPS</desc>
+  <desc id="desc">Collectors enqueue into a durable ring, then batch, compress, and upload over HTTPS</desc>
   <defs>
     <linearGradient id="arr" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#60A5FA"/>
@@ -18,7 +18,7 @@
   <!-- Collectors: right edge = 268 -->
   <g filter="url(#soft)">
     <rect x="16" y="22" width="252" height="106" rx="14" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5"/>
-    <text class="h" x="142" y="44" text-anchor="middle">Endpoint signals</text>
+    <text class="h" x="142" y="44" text-anchor="middle">Collectors</text>
     <g transform="translate(28,60)">
       <rect width="68" height="26" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/>
       <text class="t" x="34" y="17" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Host</text>
@@ -29,7 +29,7 @@
     </g>
     <g transform="translate(184,60)">
       <rect width="68" height="26" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/>
-      <text class="t" x="34" y="17" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Focus</text>
+      <text class="t" x="34" y="17" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Activity</text>
     </g>
     <g transform="translate(58,96)">
       <rect width="76" height="26" rx="8" fill="#EEF2FF" stroke="#4F46E5" stroke-width="1.4"/>
@@ -37,13 +37,13 @@
     </g>
     <g transform="translate(146,96)">
       <rect width="88" height="26" rx="8" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.4"/>
-      <text class="t" x="44" y="17" text-anchor="middle" style="font-size:10px;fill:#5B21B6">Persistence</text>
+      <text class="t" x="44" y="17" text-anchor="middle" style="font-size:10px;fill:#5B21B6">Security</text>
     </g>
   </g>
 
   <!-- Arrow to ring -->
-  <path d="M276 75 H300" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
-  <path d="M300 75 L290 69 L290 81 Z" fill="#818CF8"/>
+  <path d="M276 62 H300" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M300 62 L290 56 L290 68 Z" fill="#818CF8"/>
 
   <!-- Ring center 336, r=30 → 306..366 -->
   <g filter="url(#soft)" transform="translate(336,54)">
@@ -54,8 +54,8 @@
     <text class="t" y="50" text-anchor="middle" style="fill:#1E3A8A">Durable ring</text>
   </g>
 
-  <path d="M374 75 H408" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
-  <path d="M408 75 L398 69 L398 81 Z" fill="#818CF8"/>
+  <path d="M374 62 H408" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M408 62 L398 56 L398 68 Z" fill="#818CF8"/>
 
   <!-- Batch center 452 → 422..482 -->
   <g filter="url(#soft)" transform="translate(452,54)">
@@ -66,8 +66,8 @@
     <text class="t" y="46" text-anchor="middle" style="fill:#1E3A8A">Batch</text>
   </g>
 
-  <path d="M490 75 H524" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
-  <path d="M524 75 L514 69 L514 81 Z" fill="#818CF8"/>
+  <path d="M490 62 H524" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M524 62 L514 56 L514 68 Z" fill="#818CF8"/>
 
   <!-- Compress center 566 → 538..594 -->
   <g filter="url(#soft)" transform="translate(566,54)">
@@ -76,8 +76,8 @@
     <text class="t" y="46" text-anchor="middle" style="fill:#7C2D12">Compress</text>
   </g>
 
-  <path d="M602 75 H640" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
-  <path d="M640 75 L630 69 L630 81 Z" fill="#818CF8"/>
+  <path d="M602 62 H640" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M640 62 L630 56 L630 68 Z" fill="#818CF8"/>
 
   <!-- Upload center 706 → 660..752 -->
   <g filter="url(#soft)" transform="translate(706,54)">
@@ -87,8 +87,8 @@
     <text class="t" y="46" text-anchor="middle" style="fill:#5B21B6">HTTPS upload</text>
   </g>
 
-  <path d="M760 75 H800" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
-  <path d="M800 75 L790 69 L790 81 Z" fill="#818CF8"/>
+  <path d="M760 62 H800" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M800 62 L790 56 L790 68 Z" fill="#818CF8"/>
 
   <!-- API center 872 → 826..918 -->
   <g filter="url(#soft)" transform="translate(872,54)">

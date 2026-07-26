@@ -15,8 +15,6 @@ A focused Go agent that observes device posture on macOS, Linux, and Windows —
   &nbsp;·&nbsp;
   <a href="docs/architecture.md">Architecture</a>
   &nbsp;·&nbsp;
-  <a href="docs/watchers-overview.md">Platform watchers</a>
-  &nbsp;·&nbsp;
   <a href="docs/collection.md">Collection</a>
   &nbsp;·&nbsp;
   <a href="docs/agent.md">Agent guide</a>
@@ -77,9 +75,9 @@ Process command lines are truncated at 4 KiB. Turn process monitoring off with `
 8. **Detection** — rules analyze the stream.  
 9. **Alert** — operators get notified in TrustEdge.
 
-> **Design punch line:** Watchers for latency, polls for correctness — degrade, don’t fail.
+> **Design:** Watchers for latency, polls for correctness — degrade, don’t fail.
 
-Interview path: [Docs hub](docs/README.md) → [Architecture](docs/architecture.md) → [Platform watchers](docs/watchers-overview.md) → [Collection](docs/collection.md).
+More detail: [Docs hub](docs/README.md) · [Architecture](docs/architecture.md) · [Collection](docs/collection.md).
 
 ---
 
@@ -144,7 +142,7 @@ Full knobs: [Configuration](docs/configuration.md).
 | **Windows** | ETW / Win32 probes; poll reconciliation |
 
 Default CI builds use **CGO=0** (portable poll-mode). Optional `make build-cgo` enables richer watchers where the SDK allows.  
-OS matrix: [Platform watchers](docs/watchers-overview.md).
+OS matrix: [Collection](docs/collection.md#how-detection-works-per-os).
 
 ---
 
@@ -174,13 +172,11 @@ make capture-events  # local fake ingest on :18080 for capturing payloads
 
 | Doc | Purpose |
 |-----|---------|
-| [Docs hub](docs/README.md) | Interview start path |
+| [Docs hub](docs/README.md) | Index of agent docs |
 | [Architecture](docs/architecture.md) | Lifecycle, upload path, auth recovery |
-| [Platform watchers](docs/watchers-overview.md) | Hybrid watch + poll per OS |
-| [Collection](docs/collection.md) | Collectors, flush rules, concurrency |
+| [Collection](docs/collection.md) | Collectors, per-OS detection, batching |
 | [Agent guide](docs/agent.md) | Install paths, credentials, platforms |
 | [Configuration](docs/configuration.md) | Every environment variable |
-| [Test cmdline](docs/testing-process-cmdline.md) | Local capture of process `cmdline` |
 | [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP schemas |
 
 ---

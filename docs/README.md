@@ -1,38 +1,25 @@
 # <img src="assets/agent-icon.svg" alt="" width="32" height="32" align="absmiddle" /> TrustEdge Agent docs
 
-Interview-ready map of how the endpoint agent collects, buffers, and uploads telemetry.
+How the endpoint agent collects, buffers, and uploads telemetry.
 
-> **Elevator pitch:** A thin cross-platform Go agent — hybrid OS watchers + poll reconciliation, durable offline ring, keyring-backed auth, and zstd when it wins — feeding TrustEdge detection over HTTPS.
-
----
-
-## Start here (2-minute path)
-
-| Order | Open this | Why |
-|------:|-----------|-----|
-| 1 | [Architecture](architecture.md) | End-to-end pipeline + auth recovery |
-| 2 | [Platform watchers](watchers-overview.md) | The hybrid design story (best interview slide) |
-| 3 | [Collection & batching](collection.md) | Collectors, flush rules, concurrency |
-| 4 | [Agent guide](agent.md) | Install, platforms, privacy, credentials |
+> A thin cross-platform Go agent — hybrid OS watchers + poll reconciliation, durable offline ring, keyring-backed auth, and zstd when it wins — feeding TrustEdge detection over HTTPS.
 
 ---
 
-## All docs
+## Docs
 
-| | Doc | Audience |
-|---|-----|----------|
-| <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Architecture](architecture.md) | System design walkthrough |
-| <img src="assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" /> | [Platform watchers](watchers-overview.md) | Linux · Windows · macOS signal paths |
-| <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" /> | [Collection & batching](collection.md) | Visual per-OS detection + batch story |
-| <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | [Agent guide](agent.md) | Run locally · credentials · privacy |
-| <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [Configuration](configuration.md) | Every env var |
-| <img src="assets/icons/test.svg" width="18" height="18" align="absmiddle" alt="" /> | [Test process cmdline](testing-process-cmdline.md) | Local capture of `cmdline` |
+| | Doc | Purpose |
+|---|-----|---------|
+| <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Architecture](architecture.md) | Pipeline, lifecycle, auth recovery |
+| <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" /> | [Collection & batching](collection.md) | Collectors, per-OS detection, batching |
+| <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | [Agent guide](agent.md) | Install, platforms, privacy, credentials |
+| <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [Configuration](configuration.md) | Every environment variable |
 
-API schemas live in [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md).
+API schemas: [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md).
 
 ---
 
-## Design principles (say these out loud)
+## Design principles
 
 1. **Watchers for latency, polls for correctness** — degrade to poll-only, never hard-fail collection.  
 2. **Collectors only enqueue** — one durable ring owns retry, backoff, and offline survival.  

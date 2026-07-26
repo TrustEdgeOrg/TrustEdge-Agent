@@ -21,12 +21,12 @@ How the agent notices change on a laptop, turns it into events, and delivers the
 ## Big picture
 
 <p align="center">
-  <img src="assets/collection-pipeline.svg" alt="Endpoint signals enqueue into a durable ring, then batch, compress, and upload to the Agent API" width="980" />
+  <img src="assets/collection-pipeline.svg" alt="Collectors enqueue into a durable ring, then batch, compress, and upload to the Agent API" width="980" />
 </p>
 
 | Rule | Meaning |
 |------|---------|
-| Signals never call the network | Isolation — one upload path |
+| Collectors never call the network | Isolation — one upload path |
 | Mixed event types share a batch | Quiet and busy hosts both work |
 | Failed uploads stay in the ring | Survive offline / flaky Wi‑Fi |
 | Watcher dies → poll continues | Degrade, don’t fail |
@@ -46,7 +46,7 @@ Same pattern for **process**, **network**, and **security**:
 3. **Monitor** → dedupe / fingerprint / enrich  
 4. **Ring** → batch → optional zstd → HTTPS  
 
-Deep OS matrix: [Platform watchers](watchers-overview.md).
+Deep OS detail is in the diagrams below.
 
 ---
 
@@ -56,9 +56,9 @@ Deep OS matrix: [Platform watchers](watchers-overview.md).
 |---|--------|-----------------|
 | Host | `client_details` | Once at start + every 60s |
 | Network | `network_summary` | On change (debounced) + 60s heartbeat |
-| Focus | `action_summary` | Sample 5s · emit 60s |
+| Activity | `action_summary` | Sample 5s · emit 60s |
 | Processes | `process_start` / `process_exit` | Watcher + 10s poll |
-| Persistence | `driver_load` / `service_install` / `registry_persistence` | Watcher wake + 30s poll |
+| Security | `driver_load` / `service_install` / `registry_persistence` | Watcher wake + 30s poll |
 
 Turn processes off: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.  
 Turn security off: `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.
@@ -152,7 +152,6 @@ Concurrency: each collector runs in its own loop — a slow public-IP lookup nev
 
 | | Doc |
 |---|-----|
-| <img src="assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" /> | [Platform watchers](watchers-overview.md) — OS matrix + talking points |
 | <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Architecture](architecture.md) — lifecycle & auth sequence |
 | <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [Configuration](configuration.md) — every env var |
 | <img src="assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | [Agent guide](agent.md) — install, credentials, privacy |

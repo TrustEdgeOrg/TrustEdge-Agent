@@ -25,8 +25,7 @@ The `trustedge-agent` binary runs on each endpoint and reports device posture to
 </p>
 
 > **Also see**
-> <img src="assets/icons/platforms.svg" width="16" height="16" align="absmiddle" alt="" /> [Platform watchers](watchers-overview.md)
-> · <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection](collection.md)
+> <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection](collection.md)
 > · <img src="assets/icons/config.svg" width="16" height="16" align="absmiddle" alt="" /> [Configuration](configuration.md)
 > · <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Docs hub](README.md)
 
@@ -51,7 +50,7 @@ CI builds and tests all three platforms (`.github/workflows/agent-ci.yml`). Defa
 | macOS | Endpoint Security entitlement, signed binary, user approval |
 
 If the watcher cannot start → **poll-only** — no hard failure.  
-Hybrid design + OS matrix: [Platform watchers](watchers-overview.md).
+Hybrid design + OS matrix: [Collection](collection.md#how-detection-works-per-os).
 
 ---
 
@@ -190,8 +189,7 @@ export TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080
 go run ./cmd/trustedge-agent
 ```
 
-Or point at any local [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) instance on `:8080`.  
-Capture cmdline locally: [Test process cmdline](testing-process-cmdline.md).
+Or point at any local [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) instance on `:8080`.
 
 ---
 
@@ -200,9 +198,7 @@ Capture cmdline locally: [Test process cmdline](testing-process-cmdline.md).
 | | Doc | Purpose |
 |---|-----|---------|
 | <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Architecture](architecture.md) | Lifecycle, upload path, durable ring |
-| <img src="assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" /> | [Platform watchers](watchers-overview.md) | Hybrid watch + poll per OS |
 | <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" /> | [Collection & batching](collection.md) | Collectors, flush triggers, concurrency |
 | <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [Configuration](configuration.md) | Every environment variable |
-| <img src="assets/icons/test.svg" width="18" height="18" align="absmiddle" alt="" /> | [Test process cmdline](testing-process-cmdline.md) | Live capture of `cmdline` |
 | <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" /> | [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP schemas |
-| <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Docs hub](README.md) | Interview start path |
+| <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Docs hub](README.md) | Index of agent docs |
