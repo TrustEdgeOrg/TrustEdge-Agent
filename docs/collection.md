@@ -21,12 +21,12 @@ How the agent notices change on a laptop, turns it into events, and delivers the
 ## Big picture
 
 <p align="center">
-  <img src="assets/collection-pipeline.svg" alt="Collectors enqueue into a durable ring, then batch, compress, and upload to the Agent API" width="980" />
+  <img src="assets/collection-pipeline.svg" alt="Endpoint signals enqueue into a durable ring, then batch, compress, and upload to the Agent API" width="980" />
 </p>
 
 | Rule | Meaning |
 |------|---------|
-| Collectors never call the network | Isolation — one upload path |
+| Signals never call the network | Isolation — one upload path |
 | Mixed event types share a batch | Quiet and busy hosts both work |
 | Failed uploads stay in the ring | Survive offline / flaky Wi‑Fi |
 | Watcher dies → poll continues | Degrade, don’t fail |
@@ -54,11 +54,11 @@ Deep OS matrix: [Platform watchers](watchers-overview.md).
 
 | <img src="assets/icons/agent.svg" width="16" height="16" align="absmiddle" alt="" /> Signal | Events | Default cadence |
 |---|--------|-----------------|
-| Device | `client_details` | Once at start + every 60s |
+| Host | `client_details` | Once at start + every 60s |
 | Network | `network_summary` | On change (debounced) + 60s heartbeat |
-| Activity | `action_summary` | Sample 5s · emit 60s |
+| Focus | `action_summary` | Sample 5s · emit 60s |
 | Processes | `process_start` / `process_exit` | Watcher + 10s poll |
-| Security | `driver_load` / `service_install` / `registry_persistence` | Watcher wake + 30s poll |
+| Persistence | `driver_load` / `service_install` / `registry_persistence` | Watcher wake + 30s poll |
 
 Turn processes off: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.  
 Turn security off: `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.

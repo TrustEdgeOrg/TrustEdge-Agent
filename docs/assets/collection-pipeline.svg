@@ -1,100 +1,100 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 170" role="img" aria-labelledby="title desc">
- <title id="title">Collection pipeline</title>
- <desc id="desc">Five collectors enqueue into a durable ring, then batch, compress, and upload over HTTPS</desc>
- <defs>
- <linearGradient id="arr" x1="0%" y1="0%" x2="100%" y2="0%">
- <stop offset="0%" stop-color="#60A5FA"/>
- <stop offset="100%" stop-color="#A78BFA"/>
- </linearGradient>
- <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
- <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#0F172A" flood-opacity="0.08"/>
- </filter>
- <style>
- .t { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 700; fill: #0F172A; }
- .s { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 10px; fill: #64748B; }
- .h { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 700; fill: #475569; }
- </style>
- </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 148" role="img" aria-labelledby="title desc">
+  <title id="title">Collection pipeline</title>
+  <desc id="desc">Endpoint signals enqueue into a durable ring, then batch, compress, and upload over HTTPS</desc>
+  <defs>
+    <linearGradient id="arr" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
+    <style>
+      .t { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 700; fill: #0F172A; }
+      .h { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 700; fill: #475569; }
+    </style>
+  </defs>
 
- <!-- Collectors card -->
- <g filter="url(#soft)">
- <rect x="20" y="28" width="250" height="114" rx="14" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5"/>
- <text class="h" x="145" y="50" text-anchor="middle">Collectors (enqueue only)</text>
- <g transform="translate(42,68)">
- <rect width="62" height="28" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/>
- <text class="t" x="31" y="18" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Device</text>
- </g>
- <g transform="translate(114,68)">
- <rect width="62" height="28" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/>
- <text class="t" x="31" y="18" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Network</text>
- </g>
- <g transform="translate(186,68)">
- <rect width="62" height="28" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/>
- <text class="t" x="31" y="18" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Activity</text>
- </g>
- <g transform="translate(78,106)">
- <rect width="62" height="28" rx="8" fill="#EEF2FF" stroke="#4F46E5" stroke-width="1.4"/>
- <text class="t" x="31" y="18" text-anchor="middle" style="font-size:10px;fill:#312E81">Process</text>
- </g>
- <g transform="translate(150,106)">
- <rect width="62" height="28" rx="8" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.4"/>
- <text class="t" x="31" y="18" text-anchor="middle" style="font-size:10px;fill:#5B21B6">Security</text>
- </g>
- </g>
+  <!-- Collectors: right edge = 268 -->
+  <g filter="url(#soft)">
+    <rect x="16" y="22" width="252" height="106" rx="14" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5"/>
+    <text class="h" x="142" y="44" text-anchor="middle">Endpoint signals</text>
+    <g transform="translate(28,60)">
+      <rect width="68" height="26" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/>
+      <text class="t" x="34" y="17" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Host</text>
+    </g>
+    <g transform="translate(106,60)">
+      <rect width="68" height="26" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/>
+      <text class="t" x="34" y="17" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Network</text>
+    </g>
+    <g transform="translate(184,60)">
+      <rect width="68" height="26" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/>
+      <text class="t" x="34" y="17" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Focus</text>
+    </g>
+    <g transform="translate(58,96)">
+      <rect width="76" height="26" rx="8" fill="#EEF2FF" stroke="#4F46E5" stroke-width="1.4"/>
+      <text class="t" x="38" y="17" text-anchor="middle" style="font-size:10px;fill:#312E81">Processes</text>
+    </g>
+    <g transform="translate(146,96)">
+      <rect width="88" height="26" rx="8" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.4"/>
+      <text class="t" x="44" y="17" text-anchor="middle" style="font-size:10px;fill:#5B21B6">Persistence</text>
+    </g>
+  </g>
 
- <path d="M278 85 H318 L312 79 M318 85 L312 91" fill="none" stroke="url(#arr)" stroke-width="2.6" stroke-linecap="round"/>
+  <!-- Arrow to ring -->
+  <path d="M276 75 H300" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M300 75 L290 69 L290 81 Z" fill="#818CF8"/>
 
- <!-- Ring -->
- <g filter="url(#soft)" transform="translate(345,55)">
- <circle r="36" fill="#DBEAFE" stroke="#2563EB" stroke-width="2.2"/>
- <circle r="22" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1.6"/>
- <path d="M-10 -6 A14 14 0 1 1 -10 6" fill="none" stroke="#1D4ED8" stroke-width="2.4" stroke-linecap="round"/>
- <path d="M8 -10 l4 4 -4 4" fill="none" stroke="#1D4ED8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
- <text class="t" y="58" text-anchor="middle" style="fill:#1E3A8A">Durable ring</text>
- <text class="s" y="72" text-anchor="middle">survive offline</text>
- </g>
+  <!-- Ring center 336, r=30 → 306..366 -->
+  <g filter="url(#soft)" transform="translate(336,54)">
+    <circle r="30" fill="#DBEAFE" stroke="#2563EB" stroke-width="2.2"/>
+    <circle r="18" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1.6"/>
+    <path d="M-8 -5 A11 11 0 1 1 -8 5" fill="none" stroke="#1D4ED8" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M6 -8 l3 3 -3 3" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="t" y="50" text-anchor="middle" style="fill:#1E3A8A">Durable ring</text>
+  </g>
 
- <path d="M390 85 H430 L424 79 M430 85 L424 91" fill="none" stroke="url(#arr)" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M374 75 H408" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M408 75 L398 69 L398 81 Z" fill="#818CF8"/>
 
- <!-- Batch -->
- <g filter="url(#soft)" transform="translate(475,55)">
- <rect x="-34" y="-28" width="68" height="56" rx="12" fill="#BFDBFE" stroke="#1D4ED8" stroke-width="2"/>
- <rect x="-22" y="-16" width="44" height="8" rx="2" fill="#EFF6FF"/>
- <rect x="-22" y="-4" width="44" height="8" rx="2" fill="#DBEAFE"/>
- <rect x="-22" y="8" width="44" height="8" rx="2" fill="#93C5FD"/>
- <text class="t" y="48" text-anchor="middle" style="fill:#1E3A8A">Batch</text>
- <text class="s" y="62" text-anchor="middle">size / timer</text>
- </g>
+  <!-- Batch center 452 → 422..482 -->
+  <g filter="url(#soft)" transform="translate(452,54)">
+    <rect x="-30" y="-26" width="60" height="52" rx="12" fill="#BFDBFE" stroke="#1D4ED8" stroke-width="2"/>
+    <rect x="-19" y="-14" width="38" height="7" rx="2" fill="#EFF6FF"/>
+    <rect x="-19" y="-3" width="38" height="7" rx="2" fill="#DBEAFE"/>
+    <rect x="-19" y="8" width="38" height="7" rx="2" fill="#93C5FD"/>
+    <text class="t" y="46" text-anchor="middle" style="fill:#1E3A8A">Batch</text>
+  </g>
 
- <path d="M520 85 H560 L554 79 M560 85 L554 91" fill="none" stroke="url(#arr)" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M490 75 H524" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M524 75 L514 69 L514 81 Z" fill="#818CF8"/>
 
- <!-- Compress -->
- <g filter="url(#soft)" transform="translate(605,55)">
- <rect x="-30" y="-28" width="60" height="56" rx="12" fill="#FFEDD5" stroke="#EA580C" stroke-width="2"/>
- <path d="M-8 -10 h16 M-8 0 h16 M-8 10 h16" stroke="#C2410C" stroke-width="2.2" stroke-linecap="round"/>
- <text class="t" y="48" text-anchor="middle" style="fill:#7C2D12">Compress</text>
- <text class="s" y="62" text-anchor="middle">zstd if smaller</text>
- </g>
+  <!-- Compress center 566 → 538..594 -->
+  <g filter="url(#soft)" transform="translate(566,54)">
+    <rect x="-28" y="-26" width="56" height="52" rx="12" fill="#FFEDD5" stroke="#EA580C" stroke-width="2"/>
+    <path d="M-8 -10 h16 M-8 0 h16 M-8 10 h16" stroke="#C2410C" stroke-width="2.2" stroke-linecap="round"/>
+    <text class="t" y="46" text-anchor="middle" style="fill:#7C2D12">Compress</text>
+  </g>
 
- <path d="M650 85 H690 L684 79 M690 85 L684 91" fill="none" stroke="url(#arr)" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M602 75 H640" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M640 75 L630 69 L630 81 Z" fill="#818CF8"/>
 
- <!-- Upload -->
- <g filter="url(#soft)" transform="translate(760,55)">
- <rect x="-48" y="-28" width="96" height="56" rx="12" fill="#EDE9FE" stroke="#7C3AED" stroke-width="2"/>
- <path d="M-14 4 L-14 -2 C-14 -12 -6 -16 0 -16 C6 -16 14 -12 14 -2 V4" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8"/>
- <path d="M0 -2 v10 M0 8 l4 -3 M0 8 l-4 -3" fill="none" stroke="#6D28D9" stroke-width="1.8" stroke-linecap="round"/>
- <text class="t" y="48" text-anchor="middle" style="fill:#5B21B6">HTTPS upload</text>
- <text class="s" y="62" text-anchor="middle">POST /v1/events</text>
- </g>
+  <!-- Upload center 706 → 660..752 -->
+  <g filter="url(#soft)" transform="translate(706,54)">
+    <rect x="-46" y="-26" width="92" height="52" rx="12" fill="#EDE9FE" stroke="#7C3AED" stroke-width="2"/>
+    <path d="M-12 4 L-12 -2 C-12 -11 -5 -14 0 -14 C5 -14 12 -11 12 -2 V4" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8"/>
+    <path d="M0 -2 v9 M0 7 l3.5 -2.5 M0 7 l-3.5 -2.5" fill="none" stroke="#6D28D9" stroke-width="1.8" stroke-linecap="round"/>
+    <text class="t" y="46" text-anchor="middle" style="fill:#5B21B6">HTTPS upload</text>
+  </g>
 
- <path d="M820 85 H860 L854 79 M860 85 L854 91" fill="none" stroke="url(#arr)" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M760 75 H800" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M800 75 L790 69 L790 81 Z" fill="#818CF8"/>
 
- <!-- API -->
- <g filter="url(#soft)" transform="translate(910,55)">
- <rect x="-40" y="-28" width="80" height="56" rx="12" fill="#F5F3FF" stroke="#7C3AED" stroke-width="2"/>
- <rect x="-16" y="-12" width="32" height="24" rx="4" fill="#EDE9FE" stroke="#8B5CF6" stroke-width="1.6"/>
- <circle cx="0" cy="0" r="3" fill="#7C3AED"/>
- <text class="t" y="48" text-anchor="middle" style="fill:#5B21B6">Agent API</text>
- <text class="s" y="62" text-anchor="middle">202 Accepted</text>
- </g>
+  <!-- API center 872 → 826..918 -->
+  <g filter="url(#soft)" transform="translate(872,54)">
+    <rect x="-46" y="-26" width="92" height="52" rx="12" fill="#F5F3FF" stroke="#7C3AED" stroke-width="2"/>
+    <rect x="-15" y="-11" width="30" height="22" rx="4" fill="#EDE9FE" stroke="#8B5CF6" stroke-width="1.6"/>
+    <circle cx="0" cy="0" r="3" fill="#7C3AED"/>
+    <text class="t" y="46" text-anchor="middle" style="fill:#5B21B6">Agent API</text>
+  </g>
 </svg>
