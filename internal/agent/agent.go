@@ -10,6 +10,10 @@ import (
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/api"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/action"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/network"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/process"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/security"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/config"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/credentials"
@@ -103,7 +107,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		enqueue(constants.TypeClientDetails, a.collector.ClientDetailsPayload())
 	})
 
-	monitor := collect.NewNetworkMonitor(collect.NetworkMonitorConfig{
+	monitor := network.NewNetworkMonitor(network.NetworkMonitorConfig{
 		Debounce:          a.cfg.NetworkDebounce,
 		HeartbeatInterval: a.cfg.NetworkInterval,
 		Logger:            a.stdLog,
@@ -126,12 +130,12 @@ func (a *Agent) Run(ctx context.Context) error {
 	tracker := a.collector.NewActionTracker(sampleEvery)
 	go a.loop(ctx, sampleEvery, tracker.Sample)
 	go a.loop(ctx, a.cfg.ActionInterval, func() {
-		enqueue(constants.TypeActionSummary, collect.ActionSummaryPayload(tracker.SnapshotAndReset()))
+		enqueue(constants.TypeActionSummary, action.ActionSummaryPayload(tracker.SnapshotAndReset()))
 	})
 
 	if a.cfg.ProcessInterval > 0 {
-		procMon := collect.NewProcessMonitor(a.stdLog)
-		if watcher := collect.NewProcessWatcher(a.stdLog); watcher != nil {
+		procMon := process.NewProcessMonitor(a.stdLog)
+		if watcher := process.NewProcessWatcher(a.stdLog); watcher != nil {
 			a.log.Info("process watcher active", "mode", "event-driven")
 			go func() {
 				for change := range watcher.Run(ctx) {
@@ -149,8 +153,8 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 
 	if a.cfg.SecurityInterval > 0 {
-		secMon := collect.NewSecurityMonitor(a.stdLog)
-		if watcher := collect.NewSecurityWatcher(a.stdLog); watcher != nil {
+		secMon := security.NewSecurityMonitor(a.stdLog)
+		if watcher := security.NewSecurityWatcher(a.stdLog); watcher != nil {
 			a.log.Info("security watcher active", "mode", "event-driven")
 			go func() {
 				for range watcher.Run(ctx) {

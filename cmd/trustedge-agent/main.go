@@ -14,6 +14,7 @@ import (
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/api"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/platform"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/config"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/credentials"
 )
@@ -41,7 +42,7 @@ func main() {
 	client := api.New(cfg.APIURL, cfg.EnrollToken, "")
 	client.Compress = cfg.Compress
 	client.Batch = cfg.Batch
-	collector := collect.NewCollector(clk, collect.DefaultProbe{}, config.AgentVersion, cfg.PublicIPLookupURL)
+	collector := collect.NewCollector(clk, platform.DefaultProbe{}, config.AgentVersion, cfg.PublicIPLookupURL)
 
 	a := agent.New(agent.Dependencies{
 		Config:    cfg,
