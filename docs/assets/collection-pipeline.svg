@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 148" role="img" aria-labelledby="title desc">
+  <title id="title">Collection pipeline</title>
+  <desc id="desc">Collectors enqueue into a durable ring, then batch, compress, and upload over HTTPS</desc>
+  <defs>
+    <linearGradient id="arr" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
+    <style>
+      .t { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 700; fill: #0F172A; }
+      .h { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 700; fill: #475569; }
+    </style>
+  </defs>
+
+  <!-- Collectors: right edge = 268 -->
+  <g filter="url(#soft)">
+    <rect x="16" y="22" width="252" height="106" rx="14" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5"/>
+    <text class="h" x="142" y="44" text-anchor="middle">Collectors</text>
+    <g transform="translate(28,60)">
+      <rect width="68" height="26" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/>
+      <text class="t" x="34" y="17" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Host</text>
+    </g>
+    <g transform="translate(106,60)">
+      <rect width="68" height="26" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/>
+      <text class="t" x="34" y="17" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Network</text>
+    </g>
+    <g transform="translate(184,60)">
+      <rect width="68" height="26" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/>
+      <text class="t" x="34" y="17" text-anchor="middle" style="font-size:10px;fill:#1E3A8A">Activity</text>
+    </g>
+    <g transform="translate(58,96)">
+      <rect width="76" height="26" rx="8" fill="#EEF2FF" stroke="#4F46E5" stroke-width="1.4"/>
+      <text class="t" x="38" y="17" text-anchor="middle" style="font-size:10px;fill:#312E81">Processes</text>
+    </g>
+    <g transform="translate(146,96)">
+      <rect width="88" height="26" rx="8" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.4"/>
+      <text class="t" x="44" y="17" text-anchor="middle" style="font-size:10px;fill:#5B21B6">Security</text>
+    </g>
+  </g>
+
+  <!-- Arrow to ring -->
+  <path d="M276 62 H300" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M300 62 L290 56 L290 68 Z" fill="#818CF8"/>
+
+  <!-- Ring center 336, r=30 → 306..366 -->
+  <g filter="url(#soft)" transform="translate(336,54)">
+    <circle r="30" fill="#DBEAFE" stroke="#2563EB" stroke-width="2.2"/>
+    <circle r="18" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1.6"/>
+    <path d="M-8 -5 A11 11 0 1 1 -8 5" fill="none" stroke="#1D4ED8" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M6 -8 l3 3 -3 3" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="t" y="50" text-anchor="middle" style="fill:#1E3A8A">Durable ring</text>
+  </g>
+
+  <path d="M374 62 H408" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M408 62 L398 56 L398 68 Z" fill="#818CF8"/>
+
+  <!-- Batch center 452 → 422..482 -->
+  <g filter="url(#soft)" transform="translate(452,54)">
+    <rect x="-30" y="-26" width="60" height="52" rx="12" fill="#BFDBFE" stroke="#1D4ED8" stroke-width="2"/>
+    <rect x="-19" y="-14" width="38" height="7" rx="2" fill="#EFF6FF"/>
+    <rect x="-19" y="-3" width="38" height="7" rx="2" fill="#DBEAFE"/>
+    <rect x="-19" y="8" width="38" height="7" rx="2" fill="#93C5FD"/>
+    <text class="t" y="46" text-anchor="middle" style="fill:#1E3A8A">Batch</text>
+  </g>
+
+  <path d="M490 62 H524" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M524 62 L514 56 L514 68 Z" fill="#818CF8"/>
+
+  <!-- Compress center 566 → 538..594 -->
+  <g filter="url(#soft)" transform="translate(566,54)">
+    <rect x="-28" y="-26" width="56" height="52" rx="12" fill="#FFEDD5" stroke="#EA580C" stroke-width="2"/>
+    <path d="M-8 -10 h16 M-8 0 h16 M-8 10 h16" stroke="#C2410C" stroke-width="2.2" stroke-linecap="round"/>
+    <text class="t" y="46" text-anchor="middle" style="fill:#7C2D12">Compress</text>
+  </g>
+
+  <path d="M602 62 H640" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M640 62 L630 56 L630 68 Z" fill="#818CF8"/>
+
+  <!-- Upload center 706 → 660..752 -->
+  <g filter="url(#soft)" transform="translate(706,54)">
+    <rect x="-46" y="-26" width="92" height="52" rx="12" fill="#EDE9FE" stroke="#7C3AED" stroke-width="2"/>
+    <path d="M-12 4 L-12 -2 C-12 -11 -5 -14 0 -14 C5 -14 12 -11 12 -2 V4" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8"/>
+    <path d="M0 -2 v9 M0 7 l3.5 -2.5 M0 7 l-3.5 -2.5" fill="none" stroke="#6D28D9" stroke-width="1.8" stroke-linecap="round"/>
+    <text class="t" y="46" text-anchor="middle" style="fill:#5B21B6">HTTPS upload</text>
+  </g>
+
+  <path d="M760 62 H800" fill="none" stroke="url(#arr)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M800 62 L790 56 L790 68 Z" fill="#818CF8"/>
+
+  <!-- API center 872 → 826..918 -->
+  <g filter="url(#soft)" transform="translate(872,54)">
+    <rect x="-46" y="-26" width="92" height="52" rx="12" fill="#F5F3FF" stroke="#7C3AED" stroke-width="2"/>
+    <rect x="-15" y="-11" width="30" height="22" rx="4" fill="#EDE9FE" stroke="#8B5CF6" stroke-width="1.6"/>
+    <circle cx="0" cy="0" r="3" fill="#7C3AED"/>
+    <text class="t" y="46" text-anchor="middle" style="fill:#5B21B6">Agent API</text>
+  </g>
+</svg>
