@@ -3,7 +3,9 @@
 package process
 
 /*
-#cgo darwin LDFLAGS: -framework EndpointSecurity -lbsm
+// Newer Xcode macOS SDKs ship EndpointSecurity as libEndpointSecurity
+// (no EndpointSecurity.framework). Link the dylib/tbd instead.
+#cgo darwin LDFLAGS: -lEndpointSecurity -lbsm
 #cgo darwin CFLAGS: -x objective-c
 
 #include <EndpointSecurity/EndpointSecurity.h>
@@ -12,6 +14,40 @@ package process
 #include <string.h>
 
 extern void trusttwinEsDispatch(int eventType, int pid, int ppid, char *path, char *cmdline);
+
+static int trusttwin_path_looks_secret(const char *p) {
+	if (p == NULL || *p == '\0') {
+		return 0;
+	}
+	// Keep in sync with detection-engine SECRET_PATH_MARKERS / pathLooksSecret.
+	static const char *markers[] = {
+		".env",
+		"/.ssh/",
+		"\\.ssh\\",
+		"/.aws/",
+		"\\.aws\\",
+		"/.kube/",
+		"\\.kube\\",
+		"/.gnupg/",
+		"id_rsa",
+		"id_ed25519",
+		"id_ecdsa",
+		"credentials",
+		"secrets.json",
+		"secret.yaml",
+		"secret.yml",
+		"kubeconfig",
+		"service_account.json",
+		"application_default_credentials",
+		NULL,
+	};
+	for (int i = 0; markers[i] != NULL; i++) {
+		if (strcasestr(p, markers[i]) != NULL) {
+			return 1;
+		}
+	}
+	return 0;
+}
 
 static char *es_join_exec_args(const es_event_exec_t *exec) {
 	if (exec == NULL) {
@@ -86,6 +122,24 @@ static void trusttwin_es_handler(es_client_t *client, const es_message_t *msg) {
 		}
 		trusttwinEsDispatch(2, pid, ppid, path, NULL);
 		break;
+	case ES_EVENT_TYPE_NOTIFY_OPEN:
+		// path = process executable; cmdline slot = opened file path.
+		if (msg->process != NULL) {
+			pid = audit_token_to_pid(msg->process->audit_token);
+			ppid = (int)msg->process->ppid;
+			if (msg->process->executable != NULL &&
+				msg->process->executable->path.data != NULL) {
+				path = strdup(msg->process->executable->path.data);
+			}
+		}
+		if (msg->event.open.file != NULL &&
+			msg->event.open.file->path.data != NULL) {
+			cmdline = strdup(msg->event.open.file->path.data);
+		}
+		if (cmdline != NULL && trusttwin_path_looks_secret(cmdline)) {
+			trusttwinEsDispatch(3, pid, ppid, path, cmdline);
+		}
+		break;
 	default:
 		break;
 	}
@@ -119,6 +173,7 @@ static int trusttwin_es_subscribe_exec_exit(es_client_t *client) {
 	es_event_type_t events[] = {
 		ES_EVENT_TYPE_NOTIFY_EXEC,
 		ES_EVENT_TYPE_NOTIFY_EXIT,
+		ES_EVENT_TYPE_NOTIFY_OPEN,
 	};
 	es_return_t rc = es_subscribe(client, events, sizeof(events) / sizeof(events[0]));
 	return (int)rc;
@@ -187,7 +242,7 @@ func (w *darwinProcessWatcher) run(ctx context.Context, out chan<- collect.Chang
 		return esReturnError(int(rc))
 	}
 
-	w.logf("process watcher: Endpoint Security active")
+	w.logf("process watcher: Endpoint Security active (exec/exit/open)")
 	<-ctx.Done()
 	return ctx.Err()
 }
@@ -224,6 +279,12 @@ func trusttwinEsDispatch(eventType C.int, pid C.int, ppid C.int, path *C.char, c
 		ch = collect.Change{Type: constants.TypeProcessStart, Payload: processPayload(row)}
 	case 2:
 		ch = collect.Change{Type: constants.TypeProcessExit, Payload: processPayload(row)}
+	case 3:
+		filePath := cmd
+		if filePath == "" || !pathLooksSecret(filePath) {
+			return
+		}
+		ch = collect.Change{Type: constants.TypeFileOpen, Payload: fileOpenPayload(row, filePath)}
 	default:
 		return
 	}

@@ -171,6 +171,16 @@ func (a *Agent) Run(ctx context.Context) error {
 		})
 	}
 
+	if a.cfg.ConnectionInterval > 0 {
+		connMon := network.NewConnectionMonitor(a.stdLog)
+		a.log.Info("connection monitor active", "interval", a.cfg.ConnectionInterval.String())
+		go a.loop(ctx, a.cfg.ConnectionInterval, func() {
+			for _, conn := range connMon.Poll() {
+				enqueue(constants.TypeNetworkConnection, conn.Payload())
+			}
+		})
+	}
+
 	if a.cfg.MetricsInterval > 0 {
 		go a.loop(ctx, a.cfg.MetricsInterval, func() {
 			a.logStatus(batcher)
