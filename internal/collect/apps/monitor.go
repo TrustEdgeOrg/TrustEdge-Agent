@@ -143,6 +143,37 @@ func artifactFromEntry(entry InventoryEntry) inventoryArtifact {
 	setIfNonEmpty(payload, "package_identifier", entry.Identity.PackageIdentifier)
 	setIfNonEmpty(payload, "entry_point", entry.Identity.EntryPoint)
 	setIfNonEmpty(payload, "interpreter", entry.Identity.Interpreter)
+	payload["serving"] = entry.Serving
+	if entry.Exposure != "" {
+		payload["exposure"] = entry.Exposure
+	}
+	if len(entry.Listeners) > 0 {
+		listeners := make([]any, 0, len(entry.Listeners))
+		for _, l := range entry.Listeners {
+			listeners = append(listeners, map[string]any{
+				"addr":     l.Addr,
+				"port":     l.Port,
+				"protocol": l.Protocol,
+			})
+		}
+		payload["listeners"] = listeners
+	}
+	if entry.ModelsAvailable > 0 {
+		payload["models_available"] = entry.ModelsAvailable
+	}
+	setIfNonEmpty(payload, "model_format", entry.ModelFormat)
+	setIfNonEmpty(payload, "runtime_version", entry.RuntimeVersion)
+	if len(entry.LocalClients) > 0 {
+		clients := make([]any, 0, len(entry.LocalClients))
+		for _, c := range entry.LocalClients {
+			m := map[string]any{"pid": c.PID, "executable": c.Executable}
+			if c.ProductID != "" {
+				m["product_id"] = c.ProductID
+			}
+			clients = append(clients, m)
+		}
+		payload["local_clients"] = clients
+	}
 	fp := fingerprintPayload(payload)
 	return inventoryArtifact{ID: id, Fingerprint: fp, Payload: payload}
 }

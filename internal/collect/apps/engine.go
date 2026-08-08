@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/network"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/process"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/identity"
 )
@@ -14,28 +15,38 @@ import (
 // ProcessLister returns currently running processes.
 type ProcessLister func() ([]process.ProcessInfo, error)
 
+// ListenerLister returns TCP LISTEN sockets with PID attribution.
+type ListenerLister func() ([]network.ListeningSocket, error)
+
+// LoopbackConnLister returns loopback ESTABLISHED sockets for local-AI correlation.
+type LoopbackConnLister func() ([]network.LoopbackEstablishedConn, error)
+
 // Engine correlates installed applications and running processes through the
 // shared identity matcher. It does not duplicate identification logic.
 type Engine struct {
-	log        *log.Logger
-	discoverer Discoverer
-	signer     Signer
-	matcher    *identity.Matcher
-	cache      *identity.Cache
-	cliCache   *cliAuxCache
-	listProcs  ProcessLister
-	installs   *installIndex
-	runtime    *runtimeTracker
+	log           *log.Logger
+	discoverer    Discoverer
+	signer        Signer
+	matcher       *identity.Matcher
+	cache         *identity.Cache
+	cliCache      *cliAuxCache
+	listProcs     ProcessLister
+	listListeners ListenerLister
+	listLoopback  LoopbackConnLister
+	installs      *installIndex
+	runtime       *runtimeTracker
 }
 
 // EngineConfig configures a correlation engine.
 type EngineConfig struct {
-	Logger     *log.Logger
-	Discoverer Discoverer
-	Signer     Signer
-	Matcher    *identity.Matcher
-	Cache      *identity.Cache
-	ListProcs  ProcessLister
+	Logger        *log.Logger
+	Discoverer    Discoverer
+	Signer        Signer
+	Matcher       *identity.Matcher
+	Cache         *identity.Cache
+	ListProcs     ProcessLister
+	ListListeners ListenerLister
+	ListLoopback  LoopbackConnLister
 }
 
 // NewEngine constructs a correlation engine with platform defaults.
@@ -60,27 +71,69 @@ func NewEngine(cfg EngineConfig) *Engine {
 	if list == nil {
 		list = process.Snapshot
 	}
+	listenFn := cfg.ListListeners
+	if listenFn == nil {
+		listenFn = network.ListListeningSockets
+	}
+	loopFn := cfg.ListLoopback
+	if loopFn == nil {
+		loopFn = network.ListLoopbackEstablished
+	}
 	return &Engine{
-		log:        cfg.Logger,
-		discoverer: d,
-		signer:     s,
-		matcher:    m,
-		cache:      c,
-		cliCache:   newCLIAuxCache(cliAuxCacheCapacity),
-		listProcs:  list,
-		installs:   newInstallIndex(),
-		runtime:    newRuntimeTracker(),
+		log:           cfg.Logger,
+		discoverer:    d,
+		signer:        s,
+		matcher:       m,
+		cache:         c,
+		cliCache:      newCLIAuxCache(cliAuxCacheCapacity),
+		listProcs:     list,
+		listListeners: listenFn,
+		listLoopback:  loopFn,
+		installs:      newInstallIndex(),
+		runtime:       newRuntimeTracker(),
 	}
 }
 
 // InventoryEntry is one known-AI product installation observation.
 type InventoryEntry struct {
-	Identity         identity.ApplicationIdentity
-	Identification   identity.IdentificationResult
-	Installed        bool
-	Running          bool
-	PIDs             []int
+	Identity       identity.ApplicationIdentity
+	Identification identity.IdentificationResult
+	Installed      bool
+	Running        bool
+	PIDs           []int
+
+	// Local model runtime state (empty/false for non-runtimes).
+	Serving            bool
+	Exposure           string // LOOPBACK_ONLY | LAN_EXPOSED | ALL_INTERFACES | OTHER
+	Listeners          []ListenerInfo
+	ModelsAvailable    int
+	ModelFormat        string
+	ModelActiveUnknown bool
+	LocalClients       []LocalClientInfo
+	RuntimeVersion     string
 }
+
+// ListenerInfo is a process-attributed listening socket (not product identity).
+type ListenerInfo struct {
+	Addr     string
+	Port     int
+	Protocol string
+}
+
+// LocalClientInfo is a loopback client connected to a runtime listener.
+type LocalClientInfo struct {
+	PID        int
+	Executable string
+	ProductID  string
+}
+
+// Network exposure classifications for local model runtime listeners.
+const (
+	ExposureLoopbackOnly  = "LOOPBACK_ONLY"
+	ExposureLANExposed    = "LAN_EXPOSED"
+	ExposureAllInterfaces = "ALL_INTERFACES"
+	ExposureOther         = "OTHER"
+)
 
 // Inventory builds the current known-AI software inventory.
 func (e *Engine) Inventory() ([]InventoryEntry, error) {
@@ -141,6 +194,30 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 	}
 	e.runtime.sync(activeKeys)
 
+	socks, err := e.listListeners()
+	if err != nil {
+		e.logf("known-ai listeners: %v", err)
+		socks = nil
+	}
+	e.attachRuntimeListeners(byPath, socks)
+
+	seenFinger := make(map[*InventoryEntry]struct{})
+	for _, eptr := range byPath {
+		if _, ok := seenFinger[eptr]; ok {
+			continue
+		}
+		seenFinger[eptr] = struct{}{}
+		e.applyRuntimeFingerprint(eptr)
+		e.applyRuntimeArtifacts(eptr)
+	}
+
+	conns, err := e.listLoopback()
+	if err != nil {
+		e.logf("known-ai loopback: %v", err)
+		conns = nil
+	}
+	e.attachLocalClients(byPath, conns)
+
 	out := make([]InventoryEntry, 0, len(byPath))
 	seenPtr := make(map[*InventoryEntry]struct{})
 	for _, eptr := range byPath {
@@ -164,6 +241,82 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 	})
 	e.installs.rebuild(out)
 	return out, nil
+}
+
+func (e *Engine) attachRuntimeListeners(byPath map[string]*InventoryEntry, socks []network.ListeningSocket) {
+	seen := make(map[*InventoryEntry]struct{})
+	for _, eptr := range byPath {
+		if _, ok := seen[eptr]; ok {
+			continue
+		}
+		seen[eptr] = struct{}{}
+		if !isLocalModelRuntime(eptr) {
+			continue
+		}
+		// Docker published ports: attribute without host PID match (listener is com.docker).
+		if strings.HasPrefix(eptr.Identity.Path, "docker://") || eptr.Identity.PackageManager == "docker" {
+			e.attachDockerListeners(eptr)
+			continue
+		}
+		if !eptr.Running || len(eptr.PIDs) == 0 {
+			continue
+		}
+		listeners := listenersForPIDs(socks, eptr.PIDs)
+		eptr.Listeners = listeners
+		if len(listeners) == 0 {
+			eptr.Serving = false
+			eptr.Exposure = ""
+			continue
+		}
+		eptr.Serving = true
+		eptr.Exposure = ClassifyListenerExposure(listeners)
+		if !hasEvidence(eptr.Identification.Matched, identity.EvidenceListener) {
+			eptr.Identification.Matched = append(eptr.Identification.Matched, identity.EvidenceListener)
+		}
+		if eptr.Exposure != "" && !hasEvidence(eptr.Identification.Matched, identity.EvidenceListenerExposure) {
+			eptr.Identification.Matched = append(eptr.Identification.Matched, identity.EvidenceListenerExposure)
+		}
+	}
+}
+
+func (e *Engine) attachDockerListeners(eptr *InventoryEntry) {
+	c, ok := dockerContainerForPath(eptr.Identity.Path)
+	if !ok {
+		return
+	}
+	running := strings.EqualFold(c.Status, "running")
+	eptr.Running = running || eptr.Running
+	eptr.Identification.Running = eptr.Running
+	if !running || len(c.Ports) == 0 {
+		eptr.Serving = false
+		return
+	}
+	var listeners []ListenerInfo
+	for _, p := range c.Ports {
+		listeners = append(listeners, ListenerInfo{
+			Addr:     p.HostIP,
+			Port:     p.HostPort,
+			Protocol: firstNonEmpty(p.Protocol, "tcp"),
+		})
+	}
+	eptr.Listeners = listeners
+	eptr.Serving = true
+	eptr.Exposure = ClassifyListenerExposure(listeners)
+	if !hasEvidence(eptr.Identification.Matched, identity.EvidenceListener) {
+		eptr.Identification.Matched = append(eptr.Identification.Matched, identity.EvidenceListener)
+	}
+	if eptr.Exposure != "" && !hasEvidence(eptr.Identification.Matched, identity.EvidenceListenerExposure) {
+		eptr.Identification.Matched = append(eptr.Identification.Matched, identity.EvidenceListenerExposure)
+	}
+}
+
+func hasEvidence(keys []identity.EvidenceKey, want identity.EvidenceKey) bool {
+	for _, k := range keys {
+		if k == want {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) identifyInstalled(app identity.ApplicationIdentity) InventoryEntry {

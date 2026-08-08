@@ -114,6 +114,22 @@ type KnownAIProduct struct {
 
 	// EntryPoints are accepted package entry-point basenames when known.
 	EntryPoints []string
+
+	// DefaultLocalEndpoints are known localhost endpoints (host:port or URL).
+	// Empty means unresolved — do not invent ports; never identify by port alone.
+	DefaultLocalEndpoints []string
+
+	// ArtifactPathHints are bounded runtime-specific model/config locations
+	// (e.g. "~/.ollama"). Empty means unresolved; never recursively scan home.
+	ArtifactPathHints []string
+
+	// RuntimeFamily groups compatible runtimes (e.g. "llama_cpp_compatible")
+	// when exact product provenance is unavailable.
+	RuntimeFamily string
+
+	// DockerImages are accepted container image name prefixes (e.g. "ollama/ollama").
+	// Matching requires Docker inventory evidence — never port alone.
+	DockerImages []string
 }
 
 // EvidenceKey names a single identity evidence factor.
@@ -133,6 +149,12 @@ const (
 	EvidencePackageProvenance  EvidenceKey = "package_provenance"
 	EvidenceEntryPoint         EvidenceKey = "entry_point"
 	EvidenceInvocationPath     EvidenceKey = "invocation_path"
+	EvidenceListener           EvidenceKey = "listener"
+	EvidenceListenerExposure   EvidenceKey = "listener_exposure"
+	EvidenceRuntimeFingerprint EvidenceKey = "runtime_fingerprint"
+	EvidenceModelArtifact      EvidenceKey = "model_artifact"
+	EvidenceLocalClient        EvidenceKey = "local_client"
+	EvidenceDockerImage        EvidenceKey = "docker_image"
 )
 
 // IdentificationResult is the outcome of matching an ApplicationIdentity

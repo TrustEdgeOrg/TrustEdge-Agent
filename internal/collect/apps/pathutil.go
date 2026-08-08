@@ -15,6 +15,15 @@ func posixPath(p string) string {
 	}
 	// Always rewrite both separators; filepath.ToSlash is a no-op for '\' on Unix.
 	p = strings.ReplaceAll(p, `\`, `/`)
+	// Preserve docker:// (and similar) pseudo-URI paths — path.Clean collapses "//".
+	if i := strings.Index(p, "://"); i > 0 {
+		scheme := p[:i]
+		rest := path.Clean("/" + p[i+3:])
+		if rest == "/" {
+			return scheme + "://"
+		}
+		return scheme + "://" + strings.TrimPrefix(rest, "/")
+	}
 	return path.Clean(p)
 }
 
