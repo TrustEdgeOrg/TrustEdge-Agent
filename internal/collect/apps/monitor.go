@@ -117,28 +117,41 @@ func artifactFromEntry(entry InventoryEntry) inventoryArtifact {
 	matched := evidenceStrings(entry.Identification.Matched)
 	failed := evidenceStrings(entry.Identification.Failed)
 	payload := map[string]any{
-		"id":                 id,
-		"product_id":         p.ID,
-		"product_name":       p.Name,
-		"vendor":             p.Vendor,
-		"category":           string(p.Category),
-		"confidence":         string(entry.Identification.Confidence),
-		"confidence_reason":  identity.ExplainConfidence(entry.Identification),
-		"installed":          entry.Installed,
-		"running":            entry.Running,
-		"path":               path,
-		"bundle_id":          entry.Identity.BundleID,
-		"version":            entry.Identity.Version,
-		"executable":         entry.Identity.Executable,
-		"signing_id":         entry.Identity.SigningIdentifier,
-		"team_id":            entry.Identity.TeamID,
-		"signature_valid":    entry.Identity.SignatureValid,
-		"matched_evidence":   matched,
-		"failed_evidence":    failed,
-		"pids":               intsToAny(entry.PIDs),
+		"id":                id,
+		"product_id":        p.ID,
+		"product_name":      p.Name,
+		"vendor":            p.Vendor,
+		"category":          string(p.Category),
+		"confidence":        string(entry.Identification.Confidence),
+		"confidence_reason": identity.ExplainConfidence(entry.Identification),
+		"installed":         entry.Installed,
+		"running":           entry.Running,
+		"path":              path,
+		"bundle_id":         entry.Identity.BundleID,
+		"version":           firstNonEmpty(entry.Identity.Version, entry.Identity.PackageVersion),
+		"executable":        entry.Identity.Executable,
+		"signing_id":        entry.Identity.SigningIdentifier,
+		"team_id":           entry.Identity.TeamID,
+		"signature_valid":   entry.Identity.SignatureValid,
+		"matched_evidence":  matched,
+		"failed_evidence":   failed,
+		"pids":              intsToAny(entry.PIDs),
 	}
+	setIfNonEmpty(payload, "invocation_path", entry.Identity.InvocationPath)
+	setIfNonEmpty(payload, "resolved_path", entry.Identity.ResolvedPath)
+	setIfNonEmpty(payload, "package_manager", entry.Identity.PackageManager)
+	setIfNonEmpty(payload, "package_identifier", entry.Identity.PackageIdentifier)
+	setIfNonEmpty(payload, "entry_point", entry.Identity.EntryPoint)
+	setIfNonEmpty(payload, "interpreter", entry.Identity.Interpreter)
 	fp := fingerprintPayload(payload)
 	return inventoryArtifact{ID: id, Fingerprint: fp, Payload: payload}
+}
+
+func setIfNonEmpty(m map[string]any, key, val string) {
+	if strings.TrimSpace(val) == "" {
+		return
+	}
+	m[key] = val
 }
 
 func fingerprints(m map[string]inventoryArtifact) map[string]string {

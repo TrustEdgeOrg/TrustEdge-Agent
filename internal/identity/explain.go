@@ -57,15 +57,25 @@ func ExplainConfidence(res IdentificationResult) string {
 	matched := evidenceLabels(res.Matched)
 	failed := evidenceLabels(res.Failed)
 
+	cli := res.Product != nil && (res.Product.Category == ProductCategoryCLIAgent || len(res.Product.BundleIDs) == 0)
+
 	var base string
-	switch level {
-	case ConfidenceVerified:
+	switch {
+	case level == ConfidenceVerified && cli:
+		base = "Strong CLI identity match: package identity and provenance verified"
+	case level == ConfidenceVerified:
 		base = "Strong identity match: bundle, signing, team, and signature all checked out"
-	case ConfidenceHigh:
+	case level == ConfidenceHigh && cli:
+		base = "Strong CLI match: package identity aligned with observed provenance"
+	case level == ConfidenceHigh:
 		base = "Strong match: bundle ID and code signature verified, with signing or team evidence"
-	case ConfidenceMedium:
+	case level == ConfidenceMedium && cli:
+		base = "Partial CLI package evidence; catalog package pins or entry-point checks incomplete"
+	case level == ConfidenceMedium:
 		base = "Partial cryptographic identity match; some strong factors are missing"
-	case ConfidenceLow:
+	case level == ConfidenceLow && cli:
+		base = "Recognized mainly by command name; package identity is unresolved or unmatched"
+	case level == ConfidenceLow:
 		if containsEvidence(res.Failed, EvidenceSignatureValid) ||
 			containsEvidence(res.Failed, EvidenceSigningIdentifier) ||
 			containsEvidence(res.Failed, EvidenceTeamID) {
@@ -73,7 +83,7 @@ func ExplainConfidence(res IdentificationResult) string {
 		} else {
 			base = "Recognized mainly by name or install path; strong identity checks did not pass"
 		}
-	case ConfidenceUnknown:
+	case level == ConfidenceUnknown:
 		base = "Could not confidently identify this application"
 	default:
 		base = "Identification confidence is based on catalog evidence"
