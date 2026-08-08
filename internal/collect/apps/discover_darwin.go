@@ -28,7 +28,10 @@ type darwinDiscoverer struct {
 }
 
 func newPlatformDiscoverer(logger *log.Logger) Discoverer {
-	return &darwinDiscoverer{log: logger}
+	return NewCompositeDiscoverer(
+		&darwinDiscoverer{log: logger},
+		newCLIDiscoverer(logger),
+	)
 }
 
 func (d *darwinDiscoverer) Discover() ([]identity.ApplicationIdentity, error) {
