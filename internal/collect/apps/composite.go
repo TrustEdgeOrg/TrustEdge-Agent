@@ -57,5 +57,9 @@ func NewCompositeDiscoverer(parts ...Discoverer) Discoverer {
 
 // newCLIDiscoverer is overridable in tests.
 var newCLIDiscoverer = func(logger *log.Logger) Discoverer {
-	return &CLIDiscoverer{Log: logger, Catalog: identity.DefaultCatalog()}
+	return &CLIDiscoverer{
+		Log:     logger,
+		Catalog: identity.DefaultCatalog(),
+		Cache:   newCLIAuxCache(cliAuxCacheCapacity),
+	}
 }

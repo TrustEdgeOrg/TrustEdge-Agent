@@ -13,6 +13,7 @@ type CLIDiscoverer struct {
 	Log     *log.Logger
 	Catalog *identity.Catalog
 	RootsFn func() []string
+	Cache   *cliAuxCache
 }
 
 func defaultCLIRoots() []string {
@@ -68,7 +69,7 @@ func (d *CLIDiscoverer) Discover() ([]identity.ApplicationIdentity, error) {
 			if fi.IsDir() {
 				continue
 			}
-			resolved, err := ResolveExecutable(inv)
+			resolved, err := ResolveExecutableCached(d.Cache, inv)
 			if err != nil || resolved.ResolvedPath == "" {
 				d.logf("cli discover: skip %s: %v", inv, err)
 				continue
@@ -95,7 +96,7 @@ func (d *CLIDiscoverer) Discover() ([]identity.ApplicationIdentity, error) {
 				id.Interpreter = interp
 				id.EntryPoint = posixBase(resolved.ResolvedPath)
 			}
-			ApplyPackageProvenance(&id)
+			ApplyPackageProvenanceCached(d.Cache, &id)
 			out = append(out, id)
 		}
 	}

@@ -22,6 +22,7 @@ type Engine struct {
 	signer     Signer
 	matcher    *identity.Matcher
 	cache      *identity.Cache
+	cliCache   *cliAuxCache
 	listProcs  ProcessLister
 }
 
@@ -63,6 +64,7 @@ func NewEngine(cfg EngineConfig) *Engine {
 		signer:     s,
 		matcher:    m,
 		cache:      c,
+		cliCache:   newCLIAuxCache(cliAuxCacheCapacity),
 		listProcs:  list,
 	}
 }
@@ -152,8 +154,11 @@ func (e *Engine) identifyInstalled(app identity.ApplicationIdentity) InventoryEn
 }
 
 func (e *Engine) enrich(app identity.ApplicationIdentity) identity.ApplicationIdentity {
-	ApplyPackageProvenance(&app)
-	target := app.Path
+	ApplyPackageProvenanceCached(e.cliCache, &app)
+	target := app.ResolvedPath
+	if target == "" {
+		target = app.Path
+	}
 	if target == "" {
 		target = app.ExecutablePath
 	}
@@ -252,7 +257,11 @@ func appendPID(pids []int, pid int) []int {
 }
 
 func cacheKeyForApp(app identity.ApplicationIdentity) identity.CacheKey {
-	path := app.Path
+	// Prefer resolved executable path for CLIs so symlink retargets invalidate.
+	path := app.ResolvedPath
+	if path == "" {
+		path = app.Path
+	}
 	if path == "" {
 		path = app.ExecutablePath
 	}

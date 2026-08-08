@@ -7,7 +7,7 @@ import (
 )
 
 // DefaultCacheCapacity is the maximum number of cached application identities.
-const DefaultCacheCapacity = 256
+const DefaultCacheCapacity = 320
 
 // CacheKey uniquely identifies a cached application observation.
 type CacheKey struct {
