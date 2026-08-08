@@ -33,20 +33,22 @@ type Engine struct {
 	listProcs     ProcessLister
 	listListeners ListenerLister
 	listLoopback  LoopbackConnLister
+	extProviders  []ExtensionProvider
 	installs      *installIndex
 	runtime       *runtimeTracker
 }
 
 // EngineConfig configures a correlation engine.
 type EngineConfig struct {
-	Logger        *log.Logger
-	Discoverer    Discoverer
-	Signer        Signer
-	Matcher       *identity.Matcher
-	Cache         *identity.Cache
-	ListProcs     ProcessLister
-	ListListeners ListenerLister
-	ListLoopback  LoopbackConnLister
+	Logger              *log.Logger
+	Discoverer          Discoverer
+	Signer              Signer
+	Matcher             *identity.Matcher
+	Cache               *identity.Cache
+	ListProcs           ProcessLister
+	ListListeners       ListenerLister
+	ListLoopback        LoopbackConnLister
+	ExtensionProviders  []ExtensionProvider
 }
 
 // NewEngine constructs a correlation engine with platform defaults.
@@ -79,6 +81,10 @@ func NewEngine(cfg EngineConfig) *Engine {
 	if loopFn == nil {
 		loopFn = network.ListLoopbackEstablished
 	}
+	exts := cfg.ExtensionProviders
+	if exts == nil {
+		exts = defaultExtensionProviders()
+	}
 	return &Engine{
 		log:           cfg.Logger,
 		discoverer:    d,
@@ -89,6 +95,7 @@ func NewEngine(cfg EngineConfig) *Engine {
 		listProcs:     list,
 		listListeners: listenFn,
 		listLoopback:  loopFn,
+		extProviders:  exts,
 		installs:      newInstallIndex(),
 		runtime:       newRuntimeTracker(),
 	}
@@ -180,6 +187,9 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 			byPath[pathKey(app.InvocationPath)] = eptr
 		}
 	}
+
+	// Extension inventory runs only after host IDE identity is known.
+	e.attachIDEExtensions(byPath)
 
 	// Index installs before process correlation so basename-only EXEC can map
 	// via last-known discovery paths (not agent PATH).

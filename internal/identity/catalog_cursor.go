@@ -60,3 +60,6 @@ func cursorProduct() KnownAIProduct {
 
 // ProductCursorID is the stable catalog key for Cursor.
 const ProductCursorID = "cursor"
+
+// ProductVSCodeID is the stable catalog key for Visual Studio Code (host IDE).
+const ProductVSCodeID = "vscode"
