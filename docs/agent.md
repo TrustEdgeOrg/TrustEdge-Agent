@@ -129,6 +129,7 @@ With `TRUSTEDGE_AGENT_PRODUCTION=1`, tokens stay in the **keyring only** — not
 | `driver_load` | Newly observed loaded driver/kext |
 | `service_install` | Newly observed Windows service or macOS LaunchDaemon |
 | `registry_persistence` | New/changed Windows Run key or macOS LaunchAgent |
+| `known_ai_app` | AI tools inventory upsert/removal (apps, CLI agents, local model runtimes, IDE extensions) |
 
 | Collector | Behavior |
 |-----------|----------|
@@ -137,6 +138,7 @@ With `TRUSTEDGE_AGENT_PRODUCTION=1`, tokens stay in the **keyring only** — not
 | **Actions** | Sample foreground ~5s; emit one summary per ~60s window |
 | **Processes** | Watcher (when available) + poll reconcile + dedup |
 | **Security** | Watcher wake + poll reconcile with silent baseline |
+| **AI inventory** | Timed poll + optional wake from process RuntimeFeed |
 
 Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md).  
 Timers / flush: [Collection & batching](collection.md).  
@@ -160,6 +162,7 @@ Process monitoring includes metadata **and command line** (truncated at 4 KiB):
 ```bash
 export TRUSTEDGE_AGENT_PROCESS_INTERVAL=0      # disable processes
 export TRUSTEDGE_AGENT_SECURITY_INTERVAL=0     # disable security lifecycle
+export TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL=0     # disable AI inventory
 ```
 
 ---

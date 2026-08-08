@@ -59,9 +59,22 @@ Deep OS detail is in the diagrams below.
 | Activity | `action_summary` | Sample 5s · emit 60s |
 | Processes | `process_start` / `process_exit` | Watcher + 10s poll |
 | Security | `driver_load` / `service_install` / `registry_persistence` | Watcher wake + 30s poll |
+| AI inventory | `known_ai_app` | 60s poll + wake from process events |
 
 Turn processes off: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.  
-Turn security off: `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.
+Turn security off: `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.  
+Turn AI inventory off: `TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL=0`.
+
+AI inventory covers verified catalog products across:
+
+| Category | Examples |
+|----------|----------|
+| GUI apps | Cursor, Claude |
+| CLI agents | Claude Code, Codex, Gemini CLI, Copilot CLI |
+| Local model runtimes | Ollama (app or Docker), llama.cpp-family |
+| IDE extensions | GitHub Copilot, Continue, Cline, Roo (Cursor / VS Code hosts) |
+
+Identity uses catalog matching with evidence (path, bundle ID, signing, package, extension ID, Docker image). Collectors stay local — only the upload path sends data over the network.
 
 ---
 

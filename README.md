@@ -46,6 +46,7 @@ Built for laptops and workstations first: lightweight, privacy-aware, and engine
 | **Activity** | `action_summary` | Foreground focus, idle vs active, app switches |
 | **Processes** | `process_start` / `process_exit` | Lifecycle + cmdline (optional; can be disabled) |
 | **Security lifecycle** | `driver_load` / `service_install` / `registry_persistence` | Drivers/kexts, services/LaunchDaemons, Run keys/LaunchAgents |
+| **AI tools inventory** | `known_ai_app` | Installed AI apps, CLI agents, local model runtimes, IDE extensions |
 
 <details>
 <summary><strong>Privacy boundaries</strong> — what we deliberately do not collect</summary>
@@ -57,7 +58,7 @@ Built for laptops and workstations first: lightweight, privacy-aware, and engine
 - Full remote IP connection tables  
 - File contents  
 
-Process command lines are truncated at 4 KiB. Turn process monitoring off with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`; turn security lifecycle monitoring off with `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.
+Process command lines are truncated at 4 KiB. Turn process monitoring off with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`; turn security lifecycle monitoring off with `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`; turn AI inventory off with `TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL=0`.
 
 </details>
 
@@ -66,7 +67,7 @@ Process command lines are truncated at 4 KiB. Turn process monitoring off with `
 ## How it works
 
 1. **Endpoint** — the laptop or workstation running the agent.  
-2. **Collector** — gathers device, network, activity, process, and security signals.  
+2. **Collector** — gathers device, network, activity, process, security, and AI inventory signals.  
 3. **Batch** — groups events in a durable ring.  
 4. **Compress** — zstd when it shrinks the payload.  
 5. **Secure upload** — HTTPS with the device token.  
@@ -90,6 +91,7 @@ More detail: [Docs hub](docs/README.md) · [Architecture](docs/architecture.md) 
 | **Auth** | Device token in OS keyring; concurrent 401s share one re-register |
 | **Efficiency** | Network summary built once per emit; zstd when beneficial |
 | **Activity signal** | Fast foreground sampling (5s) inside slower summary windows (60s) |
+| **AI inventory** | Catalog-matched apps, CLI agents, local model runtimes, and IDE extensions |
 | **Safety defaults** | Ingest URL required — no accidental cleartext default host |
 | **Operability** | `text` / `json` logs + `agent status` metrics interval |
 | **Platforms** | macOS · Linux · Windows; CI builds all three |
