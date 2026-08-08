@@ -1,25 +1,28 @@
 package apps
 
 import (
-	"path/filepath"
+	"path"
 	"strings"
 )
 
 // EnclosingAppPath returns the outermost .app bundle path containing path,
 // or "" if path is not inside an application bundle.
-func EnclosingAppPath(path string) string {
-	path = filepath.Clean(strings.TrimSpace(path))
-	if path == "" || path == "." {
+//
+// Paths are treated as POSIX (slash-separated) so macOS .app logic is stable
+// on Windows CI and matches real EndpointSecurity executable paths.
+func EnclosingAppPath(raw string) string {
+	p := posixPath(raw)
+	if p == "" || p == "." {
 		return ""
 	}
 	var found string
-	dir := path
+	dir := p
 	for {
-		base := filepath.Base(dir)
+		base := path.Base(dir)
 		if strings.HasSuffix(strings.ToLower(base), ".app") {
 			found = dir
 		}
-		parent := filepath.Dir(dir)
+		parent := path.Dir(dir)
 		if parent == dir {
 			break
 		}

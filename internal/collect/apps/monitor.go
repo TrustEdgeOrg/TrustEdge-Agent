@@ -101,8 +101,8 @@ func artifactFromEntry(entry InventoryEntry) inventoryArtifact {
 	if p == nil {
 		return inventoryArtifact{}
 	}
-	path := entry.Identity.Path
-	id := fmt.Sprintf("%s:%s", p.ID, strings.ToLower(path))
+	path := posixPath(entry.Identity.Path)
+	id := fmt.Sprintf("%s:%s", p.ID, pathKey(path))
 	matched := evidenceStrings(entry.Identification.Matched)
 	failed := evidenceStrings(entry.Identification.Failed)
 	payload := map[string]any{

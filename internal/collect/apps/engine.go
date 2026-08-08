@@ -86,9 +86,13 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 
 	byPath := make(map[string]*InventoryEntry)
 	for _, app := range installed {
+		app.Path = posixPath(app.Path)
+		if app.ExecutablePath != "" {
+			app.ExecutablePath = posixPath(app.ExecutablePath)
+		}
 		entry := e.identifyInstalled(app)
 		entry.Installed = true
-		byPath[strings.ToLower(app.Path)] = &entry
+		byPath[pathKey(app.Path)] = &entry
 	}
 
 	procs, err := e.listProcs()
@@ -171,11 +175,12 @@ func (e *Engine) correlateProcess(byPath map[string]*InventoryEntry, proc proces
 	if exe == "" {
 		return
 	}
+	exe = posixPath(exe)
 	appPath := EnclosingAppPath(exe)
 	if appPath == "" {
 		// Bare executable named like a candidate — identify without bundle path.
 		id := identity.ApplicationIdentity{
-			Executable:     filepath.Base(exe),
+			Executable:     posixBase(exe),
 			ExecutablePath: exe,
 			Path:           exe,
 		}
@@ -184,7 +189,7 @@ func (e *Engine) correlateProcess(byPath map[string]*InventoryEntry, proc proces
 			return
 		}
 		// Name-only running process: do not invent an install path.
-		key := "running:" + strings.ToLower(exe)
+		key := "running:" + pathKey(exe)
 		if existing, ok := byPath[key]; ok {
 			existing.Running = true
 			existing.PIDs = appendPID(existing.PIDs, proc.PID)
@@ -202,7 +207,7 @@ func (e *Engine) correlateProcess(byPath map[string]*InventoryEntry, proc proces
 		return
 	}
 
-	key := strings.ToLower(appPath)
+	key := pathKey(appPath)
 	if existing, ok := byPath[key]; ok {
 		existing.Running = true
 		existing.Identification.Running = true
@@ -215,8 +220,13 @@ func (e *Engine) correlateProcess(byPath map[string]*InventoryEntry, proc proces
 	if !ok {
 		app = identity.ApplicationIdentity{
 			Path:           appPath,
-			Executable:     filepath.Base(exe),
+			Executable:     posixBase(exe),
 			ExecutablePath: exe,
+		}
+	} else {
+		app.Path = posixPath(app.Path)
+		if app.ExecutablePath != "" {
+			app.ExecutablePath = posixPath(app.ExecutablePath)
 		}
 	}
 	entry := e.identifyInstalled(app)

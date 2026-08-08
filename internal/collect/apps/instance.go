@@ -1,7 +1,6 @@
 package apps
 
 import (
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -114,19 +113,22 @@ func belongsToBundle(proc process.ProcessInfo, bundle string, entry InventoryEnt
 }
 
 func executableWithinBundle(exe, bundle string) bool {
-	exe = filepath.Clean(exe)
-	bundle = filepath.Clean(bundle)
+	exe = posixPath(exe)
+	bundle = posixPath(bundle)
+	if exe == "" || bundle == "" || exe == "." || bundle == "." {
+		return false
+	}
 	if exe == bundle {
 		return true
 	}
-	prefix := bundle + string(filepath.Separator)
+	prefix := bundle + "/"
 	return strings.HasPrefix(exe, prefix)
 }
 
 func classifyRole(comm, exe string) identity.ProcessRole {
 	name := strings.ToLower(strings.TrimSpace(comm))
 	if name == "" {
-		name = strings.ToLower(filepath.Base(exe))
+		name = strings.ToLower(posixBase(exe))
 	}
 	switch {
 	case strings.Contains(name, "extension"):
@@ -139,7 +141,7 @@ func classifyRole(comm, exe string) identity.ProcessRole {
 		return identity.ProcessRoleHelper
 	case name == "cursor" || !strings.Contains(name, "helper"):
 		// Main app executable basename without Helper suffix.
-		base := strings.ToLower(filepath.Base(exe))
+		base := strings.ToLower(posixBase(exe))
 		if strings.Contains(base, "helper") {
 			return identity.ProcessRoleHelper
 		}
@@ -156,8 +158,8 @@ func classifyRole(comm, exe string) identity.ProcessRole {
 }
 
 func sameExecutable(a, b string) bool {
-	a, b = filepath.Clean(a), filepath.Clean(b)
-	return a != "." && b != "." && strings.EqualFold(a, b)
+	a, b = posixPath(a), posixPath(b)
+	return a != "." && b != "." && a != "" && b != "" && strings.EqualFold(a, b)
 }
 
 func identityRank(c identity.Confidence) int {
