@@ -201,3 +201,7 @@ func writeTestBundle(t *testing.T, appPath string) {
 		t.Fatal(err)
 	}
 }
+
+type discovererFunc func() ([]identity.ApplicationIdentity, error)
+
+func (f discovererFunc) Discover() ([]identity.ApplicationIdentity, error) { return f() }
