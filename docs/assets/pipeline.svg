@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 145" role="img" aria-labelledby="title desc">
-  <title id="title">TrustEdge Agent pipeline</title>
-  <desc id="desc">Endpoint to Collector to Batch to Compress to Secure upload to Agent API to Stream to Detection Attack to Alert</desc>
+  <title id="title">TrustEdge pipeline</title>
+  <desc id="desc">Endpoint to Collector to Durable queue to Compress to Secure upload to Agent API to Stream to Detection to Alert</desc>
   <defs>
     <linearGradient id="arrow" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#60A5FA"/>
@@ -31,12 +31,13 @@
   </g>
   <path d="M218 48 H241 L236 43 M241 48 L236 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- 3 Batch -->
+  <!-- 3 Durable queue -->
   <g transform="translate(295,48)">
     <rect x="-16" y="-14" width="32" height="8" rx="1.5" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.6"/>
     <rect x="-16" y="-3" width="32" height="8" rx="1.5" fill="#BFDBFE" stroke="#2563EB" stroke-width="1.6"/>
     <rect x="-16" y="8" width="32" height="8" rx="1.5" fill="#93C5FD" stroke="#1D4ED8" stroke-width="1.6"/>
-    <text class="lbl" y="42" text-anchor="middle" fill="#1E3A8A">Batch</text>
+    <text class="lbl" y="38" text-anchor="middle" fill="#1E3A8A">Durable</text>
+    <text class="sub" y="52" text-anchor="middle">queue</text>
   </g>
   <path d="M335 48 H358 L353 43 M358 48 L353 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
 
@@ -86,8 +87,7 @@
     <circle cx="-3" cy="-3" r="12" fill="#F5F3FF" stroke="#7C3AED" stroke-width="2.2"/>
     <circle cx="-3" cy="-3" r="5" fill="none" stroke="#8B5CF6" stroke-width="1.8"/>
     <path d="M6 6 L13 13" stroke="#7C3AED" stroke-width="3" stroke-linecap="round"/>
-    <text class="lbl" y="38" text-anchor="middle" fill="#5B21B6">Detection</text>
-    <text class="sub" y="52" text-anchor="middle">Attack</text>
+    <text class="lbl" y="42" text-anchor="middle" fill="#5B21B6">Detection</text>
   </g>
   <path d="M1012 48 H1035 L1030 43 M1035 48 L1030 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
 
