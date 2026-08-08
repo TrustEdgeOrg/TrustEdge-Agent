@@ -19,20 +19,6 @@ func (s stubDiscoverer) Discover() ([]identity.ApplicationIdentity, error) {
 	return s.apps, nil
 }
 
-type stubSigner struct {
-	info SigningInfo
-}
-
-func (s stubSigner) Extract(path string) (SigningInfo, error) {
-	_ = path
-	return s.info, nil
-}
-
-func (s stubSigner) Validate(path string) (bool, error) {
-	_ = path
-	return s.info.SignatureValid, nil
-}
-
 func TestEngineInstalledAndRunning(t *testing.T) {
 	appPath := "/Applications/Cursor.app"
 	disc := stubDiscoverer{apps: []identity.ApplicationIdentity{{
@@ -42,17 +28,7 @@ func TestEngineInstalledAndRunning(t *testing.T) {
 		ExecutablePath: appPath + "/Contents/MacOS/Cursor",
 		Version:        "1.0",
 	}}}
-	signer := stubSigner{info: SigningInfo{
-		SigningIdentifier:  "com.todesktop.230313mzl4w4u92",
-		TeamID:             "VDXQ22DGB9",
-		CertificateSubject: "Developer ID Application: Hilary Stout (VDXQ22DGB9)",
-		SignatureValid:     true,
-		SignatureChecked:   true,
-	}}
-	// ExtractAndValidate will call Validate separately; stub returns valid.
-	signer.info.SignatureChecked = false // Extract alone
-	// Use a custom signer that sets flags via ExtractAndValidate path:
-	full := stubSigner{info: SigningInfo{
+	full := fakeSigner{info: SigningInfo{
 		SigningIdentifier: "com.todesktop.230313mzl4w4u92",
 		TeamID:            "VDXQ22DGB9",
 		SignatureValid:    true,
@@ -98,7 +74,7 @@ func TestEngineInstalledNotRunning(t *testing.T) {
 			BundleID:   "com.todesktop.230313mzl4w4u92",
 			Executable: "Cursor",
 		}}},
-		Signer: stubSigner{info: SigningInfo{
+		Signer: fakeSigner{info: SigningInfo{
 			SigningIdentifier: "com.todesktop.230313mzl4w4u92",
 			TeamID:            "VDXQ22DGB9",
 			SignatureValid:    true,
@@ -120,7 +96,7 @@ func TestEngineInstalledNotRunning(t *testing.T) {
 func TestEngineNameOnlyExecutableNotVerified(t *testing.T) {
 	eng := NewEngine(EngineConfig{
 		Discoverer: stubDiscoverer{},
-		Signer:     stubSigner{},
+		Signer:     fakeSigner{},
 		ListProcs: func() ([]process.ProcessInfo, error) {
 			return []process.ProcessInfo{{
 				PID:        7,
@@ -156,7 +132,7 @@ func TestMonitorBaselineThenDelta(t *testing.T) {
 			BundleID:   "com.todesktop.230313mzl4w4u92",
 			Executable: "Cursor",
 		}}},
-		Signer: stubSigner{info: SigningInfo{
+		Signer: fakeSigner{info: SigningInfo{
 			SigningIdentifier: "com.todesktop.230313mzl4w4u92",
 			TeamID:            "VDXQ22DGB9",
 			SignatureValid:    true,

@@ -98,8 +98,8 @@ func legitAppShared(path string) identity.ApplicationIdentity {
 	}
 }
 
-func verifiedSignerShared() stubSigner {
-	return stubSigner{info: SigningInfo{
+func verifiedSignerShared() fakeSigner {
+	return fakeSigner{info: SigningInfo{
 		SigningIdentifier: "com.todesktop.230313mzl4w4u92",
 		TeamID:            "VDXQ22DGB9",
 		SignatureValid:    true,

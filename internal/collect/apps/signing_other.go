@@ -2,18 +2,19 @@
 
 package apps
 
-type stubSigner struct{}
+// emptySigner leaves signing unresolved on non-macOS builds.
+type emptySigner struct{}
 
 func newPlatformSigner() Signer {
-	return stubSigner{}
+	return emptySigner{}
 }
 
-func (stubSigner) Extract(path string) (SigningInfo, error) {
+func (emptySigner) Extract(path string) (SigningInfo, error) {
 	_ = path
 	return SigningInfo{}, nil
 }
 
-func (stubSigner) Validate(path string) (bool, error) {
+func (emptySigner) Validate(path string) (bool, error) {
 	_ = path
 	return false, nil
 }

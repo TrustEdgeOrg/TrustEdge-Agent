@@ -19,7 +19,11 @@ func (f fakeSigner) Extract(path string) (SigningInfo, error) {
 
 func (f fakeSigner) Validate(path string) (bool, error) {
 	_ = path
-	return f.valid, f.err
+	if f.err != nil {
+		return false, f.err
+	}
+	// Prefer explicit valid; fall back to SignatureValid on info for test fixtures.
+	return f.valid || f.info.SignatureValid, nil
 }
 
 func TestApplySigning(t *testing.T) {
