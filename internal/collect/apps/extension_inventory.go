@@ -39,6 +39,9 @@ func (e *Engine) attachIDEExtensions(byPath map[string]*InventoryEntry) {
 				if !hasEvidence(eptr.Identification.Matched, identity.EvidenceHostIDE) {
 					eptr.Identification.Matched = append(eptr.Identification.Matched, identity.EvidenceHostIDE)
 				}
+				home, _ := homeDirFn()
+				disabled, known := readDisabledExtensionIDs(home, host.ProductID)
+				applyExtensionEnabledState(eptr, disabled, known)
 				byPath[pathKey(app.Path)] = eptr
 			}
 		}
