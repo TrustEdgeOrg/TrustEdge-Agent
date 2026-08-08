@@ -105,6 +105,19 @@ func (m *ProcessMonitor) Observe(c collect.Change) bool {
 		c.Payload["executable"] = row.Executable
 		c.Payload["cmdline"] = row.Cmdline
 		return true
+	case constants.TypeFileOpen:
+		if prev, exists := m.seen[pid]; exists {
+			if stringFromAny(c.Payload["comm"]) == "" {
+				c.Payload["comm"] = prev.Comm
+			}
+			if stringFromAny(c.Payload["executable"]) == "" {
+				c.Payload["executable"] = prev.Executable
+			}
+			if intFromAny(c.Payload["ppid"]) == 0 && prev.PPID != 0 {
+				c.Payload["ppid"] = prev.PPID
+			}
+		}
+		return true
 	default:
 		return true
 	}

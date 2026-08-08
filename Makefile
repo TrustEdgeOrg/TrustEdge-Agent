@@ -6,14 +6,18 @@ build:
 	CGO_ENABLED=0 go build -buildvcs=false -o bin/trustedge-agent ./cmd/trustedge-agent
 
 # Optional: Endpoint Security watcher (needs macOS SDK + signing/entitlements).
+# Force Xcode's macOS SDK so -lEndpointSecurity resolves (CLT SDK lacks it).
 build-cgo:
 	mkdir -p bin
-	CGO_ENABLED=1 go build -buildvcs=false -o bin/trustedge-agent ./cmd/trustedge-agent
+	CGO_ENABLED=1 SDKROOT="$$(xcrun --sdk macosx --show-sdk-path)" \
+		go build -buildvcs=false -o bin/trustedge-agent ./cmd/trustedge-agent
 
 build-all:
 	mkdir -p bin
-	CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -buildvcs=false -o bin/trustedge-agent-darwin-arm64 ./cmd/trustedge-agent
-	CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -buildvcs=false -o bin/trustedge-agent-darwin-amd64 ./cmd/trustedge-agent
+	CGO_ENABLED=1 SDKROOT="$$(xcrun --sdk macosx --show-sdk-path)" GOOS=darwin GOARCH=arm64 \
+		go build -buildvcs=false -o bin/trustedge-agent-darwin-arm64 ./cmd/trustedge-agent
+	CGO_ENABLED=1 SDKROOT="$$(xcrun --sdk macosx --show-sdk-path)" GOOS=darwin GOARCH=amd64 \
+		go build -buildvcs=false -o bin/trustedge-agent-darwin-amd64 ./cmd/trustedge-agent
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -buildvcs=false -o bin/trustedge-agent-linux-amd64 ./cmd/trustedge-agent
 	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -buildvcs=false -o bin/trustedge-agent-windows-amd64.exe ./cmd/trustedge-agent
 

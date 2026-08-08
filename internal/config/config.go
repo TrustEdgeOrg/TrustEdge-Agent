@@ -31,7 +31,10 @@ type AgentConfig struct {
 	ActionSampleInterval time.Duration
 	ProcessInterval      time.Duration
 	SecurityInterval     time.Duration
-	EventBatchSize       int
+	// ConnectionInterval polls established TCP sockets for network_connection
+	// events (pid + remote). 0 disables.
+	ConnectionInterval time.Duration
+	EventBatchSize     int
 	EventBatchFlush      time.Duration
 	EventQueueCapacity   int
 	EventQueuePath       string
@@ -217,6 +220,7 @@ func LoadAgent() AgentConfig {
 		ActionSampleInterval: envDuration("TRUSTEDGE_AGENT_ACTION_SAMPLE_INTERVAL", "", constants.DefaultActionSampleInterval),
 		ProcessInterval:      envDuration("TRUSTEDGE_AGENT_PROCESS_INTERVAL", "TRUSTTWIN_PROCESS_INTERVAL", 10*time.Second),
 		SecurityInterval:     envDuration("TRUSTEDGE_AGENT_SECURITY_INTERVAL", "", 30*time.Second),
+		ConnectionInterval:   envDuration("TRUSTEDGE_AGENT_CONNECTION_INTERVAL", "", 15*time.Second),
 		EventBatchSize:       envInt("TRUSTEDGE_AGENT_EVENT_BATCH_SIZE", "TRUSTTWIN_EVENT_BATCH_SIZE", 32),
 		EventBatchFlush:      envDuration("TRUSTEDGE_AGENT_EVENT_BATCH_FLUSH", "TRUSTTWIN_EVENT_BATCH_FLUSH", 2*time.Second),
 		EventQueueCapacity:   envInt("TRUSTEDGE_AGENT_EVENT_QUEUE_CAPACITY", "", constants.DefaultEventQueueCapacity),
