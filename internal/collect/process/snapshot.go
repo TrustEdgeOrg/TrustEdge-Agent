@@ -4,12 +4,13 @@ package process
 // Used by other collectors (e.g. known-AI correlation) without depending on
 // unexported processRow.
 type ProcessInfo struct {
-	PID        int
-	PPID       int
-	User       string
-	Comm       string
-	Executable string
-	Cmdline    string
+	PID               int
+	PPID              int
+	User              string
+	Comm              string
+	Executable        string
+	Cmdline           string
+	StartTimeUnixNano int64 // 0 when unknown
 }
 
 // Snapshot returns the current process table via the platform listProcesses hook.

@@ -143,15 +143,6 @@ func stringFromAny(v any) string {
 	return strings.TrimSpace(s)
 }
 
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
-}
-
 func (d *darwinDiscoverer) logf(format string, args ...any) {
 	if d.log != nil {
 		d.log.Printf(format, args...)

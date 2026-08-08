@@ -24,6 +24,8 @@ type Engine struct {
 	cache      *identity.Cache
 	cliCache   *cliAuxCache
 	listProcs  ProcessLister
+	installs   *installIndex
+	runtime    *runtimeTracker
 }
 
 // EngineConfig configures a correlation engine.
@@ -66,6 +68,8 @@ func NewEngine(cfg EngineConfig) *Engine {
 		cache:      c,
 		cliCache:   newCLIAuxCache(cliAuxCacheCapacity),
 		listProcs:  list,
+		installs:   newInstallIndex(),
+		runtime:    newRuntimeTracker(),
 	}
 }
 
@@ -92,9 +96,38 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 		if app.ExecutablePath != "" {
 			app.ExecutablePath = posixPath(app.ExecutablePath)
 		}
-		entry := e.identifyInstalled(app)
-		entry.Installed = true
-		byPath[pathKey(app.Path)] = &entry
+		if app.ResolvedPath != "" {
+			app.ResolvedPath = posixPath(app.ResolvedPath)
+		}
+		if app.InvocationPath != "" {
+			app.InvocationPath = posixPath(app.InvocationPath)
+		}
+		eptr := new(InventoryEntry)
+		*eptr = e.identifyInstalled(app)
+		eptr.Installed = true
+		byPath[pathKey(app.Path)] = eptr
+		// Also index by resolved/invocation so runtime path matches land.
+		if app.ResolvedPath != "" {
+			byPath[pathKey(app.ResolvedPath)] = eptr
+		}
+		if app.InvocationPath != "" {
+			byPath[pathKey(app.InvocationPath)] = eptr
+		}
+	}
+
+	// Index installs before process correlation so basename-only EXEC can map
+	// via last-known discovery paths (not agent PATH).
+	{
+		pre := make([]InventoryEntry, 0, len(byPath))
+		seen := make(map[*InventoryEntry]struct{})
+		for _, eptr := range byPath {
+			if _, ok := seen[eptr]; ok {
+				continue
+			}
+			seen[eptr] = struct{}{}
+			pre = append(pre, *eptr)
+		}
+		e.installs.rebuild(pre)
 	}
 
 	procs, err := e.listProcs()
@@ -102,12 +135,19 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 		e.logf("known-ai process list: %v", err)
 		procs = nil
 	}
+	activeKeys := make(map[process.ProcessKey]string)
 	for _, proc := range procs {
-		e.correlateProcess(byPath, proc)
+		e.correlateProcess(byPath, proc, activeKeys)
 	}
+	e.runtime.sync(activeKeys)
 
 	out := make([]InventoryEntry, 0, len(byPath))
+	seenPtr := make(map[*InventoryEntry]struct{})
 	for _, eptr := range byPath {
+		if _, ok := seenPtr[eptr]; ok {
+			continue
+		}
+		seenPtr[eptr] = struct{}{}
 		// Drop entries that never matched a known product.
 		if eptr.Identification.Product == nil {
 			continue
@@ -122,6 +162,7 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 		}
 		return out[i].Identity.Path < out[j].Identity.Path
 	})
+	e.installs.rebuild(out)
 	return out, nil
 }
 
@@ -176,19 +217,30 @@ func (e *Engine) enrich(app identity.ApplicationIdentity) identity.ApplicationId
 	return app
 }
 
-func (e *Engine) correlateProcess(byPath map[string]*InventoryEntry, proc process.ProcessInfo) {
+func (e *Engine) correlateProcess(byPath map[string]*InventoryEntry, proc process.ProcessInfo, activeKeys map[process.ProcessKey]string) {
 	exe := strings.TrimSpace(proc.Executable)
+	if exe == "" {
+		exe = strings.TrimSpace(proc.Comm)
+	}
+	if exe == "" {
+		return
+	}
+	exe = e.resolveRuntimeExecutable(exe, proc.Comm)
 	if exe == "" {
 		return
 	}
 	exe = posixPath(exe)
 	appPath := EnclosingAppPath(exe)
 	if appPath == "" {
-		// Bare executable named like a candidate — identify without bundle path.
+		// CLI / bare executable path.
+		if e.correlateInstalledCLI(byPath, proc, exe, activeKeys) {
+			return
+		}
 		id := identity.ApplicationIdentity{
-			Executable:     posixBase(exe),
+			Executable:     firstNonEmpty(posixBase(exe), proc.Comm),
 			ExecutablePath: exe,
 			Path:           exe,
+			ResolvedPath:   exe,
 		}
 		res := e.matcher.Identify(id)
 		if res.Product == nil {
@@ -199,6 +251,9 @@ func (e *Engine) correlateProcess(byPath map[string]*InventoryEntry, proc proces
 		if existing, ok := byPath[key]; ok {
 			existing.Running = true
 			existing.PIDs = appendPID(existing.PIDs, proc.PID)
+			if activeKeys != nil {
+				activeKeys[proc.Key()] = key
+			}
 			return
 		}
 		res.Running = true
@@ -210,6 +265,9 @@ func (e *Engine) correlateProcess(byPath map[string]*InventoryEntry, proc proces
 			Running:        true,
 			PIDs:           []int{proc.PID},
 		}
+		if activeKeys != nil {
+			activeKeys[proc.Key()] = key
+		}
 		return
 	}
 
@@ -218,6 +276,9 @@ func (e *Engine) correlateProcess(byPath map[string]*InventoryEntry, proc proces
 		existing.Running = true
 		existing.Identification.Running = true
 		existing.PIDs = appendPID(existing.PIDs, proc.PID)
+		if activeKeys != nil {
+			activeKeys[proc.Key()] = key
+		}
 		return
 	}
 
@@ -242,6 +303,78 @@ func (e *Engine) correlateProcess(byPath map[string]*InventoryEntry, proc proces
 	entry.Identification.Installed = true
 	entry.PIDs = []int{proc.PID}
 	byPath[key] = &entry
+	if activeKeys != nil {
+		activeKeys[proc.Key()] = key
+	}
+}
+
+func (e *Engine) correlateInstalledCLI(byPath map[string]*InventoryEntry, proc process.ProcessInfo, exe string, activeKeys map[process.ProcessKey]string) bool {
+	candidates := []string{exe}
+	if id, ok := e.installs.lookupByPath(exe); ok {
+		candidates = append(candidates, id.Path, id.ResolvedPath, id.InvocationPath)
+	}
+	for _, cand := range candidates {
+		cand = posixPath(cand)
+		if cand == "" {
+			continue
+		}
+		if existing, ok := byPath[pathKey(cand)]; ok && existing.Installed {
+			existing.Running = true
+			existing.Identification.Running = true
+			existing.PIDs = appendPID(existing.PIDs, proc.PID)
+			if activeKeys != nil {
+				activeKeys[proc.Key()] = pathKey(cand)
+			}
+			return true
+		}
+	}
+	return false
+}
+
+// resolveRuntimeExecutable maps a process executable to a filesystem path
+// using discovery cache / install index — never the agent process PATH.
+func (e *Engine) resolveRuntimeExecutable(exe, comm string) string {
+	exe = strings.TrimSpace(exe)
+	if exe == "" {
+		exe = strings.TrimSpace(comm)
+	}
+	if exe == "" {
+		return ""
+	}
+	if !basenameOnly(exe) {
+		if r, err := ResolveExecutableCached(e.cliCache, exe); err == nil && r.ResolvedPath != "" {
+			return r.ResolvedPath
+		}
+		return posixPath(exe)
+	}
+	name := exe
+	if installs := e.installs.lookupByName(name); len(installs) > 0 {
+		id := installs[0]
+		if id.ResolvedPath != "" {
+			return id.ResolvedPath
+		}
+		if id.InvocationPath != "" {
+			return id.InvocationPath
+		}
+		return id.Path
+	}
+	if installs := e.installs.lookupByName(comm); len(installs) > 0 {
+		id := installs[0]
+		if id.ResolvedPath != "" {
+			return id.ResolvedPath
+		}
+		return id.Path
+	}
+	// Basename with no known install: keep basename for candidate matching only.
+	return name
+}
+
+// NoteExit clears runtime tracking for a PID (called from RuntimeFeed on EXIT).
+func (e *Engine) NoteExit(pid int) {
+	if e == nil {
+		return
+	}
+	e.runtime.forgetPID(pid)
 }
 
 func appendPID(pids []int, pid int) []int {

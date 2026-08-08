@@ -137,8 +137,11 @@ func (a *Agent) Run(ctx context.Context) error {
 	if a.cfg.ProcessInterval > 0 {
 		procMon := process.NewProcessMonitor(a.stdLog)
 		var aiFeed *apps.RuntimeFeed
+		var aiEngine *apps.Engine
 		if a.cfg.KnownAIInterval > 0 {
+			aiEngine = apps.NewEngine(apps.EngineConfig{Logger: a.stdLog})
 			aiFeed = apps.NewRuntimeFeed(a.stdLog, nil)
+			aiFeed.SetEngine(aiEngine)
 			go aiFeed.Run(ctx)
 		}
 		if watcher := process.NewProcessWatcher(a.stdLog); watcher != nil {
@@ -164,8 +167,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		})
 
 		if a.cfg.KnownAIInterval > 0 {
-			engine := apps.NewEngine(apps.EngineConfig{Logger: a.stdLog})
-			aiMon := apps.NewMonitor(a.stdLog, engine)
+			aiMon := apps.NewMonitor(a.stdLog, aiEngine)
 			a.log.Info("known-ai inventory active", "interval", a.cfg.KnownAIInterval.String())
 			go a.loop(ctx, a.cfg.KnownAIInterval, func() {
 				for _, change := range aiMon.Poll() {
