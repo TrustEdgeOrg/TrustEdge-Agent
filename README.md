@@ -156,11 +156,12 @@ OS matrix: [Collection](docs/collection.md#how-detection-works-per-os).
 cmd/trustedge-agent/     Entrypoint — config, slog, signal lifecycle
 internal/agent/          Runtime, durable ring, batcher, auth, metrics
 internal/collect/        OS collectors + platform watchers
+internal/identity/       AI tools catalog matching / confidence
 internal/api/            HTTPS client (register + events, context-aware)
 internal/credentials/    Device ID + keyring-backed tokens
 internal/codec/          Optional zstd
 internal/config/         Env-based configuration + validation
-docs/                    Hub · architecture · watchers · collection · agent · config
+docs/                    Hub · architecture · collection · agent · config
 ```
 
 ---

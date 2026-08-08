@@ -73,13 +73,13 @@ flowchart LR
 
 | Stage | Behavior |
 |-------|----------|
-| **Collect** | Concurrent collectors: host, network, activity, processes, security, AI inventory |
+| **Collect** | Concurrent collectors: host, network summary, connection samples, activity, processes, security, AI inventory |
 | **Batch** | Events append to a durable ring; flush by size, timer, or shutdown |
 | **Compress** | Apply zstd when the payload is smaller than raw JSON |
 | **Secure upload** | `POST /v1/events` over HTTPS with the device bearer token |
 | **Agent API** | Decompress if needed, validate, accept with `202` |
 | **Stream** | Optional publish (for example Kafka `trustedge.agent.events`) |
-| **Detection → Alert** | TrustEdge evaluates rules and surfaces alerts |
+| **Detection → Alert** | TrustEdge evaluates rules, behavior, and AI activity → alerts |
 
 Collector timing and flush edge cases: [Collection & batching](collection.md).
 
@@ -139,12 +139,13 @@ When the ring is full, the oldest pending events are overwritten. Events not flu
 |-----------|---------------|---------|
 | Host | `client_details` | Startup, then every `DetailsInterval` (60s) |
 | Network | `network_summary` | Link/IP change (debounced) + heartbeat |
+| Connections | `network_connection` | Poll (`ConnectionInterval`, 15s); new ESTABLISHED TCP only |
 | Activity | `action_summary` | Sample every 5s; emit every 60s |
 | Processes | `process_start` / `process_exit` | OS watcher + poll (10s) |
 | Security | `driver_load` / `service_install` / `registry_persistence` | Watcher wake + poll (30s) |
 | AI inventory | `known_ai_app` | Poll (`KnownAIInterval`, 60s) + wake from process RuntimeFeed |
 
-Disable AI inventory with `TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL=0`.
+Disable: processes `PROCESS_INTERVAL=0` · security `SECURITY_INTERVAL=0` · AI inventory `KNOWN_AI_INTERVAL=0` · connections `CONNECTION_INTERVAL=0` (all `TRUSTEDGE_AGENT_*`).
 
 ### Hybrid process monitoring
 
@@ -241,11 +242,13 @@ Ingest storage and stream publishing are owned by [TrustEdge-Agent-API](https://
 cmd/trustedge-agent/     Entrypoint — config, slog, signal lifecycle
 internal/agent/          Runtime, durable ring, batcher, auth, metrics
 internal/collect/        OS collectors and platform watchers
+internal/identity/       AI tools catalog matching / confidence
 internal/api/            HTTPS client (register + events)
 internal/credentials/    Device ID file and keyring tokens
 internal/codec/          Optional zstd
 internal/config/         Environment-based configuration
 internal/models/         Event envelopes and payloads
+internal/constants/      Event type names and shared defaults
 docs/                    Architecture, collection, agent, configuration
 ```
 

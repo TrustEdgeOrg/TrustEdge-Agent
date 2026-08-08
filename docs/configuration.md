@@ -70,6 +70,7 @@ export TRUSTEDGE_AGENT_ENROLL_TOKEN=<from your API>
 | `TRUSTEDGE_AGENT_PROCESS_INTERVAL` | `10` | Process poll; `0` disables process monitoring |
 | `TRUSTEDGE_AGENT_SECURITY_INTERVAL` | `30` | Security lifecycle poll; `0` disables |
 | `TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL` | `60` | AI tools inventory poll; `0` disables |
+| `TRUSTEDGE_AGENT_CONNECTION_INTERVAL` | `15` | ESTABLISHED TCP connection samples; `0` disables |
 | `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | provider default | Public IP lookup; set `off` to disable |
 
 ---
