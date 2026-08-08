@@ -46,6 +46,20 @@ func EvidenceLabel(key EvidenceKey) string {
 		return "local client"
 	case EvidenceDockerImage:
 		return "Docker image"
+	case EvidenceExtensionID:
+		return "extension ID"
+	case EvidenceExtensionPublisher:
+		return "extension publisher"
+	case EvidenceExtensionPackage:
+		return "extension package"
+	case EvidenceHostIDE:
+		return "host IDE"
+	case EvidenceExtensionEnabled:
+		return "extension enabled"
+	case EvidenceExtensionActive:
+		return "extension active"
+	case EvidenceMCPConfigured:
+		return "MCP configured"
 	default:
 		return strings.ReplaceAll(string(key), "_", " ")
 	}

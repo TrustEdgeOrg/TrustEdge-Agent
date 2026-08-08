@@ -130,6 +130,14 @@ type KnownAIProduct struct {
 	// DockerImages are accepted container image name prefixes (e.g. "ollama/ollama").
 	// Matching requires Docker inventory evidence — never port alone.
 	DockerImages []string
+
+	// ExtensionIDs are canonical VS Code-compatible extension identifiers
+	// (publisher.name). Empty means not an IDE-extension product. Never invent IDs.
+	ExtensionIDs []string
+
+	// HostIDEProductIDs lists catalog product IDs of supported host IDEs
+	// (e.g. "cursor", "vscode"). Empty means any VS Code-compatible host.
+	HostIDEProductIDs []string
 }
 
 // EvidenceKey names a single identity evidence factor.
@@ -155,6 +163,19 @@ const (
 	EvidenceModelArtifact      EvidenceKey = "model_artifact"
 	EvidenceLocalClient        EvidenceKey = "local_client"
 	EvidenceDockerImage        EvidenceKey = "docker_image"
+	EvidenceExtensionID        EvidenceKey = "extension_id"
+	EvidenceExtensionPublisher EvidenceKey = "extension_publisher"
+	EvidenceExtensionPackage   EvidenceKey = "extension_package"
+	EvidenceHostIDE            EvidenceKey = "host_ide"
+	EvidenceExtensionEnabled   EvidenceKey = "extension_enabled"
+	EvidenceExtensionActive    EvidenceKey = "extension_active"
+	EvidenceMCPConfigured      EvidenceKey = "mcp_configured"
+)
+
+// Package managers used for IDE extension ApplicationIdentity rows.
+const (
+	PackageManagerVSCodeExtension = "vscode_extension"
+	PackageManagerCursorExtension = "cursor_extension"
 )
 
 // IdentificationResult is the outcome of matching an ApplicationIdentity

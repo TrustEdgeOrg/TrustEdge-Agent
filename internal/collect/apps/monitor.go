@@ -143,6 +143,20 @@ func artifactFromEntry(entry InventoryEntry) inventoryArtifact {
 	setIfNonEmpty(payload, "package_identifier", entry.Identity.PackageIdentifier)
 	setIfNonEmpty(payload, "entry_point", entry.Identity.EntryPoint)
 	setIfNonEmpty(payload, "interpreter", entry.Identity.Interpreter)
+	setIfNonEmpty(payload, "extension_id", entry.ExtensionID)
+	setIfNonEmpty(payload, "host_ide_product_id", entry.HostIDEProductID)
+	setIfNonEmpty(payload, "host_ide_path", entry.HostIDEPath)
+	setIfNonEmpty(payload, "profile", entry.ExtensionProfile)
+	if entry.Enabled != nil {
+		payload["enabled"] = *entry.Enabled
+	}
+	if entry.Active != nil {
+		payload["active"] = *entry.Active
+	}
+	if entry.MCPConfigured {
+		payload["mcp_configured"] = true
+	}
+	setIfNonEmpty(payload, "local_model_product_id", entry.LocalModelProductID)
 	payload["serving"] = entry.Serving
 	if entry.Exposure != "" {
 		payload["exposure"] = entry.Exposure

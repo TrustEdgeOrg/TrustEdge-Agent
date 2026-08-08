@@ -111,6 +111,19 @@ type InventoryEntry struct {
 	ModelActiveUnknown bool
 	LocalClients       []LocalClientInfo
 	RuntimeVersion     string
+
+	// IDE extension host relationship (empty for non-extensions).
+	HostIDEProductID string
+	HostIDEPath      string
+	ExtensionID      string
+	ExtensionProfile string
+	// Enabled/Active use pointers so nil means UNKNOWN (distinct from false).
+	Enabled *bool
+	Active  *bool
+	// MCPConfigured is true when a known MCP config file is present for the host.
+	MCPConfigured bool
+	// LocalModelProductID is set when this extension/host correlates to a local runtime.
+	LocalModelProductID string
 }
 
 // ListenerInfo is a process-attributed listening socket (not product identity).
