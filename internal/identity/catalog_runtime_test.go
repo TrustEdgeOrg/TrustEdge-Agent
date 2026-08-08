@@ -28,8 +28,8 @@ func TestDefaultCatalogContainsRuntimes(t *testing.T) {
 		if p.Category == ProductCategoryCLIAgent {
 			t.Fatal("runtime must not be cli_agent")
 		}
-		if len(p.PackageIdentifiers) != 0 || len(p.DefaultLocalEndpoints) != 0 || len(p.ArtifactPathHints) != 0 {
-			t.Fatalf("%s must not invent unresolved fields", tc.id)
+		if len(p.PackageIdentifiers) != 0 || len(p.DefaultLocalEndpoints) != 0 {
+			t.Fatalf("%s must not invent unresolved package/endpoint fields", tc.id)
 		}
 		found := false
 		for _, n := range p.ExecutableNames {

@@ -25,7 +25,10 @@ func ollamaRuntimeProduct() KnownAIProduct {
 		Vendor:          "Ollama",
 		Category:        ProductCategoryLocalModelRuntime,
 		ExecutableNames: []string{"ollama"},
-		// Package/signing/endpoints/artifacts unresolved — not invented.
+		// Artifact path from Ollama public docs (models stored under ~/.ollama).
+		// https://github.com/ollama/ollama/blob/main/docs/faq.md
+		ArtifactPathHints: []string{"~/.ollama"},
+		// Package/signing/endpoints unresolved — not invented.
 	}
 }
 

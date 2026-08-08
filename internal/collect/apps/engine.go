@@ -18,6 +18,9 @@ type ProcessLister func() ([]process.ProcessInfo, error)
 // ListenerLister returns TCP LISTEN sockets with PID attribution.
 type ListenerLister func() ([]network.ListeningSocket, error)
 
+// LoopbackConnLister returns loopback ESTABLISHED sockets for local-AI correlation.
+type LoopbackConnLister func() ([]network.LoopbackEstablishedConn, error)
+
 // Engine correlates installed applications and running processes through the
 // shared identity matcher. It does not duplicate identification logic.
 type Engine struct {
@@ -29,6 +32,7 @@ type Engine struct {
 	cliCache      *cliAuxCache
 	listProcs     ProcessLister
 	listListeners ListenerLister
+	listLoopback  LoopbackConnLister
 	installs      *installIndex
 	runtime       *runtimeTracker
 }
@@ -42,6 +46,7 @@ type EngineConfig struct {
 	Cache         *identity.Cache
 	ListProcs     ProcessLister
 	ListListeners ListenerLister
+	ListLoopback  LoopbackConnLister
 }
 
 // NewEngine constructs a correlation engine with platform defaults.
@@ -70,6 +75,10 @@ func NewEngine(cfg EngineConfig) *Engine {
 	if listenFn == nil {
 		listenFn = network.ListListeningSockets
 	}
+	loopFn := cfg.ListLoopback
+	if loopFn == nil {
+		loopFn = network.ListLoopbackEstablished
+	}
 	return &Engine{
 		log:           cfg.Logger,
 		discoverer:    d,
@@ -79,6 +88,7 @@ func NewEngine(cfg EngineConfig) *Engine {
 		cliCache:      newCLIAuxCache(cliAuxCacheCapacity),
 		listProcs:     list,
 		listListeners: listenFn,
+		listLoopback:  loopFn,
 		installs:      newInstallIndex(),
 		runtime:       newRuntimeTracker(),
 	}
@@ -198,7 +208,15 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 		}
 		seenFinger[eptr] = struct{}{}
 		e.applyRuntimeFingerprint(eptr)
+		e.applyRuntimeArtifacts(eptr)
 	}
+
+	conns, err := e.listLoopback()
+	if err != nil {
+		e.logf("known-ai loopback: %v", err)
+		conns = nil
+	}
+	e.attachLocalClients(byPath, conns)
 
 	out := make([]InventoryEntry, 0, len(byPath))
 	seenPtr := make(map[*InventoryEntry]struct{})
