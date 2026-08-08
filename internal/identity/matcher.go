@@ -35,10 +35,13 @@ func (m *Matcher) Identify(app ApplicationIdentity) IdentificationResult {
 
 	best := IdentificationResult{Confidence: ConfidenceUnknown}
 	for i := range candidates {
-		p := &candidates[i]
-		res := scoreAgainst(app, p)
+		p := candidates[i]
+		res := scoreAgainst(app, &p)
 		if confidenceRank(res.Confidence) > confidenceRank(best.Confidence) {
 			best = res
+			// Heap-allocate so Product outlives this function.
+			cp := p
+			best.Product = &cp
 		}
 	}
 	return best
