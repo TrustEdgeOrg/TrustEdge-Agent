@@ -73,7 +73,7 @@ flowchart LR
 
 | Stage | Behavior |
 |-------|----------|
-| **Collect** | Five concurrent collectors: host, network, activity, processes, security |
+| **Collect** | Concurrent collectors: host, network, activity, processes, security, AI inventory |
 | **Batch** | Events append to a durable ring; flush by size, timer, or shutdown |
 | **Compress** | Apply zstd when the payload is smaller than raw JSON |
 | **Secure upload** | `POST /v1/events` over HTTPS with the device bearer token |
@@ -142,6 +142,9 @@ When the ring is full, the oldest pending events are overwritten. Events not flu
 | Activity | `action_summary` | Sample every 5s; emit every 60s |
 | Processes | `process_start` / `process_exit` | OS watcher + poll (10s) |
 | Security | `driver_load` / `service_install` / `registry_persistence` | Watcher wake + poll (30s) |
+| AI inventory | `known_ai_app` | Poll (`KnownAIInterval`, 60s) + wake from process RuntimeFeed |
+
+Disable AI inventory with `TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL=0`.
 
 ### Hybrid process monitoring
 
