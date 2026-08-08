@@ -11,6 +11,7 @@ import (
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/action"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/apps"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/network"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/process"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/security"
@@ -135,10 +136,18 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	if a.cfg.ProcessInterval > 0 {
 		procMon := process.NewProcessMonitor(a.stdLog)
+		var aiFeed *apps.RuntimeFeed
+		if a.cfg.KnownAIInterval > 0 {
+			aiFeed = apps.NewRuntimeFeed(a.stdLog, nil)
+			go aiFeed.Run(ctx)
+		}
 		if watcher := process.NewProcessWatcher(a.stdLog); watcher != nil {
 			a.log.Info("process watcher active", "mode", "event-driven")
 			go func() {
 				for change := range watcher.Run(ctx) {
+					if aiFeed != nil {
+						aiFeed.ObserveChange(change)
+					}
 					if procMon.Observe(change) {
 						enqueue(change.Type, change.Payload)
 					}
@@ -147,6 +156,42 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 		go a.loop(ctx, a.cfg.ProcessInterval, func() {
 			for _, change := range procMon.Poll() {
+				if aiFeed != nil {
+					aiFeed.ObserveChange(change)
+				}
+				enqueue(change.Type, change.Payload)
+			}
+		})
+
+		if a.cfg.KnownAIInterval > 0 {
+			engine := apps.NewEngine(apps.EngineConfig{Logger: a.stdLog})
+			aiMon := apps.NewMonitor(a.stdLog, engine)
+			a.log.Info("known-ai inventory active", "interval", a.cfg.KnownAIInterval.String())
+			go a.loop(ctx, a.cfg.KnownAIInterval, func() {
+				for _, change := range aiMon.Poll() {
+					enqueue(change.Type, change.Payload)
+				}
+			})
+			if aiFeed != nil {
+				go func() {
+					for {
+						select {
+						case <-ctx.Done():
+							return
+						case <-aiFeed.Wakes():
+							for _, change := range aiMon.Poll() {
+								enqueue(change.Type, change.Payload)
+							}
+						}
+					}
+				}()
+			}
+		}
+	} else if a.cfg.KnownAIInterval > 0 {
+		aiMon := apps.NewMonitor(a.stdLog, apps.NewEngine(apps.EngineConfig{Logger: a.stdLog}))
+		a.log.Info("known-ai inventory active", "interval", a.cfg.KnownAIInterval.String())
+		go a.loop(ctx, a.cfg.KnownAIInterval, func() {
+			for _, change := range aiMon.Poll() {
 				enqueue(change.Type, change.Payload)
 			}
 		})

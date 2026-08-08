@@ -111,6 +111,19 @@ static void trusttwin_es_handler(es_client_t *client, const es_message_t *msg) {
 		cmdline = es_join_exec_args(&msg->event.exec);
 		trusttwinEsDispatch(1, pid, ppid, path, cmdline);
 		break;
+	case ES_EVENT_TYPE_NOTIFY_FORK:
+		// Child process after fork; path is inherited until a later EXEC.
+		// Keep this path cheap: only pid/ppid/path — no identity work here.
+		if (msg->event.fork.child != NULL) {
+			pid = audit_token_to_pid(msg->event.fork.child->audit_token);
+			ppid = (int)msg->event.fork.child->ppid;
+			if (msg->event.fork.child->executable != NULL &&
+				msg->event.fork.child->executable->path.data != NULL) {
+				path = strdup(msg->event.fork.child->executable->path.data);
+			}
+		}
+		trusttwinEsDispatch(4, pid, ppid, path, NULL);
+		break;
 	case ES_EVENT_TYPE_NOTIFY_EXIT:
 		if (msg->process != NULL) {
 			pid = audit_token_to_pid(msg->process->audit_token);
@@ -172,6 +185,7 @@ static void trusttwin_es_delete_client(es_client_t *client) {
 static int trusttwin_es_subscribe_exec_exit(es_client_t *client) {
 	es_event_type_t events[] = {
 		ES_EVENT_TYPE_NOTIFY_EXEC,
+		ES_EVENT_TYPE_NOTIFY_FORK,
 		ES_EVENT_TYPE_NOTIFY_EXIT,
 		ES_EVENT_TYPE_NOTIFY_OPEN,
 	};
@@ -242,7 +256,7 @@ func (w *darwinProcessWatcher) run(ctx context.Context, out chan<- collect.Chang
 		return esReturnError(int(rc))
 	}
 
-	w.logf("process watcher: Endpoint Security active (exec/exit/open)")
+	w.logf("process watcher: Endpoint Security active (exec/fork/exit/open)")
 	<-ctx.Done()
 	return ctx.Err()
 }
@@ -285,6 +299,8 @@ func trusttwinEsDispatch(eventType C.int, pid C.int, ppid C.int, path *C.char, c
 			return
 		}
 		ch = collect.Change{Type: constants.TypeFileOpen, Payload: fileOpenPayload(row, filePath)}
+	case 4:
+		ch = collect.Change{Type: constants.TypeProcessFork, Payload: processPayload(row)}
 	default:
 		return
 	}

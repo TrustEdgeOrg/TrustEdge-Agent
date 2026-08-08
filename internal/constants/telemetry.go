@@ -9,11 +9,13 @@ const (
 	TypeNetworkConnection = "network_connection"
 	TypeActionSummary   = "action_summary"
 	TypeProcessStart    = "process_start"
+	TypeProcessFork     = "process_fork"
 	TypeProcessExit     = "process_exit"
 	TypeFileOpen        = "file_open"
 	TypeDriverLoad      = "driver_load"
 	TypeServiceInstall  = "service_install"
 	TypeRegistryPersist = "registry_persistence"
+	TypeKnownAIApp      = "known_ai_app"
 )
 
 // action_summary.presence values.
