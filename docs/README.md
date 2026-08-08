@@ -1,4 +1,4 @@
-# <img src="assets/agent-icon.svg" alt="" width="32" height="32" align="absmiddle" /> TrustEdge Agent docs
+# <img src="assets/trustedge-icon.svg" alt="" width="32" height="32" align="absmiddle" /> TrustEdge Agent docs
 
 How the endpoint agent collects, buffers, and uploads telemetry.
 
