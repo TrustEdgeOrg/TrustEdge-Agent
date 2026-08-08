@@ -50,11 +50,21 @@ func (m *Matcher) Identify(app ApplicationIdentity) IdentificationResult {
 func (m *Matcher) candidates(app ApplicationIdentity) []KnownAIProduct {
 	var out []KnownAIProduct
 	for _, p := range m.catalog.Products() {
+		extProduct := p.Category == ProductCategoryAIIDEExtension ||
+			p.Category == ProductCategoryAgenticIDEExtension ||
+			len(p.ExtensionIDs) > 0
+		if extProduct {
+			// IDE extensions must candidate-match on canonical publisher.name only.
+			// displayName / folder names alone must never select an extension product.
+			if extensionIDCandidate(app, p) {
+				out = append(out, p)
+			}
+			continue
+		}
 		nameHit := nameMatches(app, p)
 		pathHit := pathMatches(app, p)
 		dockerHit := dockerImageCandidate(app, p)
-		extHit := extensionIDCandidate(app, p)
-		if nameHit || pathHit || dockerHit || extHit {
+		if nameHit || pathHit || dockerHit {
 			out = append(out, p)
 		}
 	}
