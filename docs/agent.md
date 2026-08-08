@@ -1,6 +1,33 @@
 # <img src="assets/icons/agent.svg" width="28" height="28" align="absmiddle" alt="" /> Agent guide
 
-The `trustedge-agent` binary runs on each endpoint (laptop, workstation, or server) and reports device posture to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) over HTTPS. **No VPN required.**
+The `trustedge-agent` binary runs on each endpoint and reports device posture to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) over HTTPS. **No VPN required.**
+
+> **In one breath:** Build once, run on macOS / Linux / Windows, register for a device token in the OS keyring, and keep uploading through offline gaps via a durable ring.
+
+<p align="center">
+  <img src="assets/icons/platforms.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#platforms">Platforms</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/install.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#installation">Install</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/lock.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#credentials-and-state">Credentials</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#telemetry">Telemetry</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/privacy.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#privacy">Privacy</a>
+  &nbsp;·&nbsp;
+  <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" />
+  &nbsp;<a href="#see-also">Related</a>
+</p>
+
+> **Also see**
+> <img src="assets/icons/collection.svg" width="16" height="16" align="absmiddle" alt="" /> [Collection](collection.md)
+> · <img src="assets/icons/config.svg" width="16" height="16" align="absmiddle" alt="" /> [Configuration](configuration.md)
+> · <img src="assets/icons/architecture.svg" width="16" height="16" align="absmiddle" alt="" /> [Docs hub](README.md)
 
 ---
 
@@ -8,7 +35,7 @@ The `trustedge-agent` binary runs on each endpoint (laptop, workstation, or serv
 
 | OS | Default local build | Richer process watcher | Credential store |
 |----|---------------------|------------------------|------------------|
-| **macOS** (arm64 / amd64) | `CGO=0` poll mode | Endpoint Security (needs `make build-cgo` + entitlement) | Keychain |
+| **macOS** (arm64 / amd64) | `CGO=0` poll mode | Endpoint Security (`make build-cgo` + entitlement) | Keychain |
 | **Linux** (amd64) | `CGO=0` poll mode | Netlink PROC connector | Secret Service |
 | **Windows** (amd64) | Poll / ETW depending on build | ETW kernel process (admin) | Credential Manager |
 
@@ -22,7 +49,8 @@ CI builds and tests all three platforms (`.github/workflows/agent-ci.yml`). Defa
 | Windows | Administrator |
 | macOS | Endpoint Security entitlement, signed binary, user approval |
 
-If the watcher cannot start, the agent **falls back to poll-only** process monitoring — no hard failure.
+If the watcher cannot start → **poll-only** — no hard failure.  
+Hybrid design + OS matrix: [Collection](collection.md#how-detection-works-per-os).
 
 ---
 
@@ -59,9 +87,10 @@ export TRUSTEDGE_AGENT_ENROLL_TOKEN=your-enroll-token
 ./bin/trustedge-agent
 ```
 
-Production checklist: set `TRUSTEDGE_AGENT_PRODUCTION=1` so the agent requires **HTTPS** and an enroll token.
-
-> `TRUSTEDGE_AGENT_API_URL` is **required** — there is no baked-in default host.
+| Mode | Requirement |
+|------|-------------|
+| Local / demo | `TRUSTEDGE_AGENT_API_URL` required (no baked-in default host) |
+| Production | `TRUSTEDGE_AGENT_PRODUCTION=1` → **HTTPS** + enroll token |
 
 ---
 
@@ -73,7 +102,7 @@ On first successful register, the agent stores:
 |------|--------|
 | **Device ID** | State JSON (platform path below) |
 | **Device token** | OS keyring (Keychain / Secret Service / Credential Manager) |
-| **Pending events** | Durable ring file next to state (`events.queue.json` by default) |
+| **Pending events** | Durable ring beside state (`events.queue.json`) |
 
 ### Default state paths
 
@@ -83,8 +112,7 @@ On first successful register, the agent stores:
 | Linux | `~/.local/share/TrustEdge Agent/state.json` |
 | Windows | `%APPDATA%\TrustEdge Agent\state.json` |
 
-Override with `TRUSTEDGE_AGENT_STATE_PATH`. Queue path override: `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH`.
-
+Override: `TRUSTEDGE_AGENT_STATE_PATH` · queue: `TRUSTEDGE_AGENT_EVENT_QUEUE_PATH`.  
 With `TRUSTEDGE_AGENT_PRODUCTION=1`, tokens stay in the **keyring only** — not written into `state.json`.
 
 ---
@@ -93,25 +121,28 @@ With `TRUSTEDGE_AGENT_PRODUCTION=1`, tokens stay in the **keyring only** — not
 
 | Event type | What it reports |
 |------------|-----------------|
-| `client_details` | Device identity, OS, arch, agent version, uptime (heartbeat) |
+| `client_details` | Device identity, OS, arch, agent version, uptime |
 | `network_summary` | Public IP, interface type, socket counts, top remote ports |
 | `action_summary` | Foreground focus, idle vs active, app switches |
 | `process_start` | New process: pid, ppid, user, name, path, cmdline |
 | `process_exit` | Exit lifecycle (enriched from start when available) |
-
-Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md).  
-Timers, flush rules, concurrency: [Collection & batching](collection.md).
-
-### How collectors behave
+| `driver_load` | Newly observed loaded driver/kext |
+| `service_install` | Newly observed Windows service or macOS LaunchDaemon |
+| `registry_persistence` | New/changed Windows Run key or macOS LaunchAgent |
+| `known_ai_app` | AI tools inventory upsert/removal (apps, CLI agents, local model runtimes, IDE extensions) |
 
 | Collector | Behavior |
 |-----------|----------|
-| **Client details** | Once at startup, then on `TRUSTEDGE_AGENT_DETAILS_INTERVAL` |
-| **Network** | On interface/address change (debounced) + periodic heartbeat |
-| **Actions** | Sample foreground every ~5s; emit one summary per ~60s window |
+| **Client details** | Once at startup, then on `DETAILS_INTERVAL` |
+| **Network** | On interface/address change (debounced) + heartbeat |
+| **Actions** | Sample foreground ~5s; emit one summary per ~60s window |
 | **Processes** | Watcher (when available) + poll reconcile + dedup |
+| **Security** | Watcher wake + poll reconcile with silent baseline |
+| **AI inventory** | Timed poll + optional wake from process RuntimeFeed |
 
-Public IP comes from a configurable lookup URL (default: ipify). Disable with `TRUSTEDGE_AGENT_PUBLIC_IP_URL=off`.
+Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md).  
+Timers / flush: [Collection & batching](collection.md).  
+Public IP: configurable URL; disable with `TRUSTEDGE_AGENT_PUBLIC_IP_URL=off`.
 
 ---
 
@@ -126,10 +157,12 @@ The agent does **not** collect:
 - Full remote IP connection tables  
 - File contents  
 
-Process monitoring includes metadata **and command line** (truncated at 4 KiB). Turn processes off with:
+Process monitoring includes metadata **and command line** (truncated at 4 KiB):
 
 ```bash
-export TRUSTEDGE_AGENT_PROCESS_INTERVAL=0
+export TRUSTEDGE_AGENT_PROCESS_INTERVAL=0      # disable processes
+export TRUSTEDGE_AGENT_SECURITY_INTERVAL=0     # disable security lifecycle
+export TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL=0     # disable AI inventory
 ```
 
 ---
@@ -171,3 +204,4 @@ Or point at any local [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/Trus
 | <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" /> | [Collection & batching](collection.md) | Collectors, flush triggers, concurrency |
 | <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [Configuration](configuration.md) | Every environment variable |
 | <img src="assets/icons/upload.svg" width="18" height="18" align="absmiddle" alt="" /> | [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP schemas |
+| <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [Docs hub](README.md) | Index of agent docs |

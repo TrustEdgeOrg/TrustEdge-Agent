@@ -10,6 +10,11 @@ import (
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/api"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/action"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/apps"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/network"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/process"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/security"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/config"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/credentials"
@@ -66,7 +71,9 @@ func New(deps Dependencies) *Agent {
 	}
 }
 
-// EnsureRegistered registers the device when no credential token is stored.
+// EnsureRegistered loads stored credentials (if any) and always calls
+// /v1/register so Agent-API can upsert the agent into TrustEdge Postgres.
+// When a token already exists, a re-register failure is non-fatal.
 func (a *Agent) EnsureRegistered(ctx context.Context) error {
 	return a.ensureRegistered(ctx)
 }
@@ -101,7 +108,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		enqueue(constants.TypeClientDetails, a.collector.ClientDetailsPayload())
 	})
 
-	monitor := collect.NewNetworkMonitor(collect.NetworkMonitorConfig{
+	monitor := network.NewNetworkMonitor(network.NetworkMonitorConfig{
 		Debounce:          a.cfg.NetworkDebounce,
 		HeartbeatInterval: a.cfg.NetworkInterval,
 		Logger:            a.stdLog,
@@ -124,15 +131,26 @@ func (a *Agent) Run(ctx context.Context) error {
 	tracker := a.collector.NewActionTracker(sampleEvery)
 	go a.loop(ctx, sampleEvery, tracker.Sample)
 	go a.loop(ctx, a.cfg.ActionInterval, func() {
-		enqueue(constants.TypeActionSummary, collect.ActionSummaryPayload(tracker.SnapshotAndReset()))
+		enqueue(constants.TypeActionSummary, action.ActionSummaryPayload(tracker.SnapshotAndReset()))
 	})
 
 	if a.cfg.ProcessInterval > 0 {
-		procMon := collect.NewProcessMonitor(a.stdLog)
-		if watcher := collect.NewProcessWatcher(a.stdLog); watcher != nil {
+		procMon := process.NewProcessMonitor(a.stdLog)
+		var aiFeed *apps.RuntimeFeed
+		var aiEngine *apps.Engine
+		if a.cfg.KnownAIInterval > 0 {
+			aiEngine = apps.NewEngine(apps.EngineConfig{Logger: a.stdLog})
+			aiFeed = apps.NewRuntimeFeed(a.stdLog, nil)
+			aiFeed.SetEngine(aiEngine)
+			go aiFeed.Run(ctx)
+		}
+		if watcher := process.NewProcessWatcher(a.stdLog); watcher != nil {
 			a.log.Info("process watcher active", "mode", "event-driven")
 			go func() {
 				for change := range watcher.Run(ctx) {
+					if aiFeed != nil {
+						aiFeed.ObserveChange(change)
+					}
 					if procMon.Observe(change) {
 						enqueue(change.Type, change.Payload)
 					}
@@ -141,7 +159,71 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 		go a.loop(ctx, a.cfg.ProcessInterval, func() {
 			for _, change := range procMon.Poll() {
+				if aiFeed != nil {
+					aiFeed.ObserveChange(change)
+				}
 				enqueue(change.Type, change.Payload)
+			}
+		})
+
+		if a.cfg.KnownAIInterval > 0 {
+			aiMon := apps.NewMonitor(a.stdLog, aiEngine)
+			a.log.Info("known-ai inventory active", "interval", a.cfg.KnownAIInterval.String())
+			go a.loop(ctx, a.cfg.KnownAIInterval, func() {
+				for _, change := range aiMon.Poll() {
+					enqueue(change.Type, change.Payload)
+				}
+			})
+			if aiFeed != nil {
+				go func() {
+					for {
+						select {
+						case <-ctx.Done():
+							return
+						case <-aiFeed.Wakes():
+							for _, change := range aiMon.Poll() {
+								enqueue(change.Type, change.Payload)
+							}
+						}
+					}
+				}()
+			}
+		}
+	} else if a.cfg.KnownAIInterval > 0 {
+		aiMon := apps.NewMonitor(a.stdLog, apps.NewEngine(apps.EngineConfig{Logger: a.stdLog}))
+		a.log.Info("known-ai inventory active", "interval", a.cfg.KnownAIInterval.String())
+		go a.loop(ctx, a.cfg.KnownAIInterval, func() {
+			for _, change := range aiMon.Poll() {
+				enqueue(change.Type, change.Payload)
+			}
+		})
+	}
+
+	if a.cfg.SecurityInterval > 0 {
+		secMon := security.NewSecurityMonitor(a.stdLog)
+		if watcher := security.NewSecurityWatcher(a.stdLog); watcher != nil {
+			a.log.Info("security watcher active", "mode", "event-driven")
+			go func() {
+				for range watcher.Run(ctx) {
+					for _, change := range secMon.Poll() {
+						enqueue(change.Type, change.Payload)
+					}
+				}
+			}()
+		}
+		go a.loop(ctx, a.cfg.SecurityInterval, func() {
+			for _, change := range secMon.Poll() {
+				enqueue(change.Type, change.Payload)
+			}
+		})
+	}
+
+	if a.cfg.ConnectionInterval > 0 {
+		connMon := network.NewConnectionMonitor(a.stdLog)
+		a.log.Info("connection monitor active", "interval", a.cfg.ConnectionInterval.String())
+		go a.loop(ctx, a.cfg.ConnectionInterval, func() {
+			for _, conn := range connMon.Poll() {
+				enqueue(constants.TypeNetworkConnection, conn.Payload())
 			}
 		})
 	}

@@ -7,21 +7,33 @@ A focused Go agent that observes device posture on macOS, Linux, and Windows —
 [![Agent CI](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml)
 
 <p align="center">
-  <img src="docs/assets/pipeline.svg" alt="Endpoint → Collector → Batch → Compress → Secure upload → Agent API → Stream → Detection Attack → Alert" width="1000" />
+  <img src="docs/assets/pipeline.svg" alt="Endpoint → Collector → Batch → Compress → Secure upload → Agent API → Stream → Detection → Alert" width="1000" />
+</p>
+
+<p align="center">
+  <a href="docs/README.md">Docs hub</a>
+  &nbsp;·&nbsp;
+  <a href="docs/architecture.md">Architecture</a>
+  &nbsp;·&nbsp;
+  <a href="docs/collection.md">Collection</a>
+  &nbsp;·&nbsp;
+  <a href="docs/agent.md">Agent guide</a>
+  &nbsp;·&nbsp;
+  <a href="docs/configuration.md">Configuration</a>
 </p>
 
 ---
 
 ## Why it exists
 
-Security teams need **endpoint signal** without deploying heavyweight EDR stacks or routing traffic through a VPN. TrustEdge Agent is the thin collector at the edge of that pipeline:
+Security teams need **endpoint signal** without heavyweight EDR stacks or VPN hairpins. TrustEdge Agent is the thin collector at the edge:
 
 | This agent | Hands off to |
 |------------|--------------|
 | Collect & upload telemetry | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) (auth, Kafka) |
 | Survive offline / flaky networks | [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) (rules, alerts, UI) |
 
-Built for laptops and workstations first: lightweight, privacy-aware, and engineered to fail soft when the network disappears.
+Built for laptops and workstations first: lightweight, privacy-aware, and engineered to **fail soft** when the network disappears.
 
 ---
 
@@ -33,6 +45,8 @@ Built for laptops and workstations first: lightweight, privacy-aware, and engine
 | **Network** | `network_summary` | Public IP / posture changes, connection load |
 | **Activity** | `action_summary` | Foreground focus, idle vs active, app switches |
 | **Processes** | `process_start` / `process_exit` | Lifecycle + cmdline (optional; can be disabled) |
+| **Security lifecycle** | `driver_load` / `service_install` / `registry_persistence` | Drivers/kexts, services/LaunchDaemons, Run keys/LaunchAgents |
+| **AI tools inventory** | `known_ai_app` | Installed AI apps, CLI agents, local model runtimes, IDE extensions |
 
 <details>
 <summary><strong>Privacy boundaries</strong> — what we deliberately do not collect</summary>
@@ -44,7 +58,7 @@ Built for laptops and workstations first: lightweight, privacy-aware, and engine
 - Full remote IP connection tables  
 - File contents  
 
-Process command lines are truncated at 4 KiB. Turn process monitoring off with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.
+Process command lines are truncated at 4 KiB. Turn process monitoring off with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`; turn security lifecycle monitoring off with `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`; turn AI inventory off with `TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL=0`.
 
 </details>
 
@@ -53,30 +67,31 @@ Process command lines are truncated at 4 KiB. Turn process monitoring off with `
 ## How it works
 
 1. **Endpoint** — the laptop or workstation running the agent.  
-2. **Collector** — gathers device, network, activity, and process signals.  
-3. **Batch** — groups events for efficient delivery.  
-4. **Compress** — shrinks payloads before they leave the device.  
-5. **Secure upload** — sends over HTTPS with the device token.  
-6. **Agent API** — receives and authenticates ingest traffic.  
-7. **Stream** — forwards events into the TrustEdge pipeline.  
-8. **Detection Attack** — rules analyze the stream for attack risk.  
+2. **Collector** — gathers device, network, activity, process, security, and AI inventory signals.  
+3. **Batch** — groups events in a durable ring.  
+4. **Compress** — zstd when it shrinks the payload.  
+5. **Secure upload** — HTTPS with the device token.  
+6. **Agent API** — receives and authenticates ingest.  
+7. **Stream** — forwards into the TrustEdge pipeline.  
+8. **Detection** — rules analyze the stream.  
 9. **Alert** — operators get notified in TrustEdge.
 
-Want the engineering detail? See [Architecture](docs/architecture.md) · [Collection & batching](docs/collection.md).
+> **Design:** Watchers for latency, polls for correctness — degrade, don’t fail.
+
+More detail: [Docs hub](docs/README.md) · [Architecture](docs/architecture.md) · [Collection](docs/collection.md).
 
 ---
 
 ## Engineering highlights
 
-Things that matter in a production endpoint agent — already in this codebase:
-
 | Area | Design choice |
 |------|----------------|
-| **Reliability** | Durable event ring with overwrite-oldest policy + exponential backoff |
+| **Reliability** | Durable event ring with overwrite-oldest + exponential backoff |
 | **Shutdown** | Context-aware HTTP; short best-effort flush (events remain queued) |
 | **Auth** | Device token in OS keyring; concurrent 401s share one re-register |
 | **Efficiency** | Network summary built once per emit; zstd when beneficial |
 | **Activity signal** | Fast foreground sampling (5s) inside slower summary windows (60s) |
+| **AI inventory** | Catalog-matched apps, CLI agents, local model runtimes, and IDE extensions |
 | **Safety defaults** | Ingest URL required — no accidental cleartext default host |
 | **Operability** | `text` / `json` logs + `agent status` metrics interval |
 | **Platforms** | macOS · Linux · Windows; CI builds all three |
@@ -96,7 +111,6 @@ Things that matter in a production endpoint agent — already in this codebase:
 git clone https://github.com/TrustEdgeOrg/TrustEdge-Agent.git
 cd TrustEdge-Agent
 
-# Point at a local TrustEdge-Agent-API (or capture server)
 export TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:8080
 # export TRUSTEDGE_AGENT_ENROLL_TOKEN=...   # if your API requires enroll
 
@@ -129,7 +143,8 @@ Full knobs: [Configuration](docs/configuration.md).
 | **Linux** | procfs / netlink where available; poll reconciliation |
 | **Windows** | ETW / Win32 probes; poll reconciliation |
 
-Default CI builds use **CGO=0** (portable poll-mode). Optional `make build-cgo` enables richer watchers where the SDK allows.
+Default CI builds use **CGO=0** (portable poll-mode). Optional `make build-cgo` enables richer watchers where the SDK allows.  
+OS matrix: [Collection](docs/collection.md#how-detection-works-per-os).
 
 ---
 
@@ -143,7 +158,7 @@ internal/api/            HTTPS client (register + events, context-aware)
 internal/credentials/    Device ID + keyring-backed tokens
 internal/codec/          Optional zstd
 internal/config/         Env-based configuration + validation
-docs/                    Architecture, collection, agent, configuration
+docs/                    Hub · architecture · watchers · collection · agent · config
 ```
 
 ---
@@ -159,8 +174,9 @@ make capture-events  # local fake ingest on :18080 for capturing payloads
 
 | Doc | Purpose |
 |-----|---------|
+| [Docs hub](docs/README.md) | Index of agent docs |
 | [Architecture](docs/architecture.md) | Lifecycle, upload path, auth recovery |
-| [Collection](docs/collection.md) | Collectors, flush rules, concurrency |
+| [Collection](docs/collection.md) | Collectors, per-OS detection, batching |
 | [Agent guide](docs/agent.md) | Install paths, credentials, platforms |
 | [Configuration](docs/configuration.md) | Every environment variable |
 | [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) | HTTP schemas |

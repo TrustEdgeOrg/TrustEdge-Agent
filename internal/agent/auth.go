@@ -20,6 +20,12 @@ func (a *Agent) ensureRegistered(ctx context.Context) error {
 	if token != "" {
 		a.client.SetDeviceToken(token)
 		a.log.Info("using stored device credentials", "device_id", a.deviceID)
+		// Re-register on every start so Agent-API can upsert into TrustEdge
+		// agents table (stored credentials alone skip /v1/register).
+		if err := a.registerLocked(ctx); err != nil {
+			a.log.Warn("re-register failed; continuing with stored credentials", "err", err, "device_id", a.deviceID)
+			return nil
+		}
 		return nil
 	}
 	return a.registerLocked(ctx)

@@ -4,11 +4,18 @@ import "time"
 
 // Event envelope types (POST /v1/events).
 const (
-	TypeClientDetails  = "client_details"
-	TypeNetworkSummary = "network_summary"
-	TypeActionSummary  = "action_summary"
-	TypeProcessStart   = "process_start"
-	TypeProcessExit    = "process_exit"
+	TypeClientDetails   = "client_details"
+	TypeNetworkSummary  = "network_summary"
+	TypeNetworkConnection = "network_connection"
+	TypeActionSummary   = "action_summary"
+	TypeProcessStart    = "process_start"
+	TypeProcessFork     = "process_fork"
+	TypeProcessExit     = "process_exit"
+	TypeFileOpen        = "file_open"
+	TypeDriverLoad      = "driver_load"
+	TypeServiceInstall  = "service_install"
+	TypeRegistryPersist = "registry_persistence"
+	TypeKnownAIApp      = "known_ai_app"
 )
 
 // action_summary.presence values.
