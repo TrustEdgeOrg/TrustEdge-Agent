@@ -14,7 +14,6 @@ import (
 )
 
 var (
-	homeDirFn = os.UserHomeDir
 	readDirFn = os.ReadDir
 	statFn    = os.Stat
 	plutilFn  = func(path string) ([]byte, error) {
