@@ -21,6 +21,39 @@ func TestIdentifyVerifiedCursor(t *testing.T) {
 	}
 }
 
+func TestIdentifyVerifiedClaude(t *testing.T) {
+	m := NewMatcher(DefaultCatalog())
+	res := m.Identify(ApplicationIdentity{
+		Path:              "/Applications/Claude.app",
+		BundleID:          "com.anthropic.claudefordesktop",
+		Executable:        "Claude",
+		SigningIdentifier: "com.anthropic.claudefordesktop",
+		TeamID:            "Q6L2SF6YDW",
+		SignatureValid:    true,
+		SignatureChecked:  true,
+	})
+	if res.Confidence != ConfidenceVerified {
+		t.Fatalf("Confidence=%s matched=%v failed=%v", res.Confidence, res.Matched, res.Failed)
+	}
+	if res.Product == nil || res.Product.ID != ProductClaudeID {
+		t.Fatalf("Product=%v", res.Product)
+	}
+}
+
+func TestIdentifyClaudeNameAloneNeverVerified(t *testing.T) {
+	m := NewMatcher(DefaultCatalog())
+	res := m.Identify(ApplicationIdentity{
+		Path:       "/tmp/evil/Claude.app",
+		Executable: "Claude",
+	})
+	if res.Confidence == ConfidenceVerified || res.Confidence == ConfidenceHigh {
+		t.Fatalf("name/path alone must not be strong: %s", res.Confidence)
+	}
+	if res.Product == nil || res.Product.ID != ProductClaudeID {
+		t.Fatalf("expected claude candidate, got %v", res.Product)
+	}
+}
+
 func TestIdentifyNameAloneNeverVerified(t *testing.T) {
 	m := NewMatcher(DefaultCatalog())
 	res := m.Identify(ApplicationIdentity{

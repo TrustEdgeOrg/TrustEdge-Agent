@@ -2,13 +2,13 @@ package identity
 
 // builtinProducts is the versionable known-AI catalog.
 //
-// Values marked "verified" were confirmed from an authentic local Cursor.app
-// installation via Info.plist and Security-framework code-signing APIs
-// (not via the codesign CLI as the production extractor). Do not invent
-// bundle IDs, Team IDs, or signing identifiers.
+// Strong identity fields must be verified from an authentic install or vendor
+// artifact (Info.plist + code-signing identity). Do not invent bundle IDs,
+// Team IDs, or signing identifiers.
 func builtinProducts() []KnownAIProduct {
 	return []KnownAIProduct{
 		cursorProduct(),
+		claudeProduct(),
 	}
 }
 
