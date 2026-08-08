@@ -95,6 +95,7 @@ func (d *CLIDiscoverer) Discover() ([]identity.ApplicationIdentity, error) {
 				id.Interpreter = interp
 				id.EntryPoint = posixBase(resolved.ResolvedPath)
 			}
+			ApplyPackageProvenance(&id)
 			out = append(out, id)
 		}
 	}

@@ -152,6 +152,7 @@ func (e *Engine) identifyInstalled(app identity.ApplicationIdentity) InventoryEn
 }
 
 func (e *Engine) enrich(app identity.ApplicationIdentity) identity.ApplicationIdentity {
+	ApplyPackageProvenance(&app)
 	target := app.Path
 	if target == "" {
 		target = app.ExecutablePath
