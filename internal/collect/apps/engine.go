@@ -33,20 +33,22 @@ type Engine struct {
 	listProcs     ProcessLister
 	listListeners ListenerLister
 	listLoopback  LoopbackConnLister
+	extProviders  []ExtensionProvider
 	installs      *installIndex
 	runtime       *runtimeTracker
 }
 
 // EngineConfig configures a correlation engine.
 type EngineConfig struct {
-	Logger        *log.Logger
-	Discoverer    Discoverer
-	Signer        Signer
-	Matcher       *identity.Matcher
-	Cache         *identity.Cache
-	ListProcs     ProcessLister
-	ListListeners ListenerLister
-	ListLoopback  LoopbackConnLister
+	Logger              *log.Logger
+	Discoverer          Discoverer
+	Signer              Signer
+	Matcher             *identity.Matcher
+	Cache               *identity.Cache
+	ListProcs           ProcessLister
+	ListListeners       ListenerLister
+	ListLoopback        LoopbackConnLister
+	ExtensionProviders  []ExtensionProvider
 }
 
 // NewEngine constructs a correlation engine with platform defaults.
@@ -79,6 +81,10 @@ func NewEngine(cfg EngineConfig) *Engine {
 	if loopFn == nil {
 		loopFn = network.ListLoopbackEstablished
 	}
+	exts := cfg.ExtensionProviders
+	if exts == nil {
+		exts = defaultExtensionProviders()
+	}
 	return &Engine{
 		log:           cfg.Logger,
 		discoverer:    d,
@@ -89,6 +95,7 @@ func NewEngine(cfg EngineConfig) *Engine {
 		listProcs:     list,
 		listListeners: listenFn,
 		listLoopback:  loopFn,
+		extProviders:  exts,
 		installs:      newInstallIndex(),
 		runtime:       newRuntimeTracker(),
 	}
@@ -111,6 +118,19 @@ type InventoryEntry struct {
 	ModelActiveUnknown bool
 	LocalClients       []LocalClientInfo
 	RuntimeVersion     string
+
+	// IDE extension host relationship (empty for non-extensions).
+	HostIDEProductID string
+	HostIDEPath      string
+	ExtensionID      string
+	ExtensionProfile string
+	// Enabled/Active use pointers so nil means UNKNOWN (distinct from false).
+	Enabled *bool
+	Active  *bool
+	// MCPConfigured is true when a known MCP config file is present for the host.
+	MCPConfigured bool
+	// LocalModelProductID is set when this extension/host correlates to a local runtime.
+	LocalModelProductID string
 }
 
 // ListenerInfo is a process-attributed listening socket (not product identity).
@@ -168,6 +188,9 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 		}
 	}
 
+	// Extension inventory runs only after host IDE identity is known.
+	e.attachIDEExtensions(byPath)
+
 	// Index installs before process correlation so basename-only EXEC can map
 	// via last-known discovery paths (not agent PATH).
 	{
@@ -194,6 +217,8 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 	}
 	e.runtime.sync(activeKeys)
 
+	e.correlateExtensionRuntime(byPath, procs)
+
 	socks, err := e.listListeners()
 	if err != nil {
 		e.logf("known-ai listeners: %v", err)
@@ -217,6 +242,7 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 		conns = nil
 	}
 	e.attachLocalClients(byPath, conns)
+	e.attachExtensionCapabilities(byPath)
 
 	out := make([]InventoryEntry, 0, len(byPath))
 	seenPtr := make(map[*InventoryEntry]struct{})

@@ -10,5 +10,11 @@ const (
 	ProductCategoryAgentRuntime       ProductCategory = "agent_runtime"
 	ProductCategoryCLIAgent           ProductCategory = "cli_agent"
 	ProductCategoryLocalModelRuntime  ProductCategory = "local_model_runtime"
-	ProductCategoryOther              ProductCategory = "other"
+	// ProductCategoryAIIDEExtension is an IDE extension for completion/chat/explanation
+	// that is not modeled as a fully autonomous multi-step agent.
+	ProductCategoryAIIDEExtension ProductCategory = "ai_ide_extension"
+	// ProductCategoryAgenticIDEExtension is an IDE extension capable of multi-step
+	// agentic workflows (file edit, shell, MCP/tools) per verified product intelligence.
+	ProductCategoryAgenticIDEExtension ProductCategory = "agentic_ide_extension"
+	ProductCategoryOther               ProductCategory = "other"
 )

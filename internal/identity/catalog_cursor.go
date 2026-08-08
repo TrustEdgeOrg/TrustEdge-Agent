@@ -8,10 +8,12 @@ package identity
 func builtinProducts() []KnownAIProduct {
 	out := []KnownAIProduct{
 		cursorProduct(),
+		vscodeProduct(),
 		claudeProduct(),
 	}
 	out = append(out, builtinCLIProducts()...)
 	out = append(out, builtinRuntimeProducts()...)
+	out = append(out, builtinExtensionProducts()...)
 	return out
 }
 
@@ -60,3 +62,6 @@ func cursorProduct() KnownAIProduct {
 
 // ProductCursorID is the stable catalog key for Cursor.
 const ProductCursorID = "cursor"
+
+// ProductVSCodeID is the stable catalog key for Visual Studio Code (host IDE).
+const ProductVSCodeID = "vscode"
