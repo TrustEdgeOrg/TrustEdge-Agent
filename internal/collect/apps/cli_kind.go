@@ -20,14 +20,18 @@ const (
 
 var openFileFn = os.Open
 
-// CatalogCLINames returns exact executable basenames from CLI catalog products.
-func CatalogCLINames(catalog *identity.Catalog) map[string]struct{} {
+// CatalogExecutableNames returns exact executable basenames from catalog
+// products that are discovered via bounded bin roots (CLI agents and local
+// model runtimes).
+func CatalogExecutableNames(catalog *identity.Catalog) map[string]struct{} {
 	out := make(map[string]struct{})
 	if catalog == nil {
 		catalog = identity.DefaultCatalog()
 	}
 	for _, p := range catalog.Products() {
-		if p.Category != identity.ProductCategoryCLIAgent {
+		switch p.Category {
+		case identity.ProductCategoryCLIAgent, identity.ProductCategoryLocalModelRuntime:
+		default:
 			continue
 		}
 		for _, n := range p.ExecutableNames {
@@ -42,6 +46,11 @@ func CatalogCLINames(catalog *identity.Catalog) map[string]struct{} {
 		}
 	}
 	return out
+}
+
+// CatalogCLINames is retained for callers; same as CatalogExecutableNames.
+func CatalogCLINames(catalog *identity.Catalog) map[string]struct{} {
+	return CatalogExecutableNames(catalog)
 }
 
 // DetectExecutableKind inspects file magic / shebang without full parsing.
