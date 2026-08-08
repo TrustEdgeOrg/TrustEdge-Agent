@@ -162,7 +162,9 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 		Confidence: ConfidenceLow, // candidate matched by name/path at minimum
 	}
 
-	cliStyle := p.Category == ProductCategoryCLIAgent || len(p.BundleIDs) == 0
+	cliStyle := p.Category == ProductCategoryCLIAgent ||
+		p.Category == ProductCategoryLocalModelRuntime ||
+		len(p.BundleIDs) == 0
 
 	// Candidate evidence (discovery only).
 	if nameMatches(app, *p) {
@@ -187,7 +189,8 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 
 	var pkgMgrOK, pkgIDOK, entryOK, provOK bool
 	if len(p.PackageManagers) > 0 || len(p.PackageIdentifiers) > 0 || len(p.EntryPoints) > 0 ||
-		app.PackageManager != "" || app.PackageIdentifier != "" || p.Category == ProductCategoryCLIAgent {
+		app.PackageManager != "" || app.PackageIdentifier != "" ||
+		p.Category == ProductCategoryCLIAgent || p.Category == ProductCategoryLocalModelRuntime {
 		pkgMgrOK = evalStringEvidence(app.PackageManager, p.PackageManagers, EvidencePackageManager, &res)
 		pkgIDOK = evalStringEvidence(app.PackageIdentifier, p.PackageIdentifiers, EvidencePackageIdentity, &res)
 		entryOK = evalStringEvidence(entryPointOf(app), p.EntryPoints, EvidenceEntryPoint, &res)

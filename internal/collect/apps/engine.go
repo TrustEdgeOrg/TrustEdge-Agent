@@ -75,12 +75,44 @@ func NewEngine(cfg EngineConfig) *Engine {
 
 // InventoryEntry is one known-AI product installation observation.
 type InventoryEntry struct {
-	Identity         identity.ApplicationIdentity
-	Identification   identity.IdentificationResult
-	Installed        bool
-	Running          bool
-	PIDs             []int
+	Identity       identity.ApplicationIdentity
+	Identification identity.IdentificationResult
+	Installed      bool
+	Running        bool
+	PIDs           []int
+
+	// Local model runtime state (empty/false for non-runtimes).
+	Serving            bool
+	Exposure           string // LOOPBACK_ONLY | LAN_EXPOSED | ALL_INTERFACES | OTHER
+	Listeners          []ListenerInfo
+	ModelsAvailable    int
+	ModelFormat        string
+	ModelActiveUnknown bool
+	LocalClients       []LocalClientInfo
+	RuntimeVersion     string
 }
+
+// ListenerInfo is a process-attributed listening socket (not product identity).
+type ListenerInfo struct {
+	Addr     string
+	Port     int
+	Protocol string
+}
+
+// LocalClientInfo is a loopback client connected to a runtime listener.
+type LocalClientInfo struct {
+	PID        int
+	Executable string
+	ProductID  string
+}
+
+// Network exposure classifications for local model runtime listeners.
+const (
+	ExposureLoopbackOnly  = "LOOPBACK_ONLY"
+	ExposureLANExposed    = "LAN_EXPOSED"
+	ExposureAllInterfaces = "ALL_INTERFACES"
+	ExposureOther         = "OTHER"
+)
 
 // Inventory builds the current known-AI software inventory.
 func (e *Engine) Inventory() ([]InventoryEntry, error) {

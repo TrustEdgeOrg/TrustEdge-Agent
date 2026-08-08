@@ -84,4 +84,7 @@ func TestKnownAIProductAndEvidenceKeys(t *testing.T) {
 	if ProductCategoryCLIAgent != "cli_agent" {
 		t.Fatalf("CLI category=%q", ProductCategoryCLIAgent)
 	}
+	if ProductCategoryLocalModelRuntime != "local_model_runtime" {
+		t.Fatalf("runtime category=%q", ProductCategoryLocalModelRuntime)
+	}
 }

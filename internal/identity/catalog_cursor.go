@@ -11,6 +11,7 @@ func builtinProducts() []KnownAIProduct {
 		claudeProduct(),
 	}
 	out = append(out, builtinCLIProducts()...)
+	out = append(out, builtinRuntimeProducts()...)
 	return out
 }
 

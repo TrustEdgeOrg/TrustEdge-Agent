@@ -34,6 +34,16 @@ func EvidenceLabel(key EvidenceKey) string {
 		return "entry point"
 	case EvidenceInvocationPath:
 		return "invocation path"
+	case EvidenceListener:
+		return "network listener"
+	case EvidenceListenerExposure:
+		return "listener exposure"
+	case EvidenceRuntimeFingerprint:
+		return "runtime fingerprint"
+	case EvidenceModelArtifact:
+		return "model artifact"
+	case EvidenceLocalClient:
+		return "local client"
 	default:
 		return strings.ReplaceAll(string(key), "_", " ")
 	}
@@ -57,22 +67,31 @@ func ExplainConfidence(res IdentificationResult) string {
 	matched := evidenceLabels(res.Matched)
 	failed := evidenceLabels(res.Failed)
 
-	cli := res.Product != nil && (res.Product.Category == ProductCategoryCLIAgent || len(res.Product.BundleIDs) == 0)
+	runtime := res.Product != nil && res.Product.Category == ProductCategoryLocalModelRuntime
+	cli := res.Product != nil && (res.Product.Category == ProductCategoryCLIAgent || len(res.Product.BundleIDs) == 0) && !runtime
 
 	var base string
 	switch {
+	case level == ConfidenceVerified && runtime:
+		base = "Strong local model runtime identity: package identity and provenance verified"
 	case level == ConfidenceVerified && cli:
 		base = "Strong CLI identity match: package identity and provenance verified"
 	case level == ConfidenceVerified:
 		base = "Strong identity match: bundle, signing, team, and signature all checked out"
+	case level == ConfidenceHigh && runtime:
+		base = "Strong local model runtime match: package identity aligned with observed provenance"
 	case level == ConfidenceHigh && cli:
 		base = "Strong CLI match: package identity aligned with observed provenance"
 	case level == ConfidenceHigh:
 		base = "Strong match: bundle ID and code signature verified, with signing or team evidence"
+	case level == ConfidenceMedium && runtime:
+		base = "Partial local model runtime package evidence; catalog pins incomplete"
 	case level == ConfidenceMedium && cli:
 		base = "Partial CLI package evidence; catalog package pins or entry-point checks incomplete"
 	case level == ConfidenceMedium:
 		base = "Partial cryptographic identity match; some strong factors are missing"
+	case level == ConfidenceLow && runtime:
+		base = "Recognized mainly by runtime command name; package identity is unresolved or unmatched; not classified as an AI agent"
 	case level == ConfidenceLow && cli:
 		base = "Recognized mainly by command name; package identity is unresolved or unmatched"
 	case level == ConfidenceLow:
