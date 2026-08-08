@@ -79,7 +79,7 @@ func (m *ProcessMonitor) Observe(c collect.Change) bool {
 	m.ready = true
 
 	switch c.Type {
-	case constants.TypeProcessStart:
+	case constants.TypeProcessStart, constants.TypeProcessFork:
 		if _, exists := m.seen[pid]; exists {
 			return false
 		}
