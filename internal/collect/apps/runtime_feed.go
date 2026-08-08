@@ -5,8 +5,10 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/process"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/constants"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/identity"
 )
@@ -14,11 +16,12 @@ import (
 // RuntimeEvent is a cheap process lifecycle signal from EndpointSecurity or
 // process polling. Expensive identity work must not run on the ES callback path.
 type RuntimeEvent struct {
-	Kind       string // exec | fork | exit
-	PID        int
-	PPID       int
-	Executable string
-	Comm       string
+	Kind              string // exec | fork | exit
+	PID               int
+	PPID              int
+	Executable        string
+	Comm              string
+	StartTimeUnixNano int64
 }
 
 // RuntimeFeed asynchronously feeds process lifecycle events into known-AI
@@ -27,8 +30,12 @@ type RuntimeEvent struct {
 type RuntimeFeed struct {
 	log     *log.Logger
 	matcher *identity.Matcher
+	engine  *Engine
 	events  chan RuntimeEvent
 	wakes   chan struct{}
+
+	mu           sync.Mutex
+	interesting  map[int]process.ProcessKey // PID → key while believed live
 }
 
 // NewRuntimeFeed constructs a bounded async feed.
@@ -37,11 +44,20 @@ func NewRuntimeFeed(logger *log.Logger, matcher *identity.Matcher) *RuntimeFeed 
 		matcher = identity.NewMatcher(identity.DefaultCatalog())
 	}
 	return &RuntimeFeed{
-		log:     logger,
-		matcher: matcher,
-		events:  make(chan RuntimeEvent, 256),
-		wakes:   make(chan struct{}, 1),
+		log:         logger,
+		matcher:     matcher,
+		events:      make(chan RuntimeEvent, 256),
+		wakes:       make(chan struct{}, 1),
+		interesting: make(map[int]process.ProcessKey),
 	}
+}
+
+// SetEngine optionally binds an Engine for EXIT bookkeeping / install lookups.
+func (f *RuntimeFeed) SetEngine(engine *Engine) {
+	if f == nil {
+		return
+	}
+	f.engine = engine
 }
 
 // Wakes returns a channel signaled when inventory should be refreshed soon.
@@ -67,11 +83,12 @@ func (f *RuntimeFeed) ObserveChange(c collect.Change) {
 		return
 	}
 	ev := RuntimeEvent{
-		Kind:       kind,
-		PID:        intFromAny(c.Payload["pid"]),
-		PPID:       intFromAny(c.Payload["ppid"]),
-		Executable: stringFromPayload(c.Payload["executable"]),
-		Comm:       stringFromPayload(c.Payload["comm"]),
+		Kind:              kind,
+		PID:               intFromAny(c.Payload["pid"]),
+		PPID:              intFromAny(c.Payload["ppid"]),
+		Executable:        stringFromPayload(c.Payload["executable"]),
+		Comm:              stringFromPayload(c.Payload["comm"]),
+		StartTimeUnixNano: int64FromAny(c.Payload["start_time_unix_nano"]),
 	}
 	select {
 	case f.events <- ev:
@@ -100,21 +117,44 @@ func (f *RuntimeFeed) Run(ctx context.Context) {
 
 func (f *RuntimeFeed) shouldWake(ev RuntimeEvent) bool {
 	if ev.Kind == "exit" {
-		// Always wake on exit of a previously interesting PID is hard without
-		// state; wake when executable/comm looks like a catalog candidate.
-		return f.looksLikeCandidate(ev)
+		f.mu.Lock()
+		_, tracked := f.interesting[ev.PID]
+		delete(f.interesting, ev.PID)
+		f.mu.Unlock()
+		if f.engine != nil {
+			f.engine.NoteExit(ev.PID)
+		}
+		// Wake when we tracked this PID, or exit path still looks like a candidate.
+		return tracked || f.looksLikeCandidate(ev)
 	}
-	return f.looksLikeCandidate(ev)
+	if !f.looksLikeCandidate(ev) {
+		return false
+	}
+	f.mu.Lock()
+	f.interesting[ev.PID] = process.ProcessKey{
+		PID:               ev.PID,
+		StartTimeUnixNano: ev.StartTimeUnixNano,
+	}
+	f.mu.Unlock()
+	return true
 }
 
 func (f *RuntimeFeed) looksLikeCandidate(ev RuntimeEvent) bool {
+	exe := ev.Executable
+	comm := ev.Comm
+	base := firstNonEmptyStr(comm, filepath.Base(exe))
 	id := identity.ApplicationIdentity{
-		Executable:     firstNonEmptyStr(ev.Comm, filepath.Base(ev.Executable)),
-		ExecutablePath: ev.Executable,
-		Path:           EnclosingAppPath(ev.Executable),
+		Executable:     base,
+		ExecutablePath: exe,
+		Path:           EnclosingAppPath(exe),
 	}
 	if id.Path == "" {
-		id.Path = ev.Executable
+		id.Path = exe
+	}
+	if basenameOnly(exe) || basenameOnly(base) {
+		id.Executable = base
+		id.Path = base
+		id.ExecutablePath = base
 	}
 	// Candidate generation only — do not treat this as verification.
 	res := f.matcher.Identify(id)
@@ -149,6 +189,21 @@ func intFromAny(v any) int {
 		return int(n)
 	case float64:
 		return int(n)
+	default:
+		return 0
+	}
+}
+
+func int64FromAny(v any) int64 {
+	switch n := v.(type) {
+	case int64:
+		return n
+	case int:
+		return int64(n)
+	case int32:
+		return int64(n)
+	case float64:
+		return int64(n)
 	default:
 		return 0
 	}

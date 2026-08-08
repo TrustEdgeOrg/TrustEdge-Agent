@@ -71,8 +71,17 @@ func TestKnownAIProductAndEvidenceKeys(t *testing.T) {
 		EvidenceSHA256,
 		EvidenceCandidateName,
 		EvidenceCandidatePath,
+		EvidenceCommand,
+		EvidencePackageManager,
+		EvidencePackageIdentity,
+		EvidencePackageProvenance,
+		EvidenceEntryPoint,
+		EvidenceInvocationPath,
 	}
-	if len(keys) != 7 {
+	if len(keys) != 13 {
 		t.Fatalf("unexpected evidence key count %d", len(keys))
+	}
+	if ProductCategoryCLIAgent != "cli_agent" {
+		t.Fatalf("CLI category=%q", ProductCategoryCLIAgent)
 	}
 }

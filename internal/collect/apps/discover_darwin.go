@@ -14,7 +14,6 @@ import (
 )
 
 var (
-	homeDirFn = os.UserHomeDir
 	readDirFn = os.ReadDir
 	statFn    = os.Stat
 	plutilFn  = func(path string) ([]byte, error) {
@@ -28,7 +27,10 @@ type darwinDiscoverer struct {
 }
 
 func newPlatformDiscoverer(logger *log.Logger) Discoverer {
-	return &darwinDiscoverer{log: logger}
+	return NewCompositeDiscoverer(
+		&darwinDiscoverer{log: logger},
+		newCLIDiscoverer(logger),
+	)
 }
 
 func (d *darwinDiscoverer) Discover() ([]identity.ApplicationIdentity, error) {
@@ -138,15 +140,6 @@ func stringFromAny(v any) string {
 		return ""
 	}
 	return strings.TrimSpace(s)
-}
-
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 func (d *darwinDiscoverer) logf(format string, args ...any) {
