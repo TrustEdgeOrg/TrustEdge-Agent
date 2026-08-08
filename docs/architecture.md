@@ -3,7 +3,7 @@
 `trustedge-agent` collects endpoint telemetry on the device, buffers it durably, and uploads over HTTPS to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API). The API may publish events into a stream consumed by TrustEdge for detection and alerting.
 
 <p align="center">
-  <img src="assets/pipeline.svg" alt="Endpoint to Collector to Batch to Compress to Secure upload to Agent API to Stream to Detection to Alert" width="980" />
+  <img src="assets/pipeline.svg" alt="Endpoint to Collector to Durable queue to Compress to Secure upload to Agent API to Stream to Detection to Alert" width="980" />
 </p>
 
 <p align="center">
