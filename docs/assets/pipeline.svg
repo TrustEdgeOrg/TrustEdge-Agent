@@ -1,106 +1,116 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 145" role="img" aria-labelledby="title desc">
-  <title id="title">TrustEdge pipeline</title>
-  <desc id="desc">Endpoint to Collector to Durable queue to Compress to Secure upload to Agent API to Stream to Detection to Alert</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 200" role="img" aria-labelledby="pipe-title pipe-desc">
+  <title id="pipe-title">TrustEdge pipeline</title>
+  <desc id="pipe-desc">Endpoint agent collects into a durable queue, uploads over HTTPS to Agent API, streams on Kafka, runs rules-based detection, and raises alerts.</desc>
   <defs>
-    <linearGradient id="arrow" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#60A5FA"/>
-      <stop offset="100%" stop-color="#A78BFA"/>
+    <linearGradient id="pipe-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#EEF2FF"/>
     </linearGradient>
+    <linearGradient id="pipe-flow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="40%" stop-color="#0D9488"/>
+      <stop offset="70%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <marker id="pipe-arr" markerWidth="8" markerHeight="8" refX="6.5" refY="3.5" orient="auto">
+      <path d="M0,0 L6.5,3.5 L0,7 Z" fill="#94A3B8"/>
+    </marker>
+    <filter id="pipe-soft" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#0F172A" flood-opacity="0.06"/>
+    </filter>
     <style>
-      .lbl { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11.5px; font-weight: 700; }
-      .sub { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 9.5px; fill: #64748B; }
+      .title { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; fill: #64748B; }
+      .lead { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 600; fill: #94A3B8; }
+      .h { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 800; fill: #0F172A; }
+      .s { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 10px; font-weight: 600; fill: #64748B; }
+      .num { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 800; fill: #FFFFFF; }
+      .band { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em; fill: #94A3B8; }
     </style>
   </defs>
 
-  <!-- 1 Endpoint -->
-  <g transform="translate(55,48)">
-    <rect x="-18" y="-8" width="36" height="24" rx="2.5" fill="#EFF6FF" stroke="#2563EB" stroke-width="2"/>
-    <rect x="-12" y="-3" width="24" height="14" rx="1" fill="#DBEAFE"/>
-    <path d="M-10 20 H10" stroke="#2563EB" stroke-width="2.2" stroke-linecap="round"/>
-    <text class="lbl" y="42" text-anchor="middle" fill="#1E3A8A">Endpoint</text>
-  </g>
-  <path d="M95 48 H118 L113 43 M118 48 L113 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="1180" height="200" rx="20" fill="url(#pipe-bg)"/>
+  <text class="title" x="32" y="28">PIPELINE</text>
+  <text class="lead" x="124" y="28">Collect locally · deliver securely · detect with rules</text>
 
-  <!-- 2 Collector -->
-  <g transform="translate(175,48)">
-    <circle r="16" fill="#EFF6FF" stroke="#2563EB" stroke-width="2"/>
-    <circle r="4" fill="#2563EB"/>
-    <path d="M-10 -6 A12 12 0 0 1 10 -6" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round"/>
-    <path d="M-14 -11 A17 17 0 0 1 14 -11" fill="none" stroke="#93C5FD" stroke-width="1.8" stroke-linecap="round"/>
-    <text class="lbl" y="42" text-anchor="middle" fill="#1E3A8A">Collector</text>
-  </g>
-  <path d="M218 48 H241 L236 43 M241 48 L236 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="band" x="248" y="52" text-anchor="middle">EDGE</text>
+  <text class="band" x="668" y="52" text-anchor="middle">INGEST · STREAM</text>
+  <text class="band" x="1008" y="52" text-anchor="middle">DETECT · OPERATE</text>
 
-  <!-- 3 Durable queue -->
-  <g transform="translate(295,48)">
-    <rect x="-16" y="-14" width="32" height="8" rx="1.5" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.6"/>
-    <rect x="-16" y="-3" width="32" height="8" rx="1.5" fill="#BFDBFE" stroke="#2563EB" stroke-width="1.6"/>
-    <rect x="-16" y="8" width="32" height="8" rx="1.5" fill="#93C5FD" stroke="#1D4ED8" stroke-width="1.6"/>
-    <text class="lbl" y="38" text-anchor="middle" fill="#1E3A8A">Durable</text>
-    <text class="sub" y="52" text-anchor="middle">queue</text>
-  </g>
-  <path d="M335 48 H358 L353 43 M358 48 L353 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M96 116 H1084" fill="none" stroke="url(#pipe-flow)" stroke-width="2.5" stroke-linecap="round" opacity="0.28"/>
 
-  <!-- 4 Compress -->
-  <g transform="translate(415,48)">
-    <rect x="-10" y="-14" width="20" height="28" rx="2" fill="#EFF6FF" stroke="#2563EB" stroke-width="2"/>
-    <path d="M-16 0 H-12 M10 0 H14" stroke="#3B82F6" stroke-width="2" stroke-linecap="round"/>
-    <path d="M-12 0 l3 -3.5 M-12 0 l3 3.5 M12 0 l-3 -3.5 M12 0 l-3 3.5" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M-5 -4 H5 M-5 4 H5" stroke="#1D4ED8" stroke-width="1.6" stroke-linecap="round"/>
-    <text class="lbl" y="42" text-anchor="middle" fill="#1E3A8A">Compress</text>
+  <!-- 1 Collect -->
+  <g transform="translate(24,72)" filter="url(#pipe-soft)">
+    <circle cx="66" cy="18" r="13" fill="#2563EB"/>
+    <text class="num" x="66" y="22" text-anchor="middle">1</text>
+    <rect y="40" width="132" height="68" rx="14" fill="#FFFFFF" stroke="#BFDBFE" stroke-width="1.5"/>
+    <rect y="40" width="132" height="4" rx="2" fill="#2563EB"/>
+    <text class="h" x="66" y="72" text-anchor="middle">Collect</text>
+    <text class="s" x="66" y="90" text-anchor="middle">local signals</text>
   </g>
-  <path d="M458 48 H481 L476 43 M481 48 L476 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M166 116 H184" stroke="#CBD5E1" stroke-width="2.2" marker-end="url(#pipe-arr)"/>
 
-  <!-- 5 Secure upload -->
-  <g transform="translate(555,48)">
-    <path d="M0 12 L-14 4 V-2
-             C-14 -10 -8 -14 0 -14
-             C8 -14 14 -10 14 -2 V4 Z"
-          fill="#EFF6FF" stroke="#2563EB" stroke-width="2" stroke-linejoin="round"/>
-    <path d="M0 -2 v8 M0 6 l4 -3.5 M0 6 l-4 -3.5" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="0" cy="-5" r="2.2" fill="#2563EB"/>
-    <text class="lbl" y="38" text-anchor="middle" fill="#1E3A8A">Secure</text>
-    <text class="sub" y="52" text-anchor="middle">upload</text>
+  <!-- 2 Queue -->
+  <g transform="translate(194,72)" filter="url(#pipe-soft)">
+    <circle cx="66" cy="18" r="13" fill="#1D4ED8"/>
+    <text class="num" x="66" y="22" text-anchor="middle">2</text>
+    <rect y="40" width="132" height="68" rx="14" fill="#FFFFFF" stroke="#93C5FD" stroke-width="1.5"/>
+    <rect y="40" width="132" height="4" rx="2" fill="#1D4ED8"/>
+    <text class="h" x="66" y="72" text-anchor="middle">Durable queue</text>
+    <text class="s" x="66" y="90" text-anchor="middle">survives offline</text>
   </g>
-  <path d="M605 48 H628 L623 43 M628 48 L623 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M336 116 H354" stroke="#CBD5E1" stroke-width="2.2" marker-end="url(#pipe-arr)"/>
 
-  <!-- 6 Agent API -->
-  <g transform="translate(695,48)">
-    <rect x="-18" y="-14" width="36" height="28" rx="3" fill="#F5F3FF" stroke="#7C3AED" stroke-width="2"/>
-    <path d="M-8 -4 h-4 v8 h4 M8 -4 h4 v8 h-4" fill="none" stroke="#8B5CF6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="0" cy="0" r="2" fill="#7C3AED"/>
-    <text class="lbl" y="38" text-anchor="middle" fill="#5B21B6">Agent API</text>
+  <!-- 3 Upload -->
+  <g transform="translate(364,72)" filter="url(#pipe-soft)">
+    <circle cx="66" cy="18" r="13" fill="#1E40AF"/>
+    <text class="num" x="66" y="22" text-anchor="middle">3</text>
+    <rect y="40" width="132" height="68" rx="14" fill="#FFFFFF" stroke="#BFDBFE" stroke-width="1.5"/>
+    <rect y="40" width="132" height="4" rx="2" fill="#1E40AF"/>
+    <text class="h" x="66" y="72" text-anchor="middle">Secure upload</text>
+    <text class="s" x="66" y="90" text-anchor="middle">HTTPS · token</text>
   </g>
-  <path d="M745 48 H768 L763 43 M768 48 L763 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M506 116 H524" stroke="#CBD5E1" stroke-width="2.2" marker-end="url(#pipe-arr)"/>
 
-  <!-- 7 Stream -->
-  <g transform="translate(830,48)">
-    <path d="M-16 0 C-10 -10 -4 10 2 0 S12 -10 16 0" fill="none" stroke="#7C3AED" stroke-width="2.4" stroke-linecap="round"/>
-    <path d="M-16 8 C-10 -2 -4 18 2 8 S12 -2 16 8" fill="none" stroke="#C4B5FD" stroke-width="2" stroke-linecap="round"/>
-    <path d="M-16 -8 C-10 -18 -4 2 2 -8 S12 -18 16 -8" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round"/>
-    <text class="lbl" y="42" text-anchor="middle" fill="#5B21B6">Stream</text>
+  <!-- 4 Agent API -->
+  <g transform="translate(534,72)" filter="url(#pipe-soft)">
+    <circle cx="66" cy="18" r="13" fill="#0D9488"/>
+    <text class="num" x="66" y="22" text-anchor="middle">4</text>
+    <rect y="40" width="132" height="68" rx="14" fill="#FFFFFF" stroke="#99F6E4" stroke-width="1.5"/>
+    <rect y="40" width="132" height="4" rx="2" fill="#0D9488"/>
+    <text class="h" x="66" y="72" text-anchor="middle">Agent API</text>
+    <text class="s" x="66" y="90" text-anchor="middle">auth · validate</text>
   </g>
-  <path d="M875 48 H898 L893 43 M898 48 L893 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M676 116 H694" stroke="#CBD5E1" stroke-width="2.2" marker-end="url(#pipe-arr)"/>
 
-  <!-- 8 Detection -->
-  <g transform="translate(960,48)">
-    <circle cx="-3" cy="-3" r="12" fill="#F5F3FF" stroke="#7C3AED" stroke-width="2.2"/>
-    <circle cx="-3" cy="-3" r="5" fill="none" stroke="#8B5CF6" stroke-width="1.8"/>
-    <path d="M6 6 L13 13" stroke="#7C3AED" stroke-width="3" stroke-linecap="round"/>
-    <text class="lbl" y="42" text-anchor="middle" fill="#5B21B6">Detection</text>
+  <!-- 5 Stream -->
+  <g transform="translate(704,72)" filter="url(#pipe-soft)">
+    <circle cx="66" cy="18" r="13" fill="#D97706"/>
+    <text class="num" x="66" y="22" text-anchor="middle">5</text>
+    <rect y="40" width="132" height="68" rx="14" fill="#FFFFFF" stroke="#FDE68A" stroke-width="1.5"/>
+    <rect y="40" width="132" height="4" rx="2" fill="#D97706"/>
+    <text class="h" x="66" y="72" text-anchor="middle">Stream</text>
+    <text class="s" x="66" y="90" text-anchor="middle">Kafka</text>
   </g>
-  <path d="M1012 48 H1035 L1030 43 M1035 48 L1030 53" fill="none" stroke="url(#arrow)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M846 116 H864" stroke="#CBD5E1" stroke-width="2.2" marker-end="url(#pipe-arr)"/>
 
-  <!-- 9 Alert -->
-  <g transform="translate(1100,48)">
-    <path d="M0 12
-             C-12 12 -14 2 -14 -2
-             C-14 -10 -8 -14 0 -16
-             C8 -14 14 -10 14 -2
-             C14 2 12 12 0 12 Z"
-          fill="#F5F3FF" stroke="#7C3AED" stroke-width="2" stroke-linejoin="round"/>
-    <path d="M-4 14 C-2 17 2 17 4 14" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="0" cy="-18" r="2" fill="#7C3AED"/>
-    <text class="lbl" y="42" text-anchor="middle" fill="#5B21B6">Alert</text>
+  <!-- 6 Detect -->
+  <g transform="translate(874,72)" filter="url(#pipe-soft)">
+    <circle cx="66" cy="18" r="13" fill="#E11D48"/>
+    <text class="num" x="66" y="22" text-anchor="middle">6</text>
+    <rect y="40" width="132" height="68" rx="14" fill="#FFFFFF" stroke="#FECDD3" stroke-width="1.5"/>
+    <rect y="40" width="132" height="4" rx="2" fill="#E11D48"/>
+    <text class="h" x="66" y="72" text-anchor="middle">Detect</text>
+    <text class="s" x="66" y="90" text-anchor="middle">rules engine</text>
+  </g>
+  <path d="M1016 116 H1034" stroke="#CBD5E1" stroke-width="2.2" marker-end="url(#pipe-arr)"/>
+
+  <!-- 7 Alert -->
+  <g transform="translate(1044,72)" filter="url(#pipe-soft)">
+    <circle cx="56" cy="18" r="13" fill="#059669"/>
+    <text class="num" x="56" y="22" text-anchor="middle">7</text>
+    <rect y="40" width="112" height="68" rx="14" fill="#FFFFFF" stroke="#A7F3D0" stroke-width="1.5"/>
+    <rect y="40" width="112" height="4" rx="2" fill="#059669"/>
+    <text class="h" x="56" y="72" text-anchor="middle">Alert</text>
+    <text class="s" x="56" y="90" text-anchor="middle">console</text>
   </g>
 </svg>

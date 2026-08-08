@@ -7,7 +7,7 @@ A focused Go agent that observes device posture on macOS, Linux, and Windows —
 [![Agent CI](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml)
 
 <p align="center">
-  <img src="docs/assets/pipeline.svg" alt="Endpoint → Collector → Durable queue → Compress → Secure upload → Agent API → Stream → Detection → Alert" width="1000" />
+  <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
 </p>
 
 <p align="center">
