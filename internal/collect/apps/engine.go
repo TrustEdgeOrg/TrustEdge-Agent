@@ -191,6 +191,15 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 	}
 	e.attachRuntimeListeners(byPath, socks)
 
+	seenFinger := make(map[*InventoryEntry]struct{})
+	for _, eptr := range byPath {
+		if _, ok := seenFinger[eptr]; ok {
+			continue
+		}
+		seenFinger[eptr] = struct{}{}
+		e.applyRuntimeFingerprint(eptr)
+	}
+
 	out := make([]InventoryEntry, 0, len(byPath))
 	seenPtr := make(map[*InventoryEntry]struct{})
 	for _, eptr := range byPath {
