@@ -1,4 +1,4 @@
-# <img src="docs/assets/agent-icon.svg" alt="" width="36" height="36" align="absmiddle" /> TrustEdge Agent
+# <img src="docs/assets/trustedge-icon.svg" alt="" width="36" height="36" align="absmiddle" /> TrustEdge Agent
 
 **Cross-platform endpoint telemetry for modern detection.**
 
@@ -7,7 +7,7 @@ A focused Go agent that observes device posture on macOS, Linux, and Windows —
 [![Agent CI](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge-Agent/actions/workflows/agent-ci.yml)
 
 <p align="center">
-  <img src="docs/assets/pipeline.svg" alt="Endpoint → Collector → Durable queue → Compress → Secure upload → Agent API → Stream → Detection → Alert" width="1000" />
+  <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
 </p>
 
 <p align="center">
@@ -42,10 +42,11 @@ Built for laptops and workstations first: lightweight, privacy-aware, and engine
 | Signal | Event types | Useful for |
 |--------|-------------|------------|
 | **Device** | `client_details` | Inventory, OS drift, agent health |
-| **Network** | `network_summary` | Public IP / posture changes, connection load |
+| **Network posture** | `network_summary` | Public IP / posture changes, connection load |
+| **Network connections** | `network_connection` | New ESTABLISHED TCP samples (pid, ports, remote); optional |
 | **Activity** | `action_summary` | Foreground focus, idle vs active, app switches |
 | **Processes** | `process_start` / `process_exit` | Lifecycle + cmdline (optional; can be disabled) |
-| **Security lifecycle** | `driver_load` / `service_install` / `registry_persistence` | Drivers/kexts, services/LaunchDaemons, Run keys/LaunchAgents |
+| **Security lifecycle** | `driver_load` / `service_install` / `registry_persistence` | Drivers/kexts, services/LaunchDaemons, Run keys/LaunchAgents (macOS / Windows) |
 | **AI tools inventory** | `known_ai_app` | Installed AI apps, CLI agents, local model runtimes, IDE extensions |
 
 <details>
@@ -55,10 +56,10 @@ Built for laptops and workstations first: lightweight, privacy-aware, and engine
 - Keystrokes or clipboard  
 - Screenshots  
 - Raw Wi‑Fi SSIDs  
-- Full remote IP connection tables  
+- Full connection table dumps (connection samples are incremental, capped, and can be disabled)  
 - File contents  
 
-Process command lines are truncated at 4 KiB. Turn process monitoring off with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`; turn security lifecycle monitoring off with `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`; turn AI inventory off with `TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL=0`.
+Process command lines are truncated at 4 KiB. Turn process monitoring off with `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`; turn security lifecycle monitoring off with `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`; turn AI inventory off with `TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL=0`; turn connection samples off with `TRUSTEDGE_AGENT_CONNECTION_INTERVAL=0`.
 
 </details>
 
@@ -67,13 +68,13 @@ Process command lines are truncated at 4 KiB. Turn process monitoring off with `
 ## How it works
 
 1. **Endpoint** — the laptop or workstation running the agent.  
-2. **Collector** — gathers device, network, activity, process, security, and AI inventory signals.  
+2. **Collector** — gathers device, network (summary + connections), activity, process, security, and AI inventory signals.  
 3. **Batch** — groups events in a durable ring.  
 4. **Compress** — zstd when it shrinks the payload.  
 5. **Secure upload** — HTTPS with the device token.  
 6. **Agent API** — receives and authenticates ingest.  
 7. **Stream** — forwards into the TrustEdge pipeline.  
-8. **Detection** — rules analyze the stream.  
+8. **Detection** — attack/chain rules, behavior, and AI activity engines analyze the stream.  
 9. **Alert** — operators get notified in TrustEdge.
 
 > **Design:** Watchers for latency, polls for correctness — degrade, don’t fail.
@@ -92,6 +93,7 @@ More detail: [Docs hub](docs/README.md) · [Architecture](docs/architecture.md) 
 | **Efficiency** | Network summary built once per emit; zstd when beneficial |
 | **Activity signal** | Fast foreground sampling (5s) inside slower summary windows (60s) |
 | **AI inventory** | Catalog-matched apps, CLI agents, local model runtimes, and IDE extensions |
+| **Network samples** | Incremental ESTABLISHED TCP samples (`network_connection`); disable with `CONNECTION_INTERVAL=0` |
 | **Safety defaults** | Ingest URL required — no accidental cleartext default host |
 | **Operability** | `text` / `json` logs + `agent status` metrics interval |
 | **Platforms** | macOS · Linux · Windows; CI builds all three |
@@ -189,8 +191,9 @@ make capture-events  # local fake ingest on :18080 for capturing payloads
 |------------|------|
 | **[TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)** | This agent |
 | **[TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)** | Ingest · validate · Kafka |
-| **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | Dashboard · rules · alerts |
-| **[TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)** | Optional VPN enroll client |
+| **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | Dashboard · rules · behavior · AI activity · alerts |
+
+AWS production layout: [TrustEdge deploy docs](https://github.com/TrustEdgeOrg/TrustEdge/blob/main/docs/DEPLOY.md)
 
 ---
 
