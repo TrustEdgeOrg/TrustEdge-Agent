@@ -20,15 +20,27 @@ func builtinRuntimeProducts() []KnownAIProduct {
 
 func ollamaRuntimeProduct() KnownAIProduct {
 	return KnownAIProduct{
-		ID:              ProductOllamaID,
-		Name:            "Ollama",
-		Vendor:          "Ollama",
-		Category:        ProductCategoryLocalModelRuntime,
+		ID:       ProductOllamaID,
+		Name:     "Ollama",
+		Vendor:   "Ollama",
+		Category: ProductCategoryLocalModelRuntime,
+		// Native CLI / helper binary basename.
 		ExecutableNames: []string{"ollama"},
+		// macOS .app install (official Ollama.dmg).
+		CandidateNames: []string{"Ollama"},
+		CandidatePaths: []string{
+			"/Applications/Ollama.app",
+			"~/Applications/Ollama.app",
+		},
+		// CFBundleIdentifier from upstream Info.plist:
+		// https://github.com/ollama/ollama (app/darwin/Ollama.app/Contents/Info.plist)
+		BundleIDs: []string{"com.electron.ollama"},
+		// Official Docker Hub image — match by image ref, never by port alone.
+		DockerImages: []string{"ollama/ollama"},
 		// Artifact path from Ollama public docs (models stored under ~/.ollama).
 		// https://github.com/ollama/ollama/blob/main/docs/faq.md
 		ArtifactPathHints: []string{"~/.ollama"},
-		// Package/signing/endpoints unresolved — not invented.
+		// TeamIDs / SigningIdentifiers / package managers unresolved — not invented.
 	}
 }
 

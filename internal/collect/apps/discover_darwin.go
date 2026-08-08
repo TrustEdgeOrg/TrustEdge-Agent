@@ -30,6 +30,7 @@ func newPlatformDiscoverer(logger *log.Logger) Discoverer {
 	return NewCompositeDiscoverer(
 		&darwinDiscoverer{log: logger},
 		newCLIDiscoverer(logger),
+		newDockerDiscoverer(logger),
 	)
 }
 

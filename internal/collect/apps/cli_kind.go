@@ -22,7 +22,9 @@ var openFileFn = os.Open
 
 // CatalogExecutableNames returns exact executable basenames from catalog
 // products that are discovered via bounded bin roots (CLI agents and local
-// model runtimes).
+// model runtimes). GUI CandidateNames (e.g. "Ollama") are intentionally
+// excluded — those are for .app discovery, not bin roots (and would collide
+// with case-insensitive filesystems).
 func CatalogExecutableNames(catalog *identity.Catalog) map[string]struct{} {
 	out := make(map[string]struct{})
 	if catalog == nil {
@@ -35,11 +37,6 @@ func CatalogExecutableNames(catalog *identity.Catalog) map[string]struct{} {
 			continue
 		}
 		for _, n := range p.ExecutableNames {
-			if n != "" {
-				out[n] = struct{}{}
-			}
-		}
-		for _, n := range p.CandidateNames {
 			if n != "" {
 				out[n] = struct{}{}
 			}

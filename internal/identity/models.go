@@ -126,6 +126,10 @@ type KnownAIProduct struct {
 	// RuntimeFamily groups compatible runtimes (e.g. "llama_cpp_compatible")
 	// when exact product provenance is unavailable.
 	RuntimeFamily string
+
+	// DockerImages are accepted container image name prefixes (e.g. "ollama/ollama").
+	// Matching requires Docker inventory evidence — never port alone.
+	DockerImages []string
 }
 
 // EvidenceKey names a single identity evidence factor.
@@ -150,6 +154,7 @@ const (
 	EvidenceRuntimeFingerprint EvidenceKey = "runtime_fingerprint"
 	EvidenceModelArtifact      EvidenceKey = "model_artifact"
 	EvidenceLocalClient        EvidenceKey = "local_client"
+	EvidenceDockerImage        EvidenceKey = "docker_image"
 )
 
 // IdentificationResult is the outcome of matching an ApplicationIdentity

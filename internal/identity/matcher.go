@@ -52,11 +52,39 @@ func (m *Matcher) candidates(app ApplicationIdentity) []KnownAIProduct {
 	for _, p := range m.catalog.Products() {
 		nameHit := nameMatches(app, p)
 		pathHit := pathMatches(app, p)
-		if nameHit || pathHit {
+		dockerHit := dockerImageCandidate(app, p)
+		if nameHit || pathHit || dockerHit {
 			out = append(out, p)
 		}
 	}
 	return out
+}
+
+// dockerImageCandidate is discovery-only: PackageManager=docker + catalog image prefix.
+func dockerImageCandidate(app ApplicationIdentity, p KnownAIProduct) bool {
+	if len(p.DockerImages) == 0 {
+		return false
+	}
+	if !strings.EqualFold(strings.TrimSpace(app.PackageManager), "docker") {
+		return false
+	}
+	got := strings.TrimSpace(strings.ToLower(app.PackageIdentifier))
+	if got == "" {
+		return false
+	}
+	for _, want := range p.DockerImages {
+		want = strings.TrimSpace(strings.ToLower(want))
+		if want == "" {
+			continue
+		}
+		if got == want || strings.HasPrefix(got, want+":") || strings.HasPrefix(got, want+"@") {
+			return true
+		}
+		if strings.HasSuffix(got, "/"+want) || strings.Contains(got, "/"+want+":") {
+			return true
+		}
+	}
+	return false
 }
 
 func nameMatches(app ApplicationIdentity, p KnownAIProduct) bool {
@@ -187,14 +215,16 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 	sigOK := evalSignature(app, &res)
 	hashOK := evalHash(app, p, &res)
 
-	var pkgMgrOK, pkgIDOK, entryOK, provOK bool
+	var pkgMgrOK, pkgIDOK, entryOK, provOK, dockerOK bool
 	if len(p.PackageManagers) > 0 || len(p.PackageIdentifiers) > 0 || len(p.EntryPoints) > 0 ||
+		len(p.DockerImages) > 0 ||
 		app.PackageManager != "" || app.PackageIdentifier != "" ||
 		p.Category == ProductCategoryCLIAgent || p.Category == ProductCategoryLocalModelRuntime {
 		pkgMgrOK = evalStringEvidence(app.PackageManager, p.PackageManagers, EvidencePackageManager, &res)
 		pkgIDOK = evalStringEvidence(app.PackageIdentifier, p.PackageIdentifiers, EvidencePackageIdentity, &res)
 		entryOK = evalStringEvidence(entryPointOf(app), p.EntryPoints, EvidenceEntryPoint, &res)
 		provOK = packageProvenanceOK(app, p, &res)
+		dockerOK = evalDockerImage(app, p, &res)
 	}
 
 	// Vacuous catalog lists must not inflate confidence for CLI / non-bundle products.
@@ -223,6 +253,9 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 		if len(p.EntryPoints) == 0 {
 			entryOK = false
 		}
+		if len(p.DockerImages) == 0 {
+			dockerOK = false
+		}
 	}
 
 	strong := 0
@@ -234,7 +267,7 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 	if hashOK && len(p.ExpectedHashes) > 0 {
 		strong++
 	}
-	for _, ok := range []bool{pkgMgrOK, pkgIDOK, provOK, entryOK} {
+	for _, ok := range []bool{pkgMgrOK, pkgIDOK, provOK, entryOK, dockerOK} {
 		if ok {
 			strong++
 		}
@@ -250,9 +283,18 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 	case cliStyle && pkgIDOK && provOK && (entryOK || signOK || sigOK):
 		// VERIFIED CLI requires catalog package IDs (non-empty) plus provenance.
 		res.Confidence = ConfidenceVerified
+	case cliStyle && dockerOK && provOK:
+		// Official Docker image match with docker provenance — strong but not code-sign VERIFIED.
+		res.Confidence = ConfidenceHigh
+	case cliStyle && bundleOK && sigOK:
+		// Local runtime .app with catalog BundleID + valid signature.
+		res.Confidence = ConfidenceHigh
+	case cliStyle && bundleOK:
+		// Catalog BundleID alone is stronger than name/path for .app installs.
+		res.Confidence = ConfidenceMedium
 	case cliStyle && pkgIDOK && (provOK || pkgMgrOK):
 		res.Confidence = ConfidenceHigh
-	case cliStyle && (pkgIDOK || pkgMgrOK || provOK) && strong >= 1:
+	case cliStyle && (pkgIDOK || pkgMgrOK || provOK || dockerOK) && strong >= 1:
 		res.Confidence = ConfidenceMedium
 	case strong >= 2:
 		res.Confidence = ConfidenceMedium
@@ -263,6 +305,38 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 		res.Confidence = ConfidenceLow
 	}
 	return res
+}
+
+func evalDockerImage(app ApplicationIdentity, p *KnownAIProduct, res *IdentificationResult) bool {
+	if len(p.DockerImages) == 0 {
+		return false
+	}
+	if !strings.EqualFold(strings.TrimSpace(app.PackageManager), "docker") {
+		return false
+	}
+	got := strings.TrimSpace(strings.ToLower(app.PackageIdentifier))
+	if got == "" {
+		res.Failed = append(res.Failed, EvidenceDockerImage)
+		return false
+	}
+	for _, want := range p.DockerImages {
+		want = strings.TrimSpace(strings.ToLower(want))
+		if want == "" {
+			continue
+		}
+		// Match exact or registry/path prefix before tag (ollama/ollama:latest).
+		if got == want || strings.HasPrefix(got, want+":") || strings.HasPrefix(got, want+"@") {
+			res.Matched = append(res.Matched, EvidenceDockerImage)
+			return true
+		}
+		// Also allow docker.io/library-style or docker.io/ollama/ollama
+		if strings.HasSuffix(got, "/"+want) || strings.Contains(got, "/"+want+":") {
+			res.Matched = append(res.Matched, EvidenceDockerImage)
+			return true
+		}
+	}
+	res.Failed = append(res.Failed, EvidenceDockerImage)
+	return false
 }
 
 func entryPointOf(app ApplicationIdentity) string {

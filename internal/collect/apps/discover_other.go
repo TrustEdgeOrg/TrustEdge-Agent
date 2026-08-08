@@ -11,8 +11,11 @@ import (
 type emptyDiscoverer struct{}
 
 func newPlatformDiscoverer(logger *log.Logger) Discoverer {
-	_ = logger
-	return emptyDiscoverer{}
+	return NewCompositeDiscoverer(
+		emptyDiscoverer{},
+		newCLIDiscoverer(logger),
+		newDockerDiscoverer(logger),
+	)
 }
 
 func (emptyDiscoverer) Discover() ([]identity.ApplicationIdentity, error) {

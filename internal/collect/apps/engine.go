@@ -250,7 +250,15 @@ func (e *Engine) attachRuntimeListeners(byPath map[string]*InventoryEntry, socks
 			continue
 		}
 		seen[eptr] = struct{}{}
-		if !isLocalModelRuntime(eptr) || !eptr.Running || len(eptr.PIDs) == 0 {
+		if !isLocalModelRuntime(eptr) {
+			continue
+		}
+		// Docker published ports: attribute without host PID match (listener is com.docker).
+		if strings.HasPrefix(eptr.Identity.Path, "docker://") || eptr.Identity.PackageManager == "docker" {
+			e.attachDockerListeners(eptr)
+			continue
+		}
+		if !eptr.Running || len(eptr.PIDs) == 0 {
 			continue
 		}
 		listeners := listenersForPIDs(socks, eptr.PIDs)
@@ -268,6 +276,37 @@ func (e *Engine) attachRuntimeListeners(byPath map[string]*InventoryEntry, socks
 		if eptr.Exposure != "" && !hasEvidence(eptr.Identification.Matched, identity.EvidenceListenerExposure) {
 			eptr.Identification.Matched = append(eptr.Identification.Matched, identity.EvidenceListenerExposure)
 		}
+	}
+}
+
+func (e *Engine) attachDockerListeners(eptr *InventoryEntry) {
+	c, ok := dockerContainerForPath(eptr.Identity.Path)
+	if !ok {
+		return
+	}
+	running := strings.EqualFold(c.Status, "running")
+	eptr.Running = running || eptr.Running
+	eptr.Identification.Running = eptr.Running
+	if !running || len(c.Ports) == 0 {
+		eptr.Serving = false
+		return
+	}
+	var listeners []ListenerInfo
+	for _, p := range c.Ports {
+		listeners = append(listeners, ListenerInfo{
+			Addr:     p.HostIP,
+			Port:     p.HostPort,
+			Protocol: firstNonEmpty(p.Protocol, "tcp"),
+		})
+	}
+	eptr.Listeners = listeners
+	eptr.Serving = true
+	eptr.Exposure = ClassifyListenerExposure(listeners)
+	if !hasEvidence(eptr.Identification.Matched, identity.EvidenceListener) {
+		eptr.Identification.Matched = append(eptr.Identification.Matched, identity.EvidenceListener)
+	}
+	if eptr.Exposure != "" && !hasEvidence(eptr.Identification.Matched, identity.EvidenceListenerExposure) {
+		eptr.Identification.Matched = append(eptr.Identification.Matched, identity.EvidenceListenerExposure)
 	}
 }
 

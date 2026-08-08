@@ -44,6 +44,8 @@ func EvidenceLabel(key EvidenceKey) string {
 		return "model artifact"
 	case EvidenceLocalClient:
 		return "local client"
+	case EvidenceDockerImage:
+		return "Docker image"
 	default:
 		return strings.ReplaceAll(string(key), "_", " ")
 	}
