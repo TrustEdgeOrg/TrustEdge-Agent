@@ -192,7 +192,8 @@ make capture-events  # local fake ingest on :18080 for capturing payloads
 | **[TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)** | This agent |
 | **[TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)** | Ingest · validate · Kafka |
 | **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | Dashboard · rules · behavior · AI activity · alerts |
-| **[TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)** | Optional VPN enroll client |
+
+AWS production layout: [TrustEdge deploy docs](https://github.com/TrustEdgeOrg/TrustEdge/blob/main/docs/DEPLOY.md)
 
 ---
 
