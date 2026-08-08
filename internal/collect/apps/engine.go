@@ -217,6 +217,8 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 	}
 	e.runtime.sync(activeKeys)
 
+	e.correlateExtensionRuntime(byPath, procs)
+
 	socks, err := e.listListeners()
 	if err != nil {
 		e.logf("known-ai listeners: %v", err)
