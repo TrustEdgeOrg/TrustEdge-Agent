@@ -11,6 +11,7 @@ import (
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/clock"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/action"
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/apps"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/network"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/process"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/security"
@@ -166,6 +167,16 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 		go a.loop(ctx, a.cfg.SecurityInterval, func() {
 			for _, change := range secMon.Poll() {
+				enqueue(change.Type, change.Payload)
+			}
+		})
+	}
+
+	if a.cfg.KnownAIInterval > 0 {
+		aiMon := apps.NewMonitor(a.stdLog, apps.NewEngine(apps.EngineConfig{Logger: a.stdLog}))
+		a.log.Info("known-ai inventory active", "interval", a.cfg.KnownAIInterval.String())
+		go a.loop(ctx, a.cfg.KnownAIInterval, func() {
+			for _, change := range aiMon.Poll() {
 				enqueue(change.Type, change.Payload)
 			}
 		})

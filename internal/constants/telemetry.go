@@ -14,6 +14,7 @@ const (
 	TypeDriverLoad      = "driver_load"
 	TypeServiceInstall  = "service_install"
 	TypeRegistryPersist = "registry_persistence"
+	TypeKnownAIApp      = "known_ai_app"
 )
 
 // action_summary.presence values.
