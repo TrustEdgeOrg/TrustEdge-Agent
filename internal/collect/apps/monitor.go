@@ -12,7 +12,7 @@ import (
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/identity"
 )
 
-// Monitor emits known_ai_app inventory deltas (security-style silent baseline).
+// Monitor emits known_ai_app inventory upserts and removals for installed apps.
 type Monitor struct {
 	Logger *log.Logger
 	Engine *Engine
@@ -44,6 +44,10 @@ func (m *Monitor) Poll() []collect.Change {
 
 	current := make(map[string]inventoryArtifact, len(entries))
 	for _, entry := range entries {
+		if !entry.Installed {
+			// Inventory is installed AI apps only; bare process name hits are ignored.
+			continue
+		}
 		art := artifactFromEntry(entry)
 		if art.ID == "" {
 			continue
@@ -54,13 +58,20 @@ func (m *Monitor) Poll() []collect.Change {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	var changes []collect.Change
 	if !m.ready {
+		// Initial snapshot: emit every known app so inventory is visible immediately.
+		for _, art := range current {
+			changes = append(changes, collect.Change{
+				Type:    constants.TypeKnownAIApp,
+				Payload: art.Payload,
+			})
+		}
 		m.seen = fingerprints(current)
 		m.ready = true
-		return nil
+		return changes
 	}
 
-	var changes []collect.Change
 	for id, art := range current {
 		prev, ok := m.seen[id]
 		if ok && prev == art.Fingerprint {
@@ -106,24 +117,25 @@ func artifactFromEntry(entry InventoryEntry) inventoryArtifact {
 	matched := evidenceStrings(entry.Identification.Matched)
 	failed := evidenceStrings(entry.Identification.Failed)
 	payload := map[string]any{
-		"id":               id,
-		"product_id":       p.ID,
-		"product_name":     p.Name,
-		"vendor":           p.Vendor,
-		"category":         string(p.Category),
-		"confidence":       string(entry.Identification.Confidence),
-		"installed":        entry.Installed,
-		"running":          entry.Running,
-		"path":             path,
-		"bundle_id":        entry.Identity.BundleID,
-		"version":          entry.Identity.Version,
-		"executable":       entry.Identity.Executable,
-		"signing_id":       entry.Identity.SigningIdentifier,
-		"team_id":          entry.Identity.TeamID,
-		"signature_valid":  entry.Identity.SignatureValid,
-		"matched_evidence": matched,
-		"failed_evidence":  failed,
-		"pids":             intsToAny(entry.PIDs),
+		"id":                 id,
+		"product_id":         p.ID,
+		"product_name":       p.Name,
+		"vendor":             p.Vendor,
+		"category":           string(p.Category),
+		"confidence":         string(entry.Identification.Confidence),
+		"confidence_reason":  identity.ExplainConfidence(entry.Identification),
+		"installed":          entry.Installed,
+		"running":            entry.Running,
+		"path":               path,
+		"bundle_id":          entry.Identity.BundleID,
+		"version":            entry.Identity.Version,
+		"executable":         entry.Identity.Executable,
+		"signing_id":         entry.Identity.SigningIdentifier,
+		"team_id":            entry.Identity.TeamID,
+		"signature_valid":    entry.Identity.SignatureValid,
+		"matched_evidence":   matched,
+		"failed_evidence":    failed,
+		"pids":               intsToAny(entry.PIDs),
 	}
 	fp := fingerprintPayload(payload)
 	return inventoryArtifact{ID: id, Fingerprint: fp, Payload: payload}

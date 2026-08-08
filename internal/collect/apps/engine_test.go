@@ -120,7 +120,7 @@ func TestEngineNameOnlyExecutableNotVerified(t *testing.T) {
 	}
 }
 
-func TestMonitorBaselineThenDelta(t *testing.T) {
+func TestMonitorSnapshotThenDelta(t *testing.T) {
 	root := t.TempDir()
 	appPath := filepath.Join(root, "Cursor.app")
 	writeTestBundle(t, appPath)
@@ -148,8 +148,18 @@ func TestMonitorBaselineThenDelta(t *testing.T) {
 		},
 	})
 	mon := NewMonitor(nil, eng)
-	if changes := mon.Poll(); len(changes) != 0 {
-		t.Fatalf("baseline should be silent, got %d", len(changes))
+	initial := mon.Poll()
+	if len(initial) != 1 {
+		t.Fatalf("first poll should emit inventory snapshot, got %d", len(initial))
+	}
+	if initial[0].Type != constants.TypeKnownAIApp {
+		t.Fatalf("Type=%s", initial[0].Type)
+	}
+	if initial[0].Payload["installed"] != true {
+		t.Fatal("expected installed true on snapshot")
+	}
+	if initial[0].Payload["running"] != false {
+		t.Fatalf("snapshot running=%v want false", initial[0].Payload["running"])
 	}
 	running = true
 	changes := mon.Poll()
