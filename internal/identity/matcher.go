@@ -64,6 +64,12 @@ func nameMatches(app ApplicationIdentity, p KnownAIProduct) bool {
 	if exe == "" && app.ExecutablePath != "" {
 		exe = filepath.Base(app.ExecutablePath)
 	}
+	if exe == "" && app.InvocationPath != "" {
+		exe = filepath.Base(app.InvocationPath)
+	}
+	if exe == "" && app.ResolvedPath != "" {
+		exe = filepath.Base(app.ResolvedPath)
+	}
 	if exe == "" && app.Path != "" {
 		// Fall back to bundle display name stem (Cursor.app → Cursor).
 		base := filepath.Base(app.Path)
@@ -73,11 +79,32 @@ func nameMatches(app ApplicationIdentity, p KnownAIProduct) bool {
 		return false
 	}
 	for _, n := range p.CandidateNames {
-		if strings.EqualFold(exe, n) {
+		if !strings.EqualFold(exe, n) {
+			continue
+		}
+		// Bare lowercase commands must not EqualFold-match Title-Case GUI
+		// candidates (e.g. "claude" vs Claude Desktop "Claude").
+		if len(p.BundleIDs) > 0 && exe != n && !looksLikeAppBundle(app) {
+			continue
+		}
+		return true
+	}
+	// ExecutableNames are exact (case-sensitive) so CLI "claude" does not
+	// collide with GUI "Claude".
+	for _, n := range p.ExecutableNames {
+		if exe == n {
 			return true
 		}
 	}
 	return false
+}
+
+func looksLikeAppBundle(app ApplicationIdentity) bool {
+	path := app.Path
+	if path == "" {
+		path = app.ExecutablePath
+	}
+	return strings.Contains(strings.ToLower(path), ".app/") || strings.HasSuffix(strings.ToLower(path), ".app")
 }
 
 func pathMatches(app ApplicationIdentity, p KnownAIProduct) bool {
@@ -135,9 +162,14 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 		Confidence: ConfidenceLow, // candidate matched by name/path at minimum
 	}
 
+	cliStyle := p.Category == ProductCategoryCLIAgent || len(p.BundleIDs) == 0
+
 	// Candidate evidence (discovery only).
 	if nameMatches(app, *p) {
 		res.Matched = append(res.Matched, EvidenceCandidateName)
+		if cliStyle {
+			res.Matched = append(res.Matched, EvidenceCommand)
+		}
 	} else {
 		res.Failed = append(res.Failed, EvidenceCandidateName)
 	}
@@ -153,22 +185,71 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 	sigOK := evalSignature(app, &res)
 	hashOK := evalHash(app, p, &res)
 
+	var pkgMgrOK, pkgIDOK, entryOK, provOK bool
+	if len(p.PackageManagers) > 0 || len(p.PackageIdentifiers) > 0 || len(p.EntryPoints) > 0 ||
+		app.PackageManager != "" || app.PackageIdentifier != "" || p.Category == ProductCategoryCLIAgent {
+		pkgMgrOK = evalStringEvidence(app.PackageManager, p.PackageManagers, EvidencePackageManager, &res)
+		pkgIDOK = evalStringEvidence(app.PackageIdentifier, p.PackageIdentifiers, EvidencePackageIdentity, &res)
+		entryOK = evalStringEvidence(entryPointOf(app), p.EntryPoints, EvidenceEntryPoint, &res)
+		provOK = packageProvenanceOK(app, p, &res)
+	}
+
+	// Vacuous catalog lists must not inflate confidence for CLI / non-bundle products.
+	if cliStyle {
+		if len(p.BundleIDs) == 0 {
+			bundleOK = false
+		}
+		if len(p.SigningIdentifiers) == 0 {
+			signOK = false
+		}
+		if len(p.TeamIDs) == 0 {
+			teamOK = false
+		}
+		if len(p.ExpectedHashes) == 0 {
+			hashOK = false
+		}
+		if !app.SignatureChecked {
+			sigOK = false
+		}
+		if len(p.PackageManagers) == 0 {
+			pkgMgrOK = false
+		}
+		if len(p.PackageIdentifiers) == 0 {
+			pkgIDOK = false
+		}
+		if len(p.EntryPoints) == 0 {
+			entryOK = false
+		}
+	}
+
 	strong := 0
 	for _, ok := range []bool{bundleOK, signOK, teamOK, sigOK} {
 		if ok {
 			strong++
 		}
 	}
-	if hashOK {
+	if hashOK && len(p.ExpectedHashes) > 0 {
 		strong++
+	}
+	for _, ok := range []bool{pkgMgrOK, pkgIDOK, provOK, entryOK} {
+		if ok {
+			strong++
+		}
 	}
 
 	switch {
-	case bundleOK && signOK && teamOK && sigOK && hashSatisfied(app, p, hashOK):
+	case !cliStyle && bundleOK && signOK && teamOK && sigOK && hashSatisfied(app, p, hashOK):
 		res.Confidence = ConfidenceVerified
-	case bundleOK && sigOK && (signOK || teamOK):
+	case !cliStyle && bundleOK && sigOK && (signOK || teamOK):
 		res.Confidence = ConfidenceHigh
-	case bundleOK && (signOK || teamOK):
+	case !cliStyle && bundleOK && (signOK || teamOK):
+		res.Confidence = ConfidenceMedium
+	case cliStyle && pkgIDOK && provOK && (entryOK || signOK || sigOK):
+		// VERIFIED CLI requires catalog package IDs (non-empty) plus provenance.
+		res.Confidence = ConfidenceVerified
+	case cliStyle && pkgIDOK && (provOK || pkgMgrOK):
+		res.Confidence = ConfidenceHigh
+	case cliStyle && (pkgIDOK || pkgMgrOK || provOK) && strong >= 1:
 		res.Confidence = ConfidenceMedium
 	case strong >= 2:
 		res.Confidence = ConfidenceMedium
@@ -179,6 +260,28 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 		res.Confidence = ConfidenceLow
 	}
 	return res
+}
+
+func entryPointOf(app ApplicationIdentity) string {
+	if app.EntryPoint != "" {
+		return app.EntryPoint
+	}
+	if app.ResolvedPath != "" {
+		return filepath.Base(app.ResolvedPath)
+	}
+	return ""
+}
+
+func packageProvenanceOK(app ApplicationIdentity, p *KnownAIProduct, res *IdentificationResult) bool {
+	if app.PackageManager == "" && app.PackageIdentifier == "" {
+		if len(p.PackageIdentifiers) > 0 || len(p.PackageManagers) > 0 {
+			res.Failed = append(res.Failed, EvidencePackageProvenance)
+		}
+		return false
+	}
+	// Observed provenance present; identity match evaluated separately.
+	res.Matched = append(res.Matched, EvidencePackageProvenance)
+	return true
 }
 
 func hashSatisfied(app ApplicationIdentity, p *KnownAIProduct, hashOK bool) bool {

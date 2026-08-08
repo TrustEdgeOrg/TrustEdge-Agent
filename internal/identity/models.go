@@ -2,8 +2,8 @@ package identity
 
 // ApplicationIdentity is the extracted identity of a concrete application
 // or executable on disk. Strong fields (bundle ID, signing ID, Team ID,
-// signature validity, hash) establish product identity; names and paths
-// are discovery hints only.
+// signature validity, hash, package provenance) establish product identity;
+// names and paths are discovery hints only.
 type ApplicationIdentity struct {
 	// Path is the application bundle path (e.g. /Applications/Cursor.app)
 	// or the executable path when no enclosing bundle is known.
@@ -12,7 +12,8 @@ type ApplicationIdentity struct {
 	// BundleID is CFBundleIdentifier from Info.plist when available.
 	BundleID string
 
-	// Version is CFBundleShortVersionString (or CFBundleVersion fallback).
+	// Version is CFBundleShortVersionString (or CFBundleVersion fallback),
+	// or a package version for CLI installs when known.
 	Version string
 
 	// Executable is the main executable basename (CFBundleExecutable)
@@ -21,6 +22,27 @@ type ApplicationIdentity struct {
 
 	// ExecutablePath is the absolute path to the main executable when known.
 	ExecutablePath string
+
+	// InvocationPath is the path used to invoke a CLI (often a symlink).
+	InvocationPath string
+
+	// ResolvedPath is the canonical path after symlink resolution.
+	ResolvedPath string
+
+	// Interpreter is set for script-based CLIs (e.g. "node", "python").
+	Interpreter string
+
+	// EntryPoint is the package/script entry when resolved (e.g. cli.js).
+	EntryPoint string
+
+	// PackageManager is observed install provenance (e.g. "homebrew", "npm").
+	PackageManager string
+
+	// PackageIdentifier is the observed package name/formula when known.
+	PackageIdentifier string
+
+	// PackageVersion is the observed package version when known.
+	PackageVersion string
 
 	// SigningIdentifier is the code-signing identifier (e.g. from
 	// SecCodeCopySigningInformation kSecCodeInfoIdentifier).
@@ -45,12 +67,12 @@ type ApplicationIdentity struct {
 	SHA256 string
 }
 
-// KnownAIProduct is a catalog entry for a known AI application.
+// KnownAIProduct is a catalog entry for a known AI application or CLI agent.
 // CandidateNames and CandidatePaths are used only for candidate generation.
-// BundleIDs, SigningIdentifiers, TeamIDs, and ExpectedHashes are strong
-// verification evidence.
+// BundleIDs, SigningIdentifiers, TeamIDs, ExpectedHashes, and package fields
+// are strong verification evidence when non-empty.
 type KnownAIProduct struct {
-	// ID is a stable catalog key (e.g. "cursor").
+	// ID is a stable catalog key (e.g. "cursor", "claude_code").
 	ID string
 
 	Name     string
@@ -60,6 +82,10 @@ type KnownAIProduct struct {
 	// CandidateNames are executable or display names used only to select
 	// match candidates (never sufficient for VERIFIED).
 	CandidateNames []string
+
+	// ExecutableNames are CLI command basenames used for candidate generation
+	// (merged with CandidateNames during matching). Never sufficient for VERIFIED.
+	ExecutableNames []string
 
 	// CandidatePaths are expected install locations used only for candidate
 	// generation (never sufficient for VERIFIED).
@@ -77,6 +103,17 @@ type KnownAIProduct struct {
 	// ExpectedHashes are optional hex SHA-256 digests of known good binaries.
 	// Empty means hash matching is not required for this product version set.
 	ExpectedHashes []string
+
+	// PackageManagers are accepted package managers for CLI products
+	// (e.g. "homebrew", "npm"). Empty means unresolved / not required yet.
+	PackageManagers []string
+
+	// PackageIdentifiers are accepted package names/formulas. Empty means
+	// unresolved — do not invent values; VERIFIED CLI matching requires them.
+	PackageIdentifiers []string
+
+	// EntryPoints are accepted package entry-point basenames when known.
+	EntryPoints []string
 }
 
 // EvidenceKey names a single identity evidence factor.
@@ -90,6 +127,12 @@ const (
 	EvidenceSHA256             EvidenceKey = "sha256"
 	EvidenceCandidateName      EvidenceKey = "candidate_name"
 	EvidenceCandidatePath      EvidenceKey = "candidate_path"
+	EvidenceCommand            EvidenceKey = "command"
+	EvidencePackageManager     EvidenceKey = "package_manager"
+	EvidencePackageIdentity    EvidenceKey = "package_identity"
+	EvidencePackageProvenance  EvidenceKey = "package_provenance"
+	EvidenceEntryPoint         EvidenceKey = "entry_point"
+	EvidenceInvocationPath     EvidenceKey = "invocation_path"
 )
 
 // IdentificationResult is the outcome of matching an ApplicationIdentity

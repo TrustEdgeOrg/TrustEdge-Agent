@@ -6,10 +6,12 @@ package identity
 // artifact (Info.plist + code-signing identity). Do not invent bundle IDs,
 // Team IDs, or signing identifiers.
 func builtinProducts() []KnownAIProduct {
-	return []KnownAIProduct{
+	out := []KnownAIProduct{
 		cursorProduct(),
 		claudeProduct(),
 	}
+	out = append(out, builtinCLIProducts()...)
+	return out
 }
 
 // cursorProduct is catalog ID "cursor".

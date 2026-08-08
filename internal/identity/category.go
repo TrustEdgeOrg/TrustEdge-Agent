@@ -8,5 +8,6 @@ const (
 	ProductCategoryChatClient   ProductCategory = "chat_client"
 	ProductCategoryImageTool    ProductCategory = "image_tool"
 	ProductCategoryAgentRuntime ProductCategory = "agent_runtime"
+	ProductCategoryCLIAgent     ProductCategory = "cli_agent"
 	ProductCategoryOther        ProductCategory = "other"
 )

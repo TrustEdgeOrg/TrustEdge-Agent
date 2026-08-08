@@ -22,6 +22,18 @@ func EvidenceLabel(key EvidenceKey) string {
 		return "valid code signature"
 	case EvidenceSHA256:
 		return "binary hash"
+	case EvidenceCommand:
+		return "command name"
+	case EvidencePackageManager:
+		return "package manager"
+	case EvidencePackageIdentity:
+		return "package identity"
+	case EvidencePackageProvenance:
+		return "package provenance"
+	case EvidenceEntryPoint:
+		return "entry point"
+	case EvidenceInvocationPath:
+		return "invocation path"
 	default:
 		return strings.ReplaceAll(string(key), "_", " ")
 	}
