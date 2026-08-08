@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/network"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/collect/process"
 	"github.com/TrustEdgeOrg/TrustEdge-Agent/internal/identity"
 )
@@ -14,28 +15,33 @@ import (
 // ProcessLister returns currently running processes.
 type ProcessLister func() ([]process.ProcessInfo, error)
 
+// ListenerLister returns TCP LISTEN sockets with PID attribution.
+type ListenerLister func() ([]network.ListeningSocket, error)
+
 // Engine correlates installed applications and running processes through the
 // shared identity matcher. It does not duplicate identification logic.
 type Engine struct {
-	log        *log.Logger
-	discoverer Discoverer
-	signer     Signer
-	matcher    *identity.Matcher
-	cache      *identity.Cache
-	cliCache   *cliAuxCache
-	listProcs  ProcessLister
-	installs   *installIndex
-	runtime    *runtimeTracker
+	log           *log.Logger
+	discoverer    Discoverer
+	signer        Signer
+	matcher       *identity.Matcher
+	cache         *identity.Cache
+	cliCache      *cliAuxCache
+	listProcs     ProcessLister
+	listListeners ListenerLister
+	installs      *installIndex
+	runtime       *runtimeTracker
 }
 
 // EngineConfig configures a correlation engine.
 type EngineConfig struct {
-	Logger     *log.Logger
-	Discoverer Discoverer
-	Signer     Signer
-	Matcher    *identity.Matcher
-	Cache      *identity.Cache
-	ListProcs  ProcessLister
+	Logger        *log.Logger
+	Discoverer    Discoverer
+	Signer        Signer
+	Matcher       *identity.Matcher
+	Cache         *identity.Cache
+	ListProcs     ProcessLister
+	ListListeners ListenerLister
 }
 
 // NewEngine constructs a correlation engine with platform defaults.
@@ -60,16 +66,21 @@ func NewEngine(cfg EngineConfig) *Engine {
 	if list == nil {
 		list = process.Snapshot
 	}
+	listenFn := cfg.ListListeners
+	if listenFn == nil {
+		listenFn = network.ListListeningSockets
+	}
 	return &Engine{
-		log:        cfg.Logger,
-		discoverer: d,
-		signer:     s,
-		matcher:    m,
-		cache:      c,
-		cliCache:   newCLIAuxCache(cliAuxCacheCapacity),
-		listProcs:  list,
-		installs:   newInstallIndex(),
-		runtime:    newRuntimeTracker(),
+		log:           cfg.Logger,
+		discoverer:    d,
+		signer:        s,
+		matcher:       m,
+		cache:         c,
+		cliCache:      newCLIAuxCache(cliAuxCacheCapacity),
+		listProcs:     list,
+		listListeners: listenFn,
+		installs:      newInstallIndex(),
+		runtime:       newRuntimeTracker(),
 	}
 }
 
@@ -173,6 +184,13 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 	}
 	e.runtime.sync(activeKeys)
 
+	socks, err := e.listListeners()
+	if err != nil {
+		e.logf("known-ai listeners: %v", err)
+		socks = nil
+	}
+	e.attachRuntimeListeners(byPath, socks)
+
 	out := make([]InventoryEntry, 0, len(byPath))
 	seenPtr := make(map[*InventoryEntry]struct{})
 	for _, eptr := range byPath {
@@ -196,6 +214,43 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 	})
 	e.installs.rebuild(out)
 	return out, nil
+}
+
+func (e *Engine) attachRuntimeListeners(byPath map[string]*InventoryEntry, socks []network.ListeningSocket) {
+	seen := make(map[*InventoryEntry]struct{})
+	for _, eptr := range byPath {
+		if _, ok := seen[eptr]; ok {
+			continue
+		}
+		seen[eptr] = struct{}{}
+		if !isLocalModelRuntime(eptr) || !eptr.Running || len(eptr.PIDs) == 0 {
+			continue
+		}
+		listeners := listenersForPIDs(socks, eptr.PIDs)
+		eptr.Listeners = listeners
+		if len(listeners) == 0 {
+			eptr.Serving = false
+			eptr.Exposure = ""
+			continue
+		}
+		eptr.Serving = true
+		eptr.Exposure = ClassifyListenerExposure(listeners)
+		if !hasEvidence(eptr.Identification.Matched, identity.EvidenceListener) {
+			eptr.Identification.Matched = append(eptr.Identification.Matched, identity.EvidenceListener)
+		}
+		if eptr.Exposure != "" && !hasEvidence(eptr.Identification.Matched, identity.EvidenceListenerExposure) {
+			eptr.Identification.Matched = append(eptr.Identification.Matched, identity.EvidenceListenerExposure)
+		}
+	}
+}
+
+func hasEvidence(keys []identity.EvidenceKey, want identity.EvidenceKey) bool {
+	for _, k := range keys {
+		if k == want {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) identifyInstalled(app identity.ApplicationIdentity) InventoryEntry {
