@@ -39,12 +39,14 @@ How the agent notices change on a laptop, turns it into events, and delivers the
   <img src="assets/hybrid-model.svg" alt="OS watcher and periodic poll both feed a monitor, then the durable ring" width="980" />
 </p>
 
-Same pattern for **process**, **network**, and **security**:
+Same pattern for **process**, **network summary**, and **security**:
 
 1. **Watcher** (when the OS allows) → low-latency wake or typed event  
 2. **Poll** → silent baseline, catch misses, work alone if needed  
 3. **Monitor** → dedupe / fingerprint / enrich  
 4. **Ring** → batch → optional zstd → HTTPS  
+
+**Connection samples** (`network_connection`) are poll-only: silent baseline, then newly seen ESTABLISHED TCP sockets (capped per poll).
 
 Deep OS detail is in the diagrams below.
 
@@ -56,14 +58,13 @@ Deep OS detail is in the diagrams below.
 |---|--------|-----------------|
 | Host | `client_details` | Once at start + every 60s |
 | Network | `network_summary` | On change (debounced) + 60s heartbeat |
+| Connections | `network_connection` | 15s poll · new ESTABLISHED TCP (pid, ports, remote) |
 | Activity | `action_summary` | Sample 5s · emit 60s |
 | Processes | `process_start` / `process_exit` | Watcher + 10s poll |
 | Security | `driver_load` / `service_install` / `registry_persistence` | Watcher wake + 30s poll |
 | AI inventory | `known_ai_app` | 60s poll + wake from process events |
 
-Turn processes off: `TRUSTEDGE_AGENT_PROCESS_INTERVAL=0`.  
-Turn security off: `TRUSTEDGE_AGENT_SECURITY_INTERVAL=0`.  
-Turn AI inventory off: `TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL=0`.
+Turn off: processes `PROCESS_INTERVAL=0` · security `SECURITY_INTERVAL=0` · AI inventory `KNOWN_AI_INTERVAL=0` · connections `CONNECTION_INTERVAL=0` (all `TRUSTEDGE_AGENT_*`).
 
 AI inventory covers verified catalog products across:
 
@@ -107,6 +108,20 @@ Identity uses catalog matching with evidence (path, bundle ID, signing, package,
 | **macOS** | AF_ROUTE socket (add / delete / addr / ifinfo) |
 
 Then: **debounce 2s** → summary fingerprint → emit. Heartbeats **always** post so liveness is visible even when posture is unchanged.
+
+### <img src="assets/icons/flow.svg" width="20" height="20" align="absmiddle" alt="" /> Connection samples
+
+Poll-only (`TRUSTEDGE_AGENT_CONNECTION_INTERVAL`, default **15s**):
+
+| Behavior | Detail |
+|----------|--------|
+| Scope | Newly observed **ESTABLISHED** TCP sockets with pid + remote |
+| Baseline | First poll is silent (seeds seen set) |
+| Cap | At most **40** new sockets per poll |
+| Payload | `pid`, `comm`, local/remote addr+port, optional reverse-DNS hostname |
+| Disable | `TRUSTEDGE_AGENT_CONNECTION_INTERVAL=0` |
+
+This is **not** a full connection-table dump — only incremental samples after the baseline.
 
 ### <img src="assets/icons/lock.svg" width="20" height="20" align="absmiddle" alt="" /> Security lifecycle
 
@@ -155,7 +170,7 @@ flowchart LR
 | **Compress** | zstd only when smaller than raw JSON |
 | **Auth** | Device token in OS keyring; concurrent `401`s share one re-register |
 | **Capacity** | Ring holds 4096; overwrite oldest when full |
-| **Privacy** | No titles, keystrokes, screenshots, SSIDs, or full connection tables |
+| **Privacy** | No titles, keystrokes, screenshots, or SSIDs; connection samples are incremental/capped |
 
 Concurrency: each collector runs in its own loop — a slow public-IP lookup never blocks process events.
 

@@ -4,6 +4,8 @@ How the endpoint agent collects, buffers, and uploads telemetry.
 
 > A thin cross-platform Go agent — hybrid OS watchers + poll reconciliation, durable offline ring, keyring-backed auth, and zstd when it wins — feeding TrustEdge detection over HTTPS.
 
+Signals: host · network summary · connection samples · activity · processes · security lifecycle · AI tools inventory.
+
 ---
 
 ## Docs
@@ -24,6 +26,6 @@ API schemas: [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Age
 1. **Watchers for latency, polls for correctness** — degrade to poll-only, never hard-fail collection.  
 2. **Collectors only enqueue** — one durable ring owns retry, backoff, and offline survival.  
 3. **Tokens in the OS keyring** — device ID on disk; concurrent `401`s share one re-register.  
-4. **Privacy by omission** — no titles, keystrokes, screenshots, or full connection tables.
+4. **Privacy by omission** — no titles, keystrokes, screenshots, or SSIDs; connection samples are incremental and capped (disable with `CONNECTION_INTERVAL=0`).
 
 Repo root: [README](../README.md).

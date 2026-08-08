@@ -123,6 +123,7 @@ With `TRUSTEDGE_AGENT_PRODUCTION=1`, tokens stay in the **keyring only** — not
 |------------|-----------------|
 | `client_details` | Device identity, OS, arch, agent version, uptime |
 | `network_summary` | Public IP, interface type, socket counts, top remote ports |
+| `network_connection` | New ESTABLISHED TCP sample (pid, ports, remote; optional reverse-DNS) |
 | `action_summary` | Foreground focus, idle vs active, app switches |
 | `process_start` | New process: pid, ppid, user, name, path, cmdline |
 | `process_exit` | Exit lifecycle (enriched from start when available) |
@@ -135,6 +136,7 @@ With `TRUSTEDGE_AGENT_PRODUCTION=1`, tokens stay in the **keyring only** — not
 |-----------|----------|
 | **Client details** | Once at startup, then on `DETAILS_INTERVAL` |
 | **Network** | On interface/address change (debounced) + heartbeat |
+| **Connections** | Poll reconcile of ESTABLISHED TCP; silent baseline; capped per poll |
 | **Actions** | Sample foreground ~5s; emit one summary per ~60s window |
 | **Processes** | Watcher (when available) + poll reconcile + dedup |
 | **Security** | Watcher wake + poll reconcile with silent baseline |
@@ -142,7 +144,8 @@ With `TRUSTEDGE_AGENT_PRODUCTION=1`, tokens stay in the **keyring only** — not
 
 Payload schemas: [API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md).  
 Timers / flush: [Collection & batching](collection.md).  
-Public IP: configurable URL; disable with `TRUSTEDGE_AGENT_PUBLIC_IP_URL=off`.
+Public IP: configurable URL; disable with `TRUSTEDGE_AGENT_PUBLIC_IP_URL=off`.  
+Connection samples: disable with `TRUSTEDGE_AGENT_CONNECTION_INTERVAL=0`.
 
 ---
 
@@ -154,7 +157,7 @@ The agent does **not** collect:
 - Keystrokes or clipboard  
 - Screenshots  
 - Raw Wi‑Fi SSIDs  
-- Full remote IP connection tables  
+- Full connection-table dumps (samples are incremental, capped, and optional)  
 - File contents  
 
 Process monitoring includes metadata **and command line** (truncated at 4 KiB):
@@ -163,6 +166,7 @@ Process monitoring includes metadata **and command line** (truncated at 4 KiB):
 export TRUSTEDGE_AGENT_PROCESS_INTERVAL=0      # disable processes
 export TRUSTEDGE_AGENT_SECURITY_INTERVAL=0     # disable security lifecycle
 export TRUSTEDGE_AGENT_KNOWN_AI_INTERVAL=0     # disable AI inventory
+export TRUSTEDGE_AGENT_CONNECTION_INTERVAL=0   # disable connection samples
 ```
 
 ---
