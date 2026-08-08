@@ -90,7 +90,8 @@ func TestCacheKeyPrefersResolvedPath(t *testing.T) {
 		ResolvedPath: resolved,
 	}
 	key := cacheKeyForApp(app)
-	if key.Path != posixPath(resolved) {
-		t.Fatalf("key.Path=%q want %q", key.Path, resolved)
+	want := posixPath(resolved)
+	if key.Path != want {
+		t.Fatalf("key.Path=%q want %q", key.Path, want)
 	}
 }

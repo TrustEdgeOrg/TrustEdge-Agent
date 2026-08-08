@@ -398,6 +398,7 @@ func cacheKeyForApp(app identity.ApplicationIdentity) identity.CacheKey {
 	if path == "" {
 		path = app.ExecutablePath
 	}
+	path = posixPath(path)
 	if path == "" {
 		return identity.CacheKey{}
 	}
@@ -409,7 +410,12 @@ func cacheKeyForApp(app identity.ApplicationIdentity) identity.CacheKey {
 	if err != nil {
 		fi, err = os.Stat(path)
 		if err != nil {
-			return identity.FileFingerprint(path, 0, 0)
+			// Fall back to native separators for Stat on Windows when slash form fails.
+			native := filepath.FromSlash(path)
+			fi, err = os.Stat(native)
+			if err != nil {
+				return identity.FileFingerprint(path, 0, 0)
+			}
 		}
 	}
 	return identity.FileFingerprint(path, fi.ModTime().UnixNano(), fi.Size())
