@@ -8,10 +8,12 @@ package identity
 func builtinProducts() []KnownAIProduct {
 	out := []KnownAIProduct{
 		cursorProduct(),
+		vscodeProduct(),
 		claudeProduct(),
 	}
 	out = append(out, builtinCLIProducts()...)
 	out = append(out, builtinRuntimeProducts()...)
+	out = append(out, builtinExtensionProducts()...)
 	return out
 }
 

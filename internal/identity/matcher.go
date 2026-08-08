@@ -53,11 +53,33 @@ func (m *Matcher) candidates(app ApplicationIdentity) []KnownAIProduct {
 		nameHit := nameMatches(app, p)
 		pathHit := pathMatches(app, p)
 		dockerHit := dockerImageCandidate(app, p)
-		if nameHit || pathHit || dockerHit {
+		extHit := extensionIDCandidate(app, p)
+		if nameHit || pathHit || dockerHit || extHit {
 			out = append(out, p)
 		}
 	}
 	return out
+}
+
+// extensionIDCandidate is discovery-only: vscode/cursor extension package id.
+func extensionIDCandidate(app ApplicationIdentity, p KnownAIProduct) bool {
+	if len(p.ExtensionIDs) == 0 {
+		return false
+	}
+	pm := strings.TrimSpace(app.PackageManager)
+	if !strings.EqualFold(pm, PackageManagerVSCodeExtension) && !strings.EqualFold(pm, PackageManagerCursorExtension) {
+		return false
+	}
+	got := strings.TrimSpace(app.PackageIdentifier)
+	if got == "" {
+		return false
+	}
+	for _, want := range p.ExtensionIDs {
+		if strings.EqualFold(got, strings.TrimSpace(want)) {
+			return true
+		}
+	}
+	return false
 }
 
 // dockerImageCandidate is discovery-only: PackageManager=docker + catalog image prefix.
@@ -192,7 +214,13 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 
 	cliStyle := p.Category == ProductCategoryCLIAgent ||
 		p.Category == ProductCategoryLocalModelRuntime ||
+		p.Category == ProductCategoryAIIDEExtension ||
+		p.Category == ProductCategoryAgenticIDEExtension ||
 		len(p.BundleIDs) == 0
+
+	extStyle := p.Category == ProductCategoryAIIDEExtension ||
+		p.Category == ProductCategoryAgenticIDEExtension ||
+		len(p.ExtensionIDs) > 0
 
 	// Candidate evidence (discovery only).
 	if nameMatches(app, *p) {
@@ -215,16 +243,18 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 	sigOK := evalSignature(app, &res)
 	hashOK := evalHash(app, p, &res)
 
-	var pkgMgrOK, pkgIDOK, entryOK, provOK, dockerOK bool
+	var pkgMgrOK, pkgIDOK, entryOK, provOK, dockerOK, extOK bool
 	if len(p.PackageManagers) > 0 || len(p.PackageIdentifiers) > 0 || len(p.EntryPoints) > 0 ||
-		len(p.DockerImages) > 0 ||
+		len(p.DockerImages) > 0 || len(p.ExtensionIDs) > 0 ||
 		app.PackageManager != "" || app.PackageIdentifier != "" ||
-		p.Category == ProductCategoryCLIAgent || p.Category == ProductCategoryLocalModelRuntime {
+		p.Category == ProductCategoryCLIAgent || p.Category == ProductCategoryLocalModelRuntime ||
+		p.Category == ProductCategoryAIIDEExtension || p.Category == ProductCategoryAgenticIDEExtension {
 		pkgMgrOK = evalStringEvidence(app.PackageManager, p.PackageManagers, EvidencePackageManager, &res)
 		pkgIDOK = evalStringEvidence(app.PackageIdentifier, p.PackageIdentifiers, EvidencePackageIdentity, &res)
 		entryOK = evalStringEvidence(entryPointOf(app), p.EntryPoints, EvidenceEntryPoint, &res)
 		provOK = packageProvenanceOK(app, p, &res)
 		dockerOK = evalDockerImage(app, p, &res)
+		extOK = evalExtensionID(app, p, &res)
 	}
 
 	// Vacuous catalog lists must not inflate confidence for CLI / non-bundle products.
@@ -256,6 +286,9 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 		if len(p.DockerImages) == 0 {
 			dockerOK = false
 		}
+		if len(p.ExtensionIDs) == 0 {
+			extOK = false
+		}
 	}
 
 	strong := 0
@@ -267,7 +300,7 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 	if hashOK && len(p.ExpectedHashes) > 0 {
 		strong++
 	}
-	for _, ok := range []bool{pkgMgrOK, pkgIDOK, provOK, entryOK, dockerOK} {
+	for _, ok := range []bool{pkgMgrOK, pkgIDOK, provOK, entryOK, dockerOK, extOK} {
 		if ok {
 			strong++
 		}
@@ -280,6 +313,11 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 		res.Confidence = ConfidenceHigh
 	case !cliStyle && bundleOK && (signOK || teamOK):
 		res.Confidence = ConfidenceMedium
+	case extStyle && extOK && provOK:
+		// Canonical publisher.name from package.json + extension package manager.
+		res.Confidence = ConfidenceVerified
+	case extStyle && extOK:
+		res.Confidence = ConfidenceHigh
 	case cliStyle && pkgIDOK && provOK && (entryOK || signOK || sigOK):
 		// VERIFIED CLI requires catalog package IDs (non-empty) plus provenance.
 		res.Confidence = ConfidenceVerified
@@ -294,7 +332,7 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 		res.Confidence = ConfidenceMedium
 	case cliStyle && pkgIDOK && (provOK || pkgMgrOK):
 		res.Confidence = ConfidenceHigh
-	case cliStyle && (pkgIDOK || pkgMgrOK || provOK || dockerOK) && strong >= 1:
+	case cliStyle && (pkgIDOK || pkgMgrOK || provOK || dockerOK || extOK) && strong >= 1:
 		res.Confidence = ConfidenceMedium
 	case strong >= 2:
 		res.Confidence = ConfidenceMedium
@@ -305,6 +343,38 @@ func scoreAgainst(app ApplicationIdentity, p *KnownAIProduct) IdentificationResu
 		res.Confidence = ConfidenceLow
 	}
 	return res
+}
+
+func evalExtensionID(app ApplicationIdentity, p *KnownAIProduct, res *IdentificationResult) bool {
+	if len(p.ExtensionIDs) == 0 {
+		return false
+	}
+	pm := strings.TrimSpace(app.PackageManager)
+	if !strings.EqualFold(pm, PackageManagerVSCodeExtension) && !strings.EqualFold(pm, PackageManagerCursorExtension) {
+		res.Failed = append(res.Failed, EvidenceExtensionID)
+		return false
+	}
+	got := strings.TrimSpace(app.PackageIdentifier)
+	if got == "" {
+		res.Failed = append(res.Failed, EvidenceExtensionID)
+		return false
+	}
+	for _, want := range p.ExtensionIDs {
+		want = strings.TrimSpace(want)
+		if want == "" {
+			continue
+		}
+		if strings.EqualFold(got, want) {
+			res.Matched = append(res.Matched, EvidenceExtensionID)
+			// Also record publisher/package split when possible.
+			if i := strings.Index(got, "."); i > 0 {
+				res.Matched = append(res.Matched, EvidenceExtensionPublisher, EvidenceExtensionPackage)
+			}
+			return true
+		}
+	}
+	res.Failed = append(res.Failed, EvidenceExtensionID)
+	return false
 }
 
 func evalDockerImage(app ApplicationIdentity, p *KnownAIProduct, res *IdentificationResult) bool {
