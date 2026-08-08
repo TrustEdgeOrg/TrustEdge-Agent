@@ -242,6 +242,7 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 		conns = nil
 	}
 	e.attachLocalClients(byPath, conns)
+	e.attachExtensionCapabilities(byPath)
 
 	out := make([]InventoryEntry, 0, len(byPath))
 	seenPtr := make(map[*InventoryEntry]struct{})
