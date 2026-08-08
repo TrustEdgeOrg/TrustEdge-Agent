@@ -73,7 +73,7 @@ Process command lines are truncated at 4 KiB. Turn process monitoring off with `
 5. **Secure upload** — HTTPS with the device token.  
 6. **Agent API** — receives and authenticates ingest.  
 7. **Stream** — forwards into the TrustEdge pipeline.  
-8. **Detection** — rules analyze the stream.  
+8. **Detection** — attack/chain rules and behavior engines analyze the stream.  
 9. **Alert** — operators get notified in TrustEdge.
 
 > **Design:** Watchers for latency, polls for correctness — degrade, don’t fail.
@@ -189,7 +189,7 @@ make capture-events  # local fake ingest on :18080 for capturing payloads
 |------------|------|
 | **[TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)** | This agent |
 | **[TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)** | Ingest · validate · Kafka |
-| **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | Dashboard · rules · alerts |
+| **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | Dashboard · rules · behavior · alerts |
 | **[TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)** | Optional VPN enroll client |
 
 ---

@@ -100,7 +100,7 @@
     <rect y="40" width="132" height="68" rx="14" fill="#FFFFFF" stroke="#FECDD3" stroke-width="1.5"/>
     <rect y="40" width="132" height="4" rx="2" fill="#E11D48"/>
     <text class="h" x="66" y="72" text-anchor="middle">Detect</text>
-    <text class="s" x="66" y="90" text-anchor="middle">rules engine</text>
+    <text class="s" x="66" y="90" text-anchor="middle">rules · behavior</text>
   </g>
   <path d="M1016 116 H1034" stroke="#CBD5E1" stroke-width="2.2" marker-end="url(#pipe-arr)"/>
 
