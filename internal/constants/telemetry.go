@@ -16,6 +16,7 @@ const (
 	TypeServiceInstall  = "service_install"
 	TypeRegistryPersist = "registry_persistence"
 	TypeKnownAIApp      = "known_ai_app"
+	TypeAIAgentAction   = "ai_agent_action"
 )
 
 // action_summary.presence values.

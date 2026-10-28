@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "REPO_ROOT/bin/trustedge-mcp-gateway",
+      "args": [
+        "-server",
+        "github",
+        "-agent-type",
+        "cursor",
+        "-policy",
+        "REPO_ROOT/testdata/mcp/policy-github.json",
+        "-inject-dir",
+        "INJECT_DIR",
+        "-downstream",
+        "REPO_ROOT/scripts/run-github-mcp.sh"
+      ],
+      "env": {
+        "GITHUB_TOOLSETS": "repos,issues,pull_requests"
+      }
+    }
+  }
+}

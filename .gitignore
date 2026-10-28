@@ -11,8 +11,12 @@
 
 # Data / runtime
 /data/
+.local-state/
 *.db
 events.json
+
+# Local IDE config (not part of the agent)
+.cursor/
 
 # Stray npm (Go project — no package.json)
 package-lock.json

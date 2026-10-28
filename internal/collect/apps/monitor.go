@@ -156,6 +156,24 @@ func artifactFromEntry(entry InventoryEntry) inventoryArtifact {
 	if entry.MCPConfigured {
 		payload["mcp_configured"] = true
 	}
+	if len(entry.MCPServers) > 0 {
+		payload["mcp_servers"] = entry.MCPServers
+	}
+	if len(entry.MCPServerTools) > 0 {
+		payload["mcp_server_tools"] = entry.MCPServerTools
+	}
+	if len(entry.Skills) > 0 {
+		skills := make([]any, 0, len(entry.Skills))
+		for _, skill := range entry.Skills {
+			skills = append(skills, map[string]any{
+				"id":     skill.ID,
+				"name":   skill.Name,
+				"source": skill.Source,
+				"scope":  skill.Scope,
+			})
+		}
+		payload["skills"] = skills
+	}
 	setIfNonEmpty(payload, "local_model_product_id", entry.LocalModelProductID)
 	payload["serving"] = entry.Serving
 	if entry.Exposure != "" {

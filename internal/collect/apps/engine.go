@@ -36,6 +36,8 @@ type Engine struct {
 	extProviders  []ExtensionProvider
 	installs      *installIndex
 	runtime       *runtimeTracker
+	mcpToolsKey   string
+	mcpToolsCache map[string][]string
 }
 
 // EngineConfig configures a correlation engine.
@@ -129,6 +131,11 @@ type InventoryEntry struct {
 	Active  *bool
 	// MCPConfigured is true when a known MCP config file is present for the host.
 	MCPConfigured bool
+	MCPServers    []string
+	// MCPServerTools maps MCP server name -> tool names from tools/list (keys only).
+	MCPServerTools map[string][]string
+	// Skills lists skill metadata found in known user-scoped IDE directories.
+	Skills []AgentSkill
 	// LocalModelProductID is set when this extension/host correlates to a local runtime.
 	LocalModelProductID string
 }
@@ -190,6 +197,7 @@ func (e *Engine) Inventory() ([]InventoryEntry, error) {
 
 	// Extension inventory runs only after host IDE identity is known.
 	e.attachIDEExtensions(byPath)
+	e.attachAgentSkills(byPath)
 
 	// Index installs before process correlation so basename-only EXEC can map
 	// via last-known discovery paths (not agent PATH).

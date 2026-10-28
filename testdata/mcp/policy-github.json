@@ -1,0 +1,55 @@
+{
+  "default_decision": "allowed",
+  "trusted_servers": [],
+  "tools": [
+    {
+      "server": "github",
+      "tool": "get_file_contents",
+      "classification": "sensitive_read",
+      "sensitivity": "sensitive",
+      "decision": "allowed"
+    },
+    {
+      "server": "github",
+      "tool": "search_code",
+      "classification": "potentially_sensitive_read",
+      "sensitivity": "sensitive",
+      "decision": "allowed"
+    },
+    {
+      "server": "github",
+      "tool": "issue_read",
+      "classification": "read_only",
+      "sensitivity": "low",
+      "decision": "allowed"
+    },
+    {
+      "server": "github",
+      "tool": "list_issues",
+      "classification": "read_only",
+      "sensitivity": "low",
+      "decision": "allowed"
+    },
+    {
+      "server": "github",
+      "tool": "create_pull_request",
+      "classification": "write",
+      "sensitivity": "low",
+      "decision": "blocked"
+    },
+    {
+      "server": "github",
+      "tool": "create_or_update_file",
+      "classification": "write",
+      "sensitivity": "low",
+      "decision": "blocked"
+    },
+    {
+      "server": "github",
+      "tool": "push_files",
+      "classification": "write",
+      "sensitivity": "low",
+      "decision": "blocked"
+    }
+  ]
+}
