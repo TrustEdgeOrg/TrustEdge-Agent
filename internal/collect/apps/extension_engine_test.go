@@ -26,7 +26,7 @@ func TestEngineDiscoversClineExtensionUnderCursor(t *testing.T) {
 			SigningIdentifier: "com.todesktop.230313mzl4w4u92", TeamID: "VDXQ22DGB9",
 			SignatureChecked: true, SignatureValid: true,
 		}}},
-		Signer: nil,
+				Signer: nil,
 		ListProcs: func() ([]process.ProcessInfo, error) { return nil, nil },
 		ExtensionProviders: []ExtensionProvider{
 			&VSCodeCompatibleExtensionProvider{
