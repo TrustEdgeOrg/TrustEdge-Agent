@@ -1,9 +1,11 @@
 package apps
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -48,6 +50,9 @@ func buildMCPToolsListEcho(t *testing.T) string {
 		t.Fatal(err)
 	}
 	out := filepath.Join(dir, "echo-mcp-tools")
+	if runtime.GOOS == "windows" {
+		out += ".exe"
+	}
 	cmd := exec.Command("go", "build", "-o", out, src)
 	if outb, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build echo: %v\n%s", err, outb)
@@ -73,8 +78,14 @@ func TestDiscoverAllMCPToolsAtHome(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(cfg), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	body := `{"mcpServers":{"demo":{"command":"` + echo + `"}}}`
-	if err := os.WriteFile(cfg, []byte(body), 0o644); err != nil {
+	// Marshal so Windows backslash paths are escaped.
+	body, err := json.Marshal(map[string]any{
+		"mcpServers": map[string]any{"demo": map[string]any{"command": echo}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfg, body, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	tools, _ := discoverAllMCPToolsAtHome(home)
