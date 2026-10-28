@@ -102,6 +102,8 @@ func (a *Agent) Run(ctx context.Context) error {
 		batcher.Enqueue(typ, payload)
 	}
 
+	go a.runInjectWatcher(ctx, enqueue)
+
 	enqueue(constants.TypeClientDetails, a.collector.ClientDetailsPayload())
 
 	go a.loop(ctx, a.cfg.DetailsInterval, func() {

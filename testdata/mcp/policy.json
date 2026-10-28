@@ -1,0 +1,13 @@
+{
+  "default_decision": "allowed",
+  "trusted_servers": [],
+  "tools": [
+    {
+      "server": "customer-db",
+      "tool": "query_customers",
+      "classification": "sensitive_read",
+      "sensitivity": "sensitive",
+      "decision": "allowed"
+    }
+  ]
+}

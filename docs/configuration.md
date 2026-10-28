@@ -73,6 +73,8 @@ export TRUSTEDGE_AGENT_ENROLL_TOKEN=<from your API>
 | `TRUSTEDGE_AGENT_CONNECTION_INTERVAL` | `15` | ESTABLISHED TCP connection samples; `0` disables |
 | `TRUSTEDGE_AGENT_PUBLIC_IP_URL` | provider default | Public IP lookup; set `off` to disable |
 
+The AI inventory poll includes names from supported user-level agent-skill directories for detected code editors. Cursor hook usage observations are sent through the existing `ai_agent_action` event path; other editors currently report availability only. Skill contents, descriptions, and file paths are not uploaded.
+
 ---
 
 ## <img src="assets/icons/queue.svg" width="22" height="22" align="absmiddle" alt="" /> Batching & reliability

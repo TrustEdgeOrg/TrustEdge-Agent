@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "HOOK_COMMAND"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "HOOK_COMMAND"
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "command": "HOOK_COMMAND"
+      }
+    ]
+  }
+}

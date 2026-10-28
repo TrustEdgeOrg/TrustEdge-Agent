@@ -1,9 +1,14 @@
-.PHONY: build build-cgo build-all run-agent run-agent-local run-agent-legacy test capture-events fmt agent
+.PHONY: build build-cgo build-all build-mcp-gateway run-agent run-agent-local run-agent-legacy test capture-events fmt agent
 
 # Default local build: poll-only process monitoring (no Endpoint Security / CGO).
 build:
 	mkdir -p bin
 	CGO_ENABLED=0 go build -buildvcs=false -o bin/trustedge-agent ./cmd/trustedge-agent
+
+build-mcp-gateway:
+	mkdir -p bin
+	CGO_ENABLED=0 go build -buildvcs=false -o bin/trustedge-mcp-gateway ./cmd/trustedge-mcp-gateway
+	CGO_ENABLED=0 go build -buildvcs=false -o bin/mock-customer-db-mcp ./testdata/mcp/mock_db_server.go
 
 # Optional: Endpoint Security watcher (needs macOS SDK + signing/entitlements).
 # Force Xcode's macOS SDK so -lEndpointSecurity resolves (CLT SDK lacks it).

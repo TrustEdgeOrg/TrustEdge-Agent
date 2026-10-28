@@ -77,6 +77,8 @@ AI inventory covers verified catalog products across:
 
 Identity uses catalog matching with evidence (path, bundle ID, signing, package, extension ID, Docker image). Collectors stay local — only the upload path sends data over the network.
 
+For detected code editors and catalogued CLI agents, the inventory also reports skill names, source labels, and scope from bounded user-level `SKILL.md` directories, including `.agents/skills`, `.claude/skills`, `.cursor/skills`, `.copilot/skills`, `.codex/skills`, `.gemini/skills`, and editor user-data skill directories. Descriptions, instructions, and file paths are not uploaded. Cursor hooks separately report a skill-definition load or explicit skill-tool invocation as an `ai_agent_action`; a discovered skill is not treated as proof of use. Workspace skill loads appear in action telemetry when Cursor exposes a skill-definition read to the hook. Other editors currently contribute availability inventory only.
+
 ---
 
 ## How detection works per OS
